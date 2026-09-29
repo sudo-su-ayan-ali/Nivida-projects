@@ -20,6 +20,7 @@
 | **10. Creation of Enterprise QA Master Roadmap (`QA&VAPT/QA/QA_roadmap.md`)** | Testing an ERP with 12 modules, 14 roles, 104 tables, and hybrid state scopes requires an exhaustive, industry-level QA plan. | Provides comprehensive test scenarios, quality gates, boundary value checks, defect SLAs, and a phased execution timeline for the entire test team. |
 | **11. Creation of Enterprise VAPT Master Roadmap (`QA&VAPT/VAPT/VAPT_roadmap.md`)** | The direct-to-database Supabase architecture relies 100% on Row-Level Security (RLS) for data protection, requiring penetration testing against BOLA, privilege escalation, multi-tenant leaks, and ledger tampering. | Equips security engineers and penetration testers with an adversarial testing blueprint, CVSS v3.1 scoring matrix, and OWASP Top 10/API Top 10 vectors. |
 | **12. Update Rule 3 in `rules.md` to Mandate Reading Both QA & VAPT Roadmaps** | Testers and engineers must explicitly consult the dedicated roadmaps in `QA&VAPT/` before performing any testing or development. | Enforces systematic compliance with established QA milestones and VAPT penetration vectors directly in the contributor workflow. |
+| **13. Multi-Tenant Test Environment & Provisioning Engine** | Functional QA and VAPT penetration testing cannot proceed without reproducible test tenants and isolated data fixtures. | Establishes Tenant Alpha (Primary) and Tenant Beta (Isolation), provisions 28 accounts across all 14 personas, installs multi-tenant RLS policies, and automates verification. |
 
 ---
 
@@ -235,6 +236,38 @@
 
 ---
 
+### 11. Multi-Tenant Test Environment & Provisioning Engine (Tenant Alpha vs. Tenant Beta)
+#### What Was Done:
+- Designed and implemented a production-grade multi-tenant test provisioning and verification suite under [`QA&VAPT/provisioning/`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/):
+  1. [`01_tenant_alpha_beta_provisioning.sql`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql):
+     - Establishes two isolated test institutions:
+       - **Tenant Alpha**: `institution_id = '00000000-0000-0000-0000-000000000001'` (*EduSmart International Academy*, Code: `ALPHA-01`).
+       - **Tenant Beta**: `institution_id = '00000000-0000-0000-0000-000000000002'` (*Greenfield Heights High School*, Code: `BETA-02`).
+     - Provisions all 14 personas for Tenant Alpha (`PRC001` through `TCH001` with `@edusmart.local`) in `auth.users` and `public.profiles`.
+     - Provisions all 14 isolation personas for Tenant Beta (`PRC002` through `TCH002` with `@edusmart.local`) in `auth.users` and `public.profiles`.
+     - Seeds complete baseline test datasets for both schools across all core modules (Students, Teachers, Attendance, Fees, Exams, Transport, Hostel, HR & Payroll, Inventory, Library).
+  2. [`02_multi_tenant_rls_policies.sql`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/02_multi_tenant_rls_policies.sql):
+     - Enables PostgreSQL Row-Level Security (RLS) on all domain tables.
+     - Implements `current_user_institution_id()` security definer function and multi-tenant isolation policies (`institution_id = current_user_institution_id()`).
+     - Hardens sensitive governance operations (question papers, fee waivers, leave requests) with a server-side `is_principal()` check, ensuring Vice Principals cannot bypass client UI locks.
+  3. [`03_verify_multi_tenant_isolation.sql`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/03_verify_multi_tenant_isolation.sql):
+     - Verification queries inspecting institution settings, 14-persona count, module row comparisons, and auditing `pg_tables` for any tables with RLS disabled.
+  4. [`verify_provisioning.py`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/verify_provisioning.py):
+     - Automated Python verification harness auditing SQL syntax, tenant IDs, persona coverage (28 accounts), role definitions, and policy structures.
+  5. [`README.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/README.md):
+     - Exhaustive reference guide covering credentials matrices, execution order, Supabase dashboard steps, and verification checklists.
+
+#### Why It Was Done:
+- In multi-tenant enterprise software, executing QA functional testing or VAPT security testing against an unprovisioned or single-tenant database produces invalid results.
+- Without a second test institution (Tenant Beta), it is impossible to verify whether queries and mutations leak data across school boundaries.
+- Hardcoding demo logins without provisioning `auth.users` and `public.profiles` prevents real Supabase authentication from functioning.
+
+#### For What:
+- Provides a reproducible, push-button test environment for the QA and security teams.
+- Establishes a hardened baseline where multi-tenant isolation and Principal approval locks are enforced at the database layer.
+
+---
+
 ## Summary of Key Files Created / Updated
 
 1. [**`project_overview.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/project_overview.md):
@@ -253,6 +286,16 @@
    The enterprise-level Vulnerability Assessment & Penetration Testing master roadmap covering RLS penetration, BOLA/IDOR, threat actors, and CVSS v3.1 SLAs.
 8. [**`QA&VAPT/VAPT/VAPT_roadmap`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/VAPT/VAPT_roadmap):
    Convenience symlink pointing directly to `VAPT_roadmap.md`.
+9. [**`QA&VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql):
+   SQL provisioning script for Tenant Alpha, Tenant Beta, all 28 accounts, and baseline module fixtures.
+10. [**`QA&VAPT/provisioning/02_multi_tenant_rls_policies.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/02_multi_tenant_rls_policies.sql):
+    PostgreSQL Row-Level Security policy suite enforcing multi-tenant isolation and Principal approval locks.
+11. [**`QA&VAPT/provisioning/03_verify_multi_tenant_isolation.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/03_verify_multi_tenant_isolation.sql):
+    Diagnostic SQL queries for audit verification and RLS leak testing.
+12. [**`QA&VAPT/provisioning/verify_provisioning.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/verify_provisioning.py):
+    Automated Python validation utility for multi-tenant provisioning artifacts.
+13. [**`QA&VAPT/provisioning/README.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/README.md):
+    Full documentation, execution instructions, and credentials reference matrix.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
