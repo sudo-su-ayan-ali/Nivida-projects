@@ -21,6 +21,7 @@
 | **11. Creation of Enterprise VAPT Master Roadmap (`QA&VAPT/VAPT/VAPT_roadmap.md`)** | The direct-to-database Supabase architecture relies 100% on Row-Level Security (RLS) for data protection, requiring penetration testing against BOLA, privilege escalation, multi-tenant leaks, and ledger tampering. | Equips security engineers and penetration testers with an adversarial testing blueprint, CVSS v3.1 scoring matrix, and OWASP Top 10/API Top 10 vectors. |
 | **12. Update Rule 3 in `rules.md` to Mandate Reading Both QA & VAPT Roadmaps** | Testers and engineers must explicitly consult the dedicated roadmaps in `QA&VAPT/` before performing any testing or development. | Enforces systematic compliance with established QA milestones and VAPT penetration vectors directly in the contributor workflow. |
 | **13. Multi-Tenant Test Environment & Provisioning Engine** | Functional QA and VAPT penetration testing cannot proceed without reproducible test tenants and isolated data fixtures. | Establishes Tenant Alpha (Primary) and Tenant Beta (Isolation), provisions 28 accounts across all 14 personas, installs multi-tenant RLS policies, and automates verification. |
+| **14. Account Seeding & Verification for All 14 Roles** | Phase 1 testing mandates that all 14 personas have verified accounts in `auth.users` and `public.profiles` matching app auth and shell routing. | Seeds dedicated accounts for all 14 roles, creates automated Python test suite (`test_account_seeding_14_roles.py` - 100% pass), and documents the complete RBAC matrix. |
 
 ---
 
@@ -268,6 +269,25 @@
 
 ---
 
+### 12. Account Seeding & Verification for All 14 Personas
+#### What Was Done:
+- Designed and authored dedicated account seeding script [`QA&VAPT/provisioning/04_seed_all_14_roles.sql`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/04_seed_all_14_roles.sql) seeding each persona into `auth.users` and `public.profiles`.
+- Implemented an automated verification test suite [`QA&VAPT/QA/tests/test_account_seeding_14_roles.py`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_account_seeding_14_roles.py):
+  - Verified 100% parity across `lib/login/models/erp_role.dart`, SQL seed scripts, and the RBAC matrix.
+  - Confirmed all 14 personas: `PRC001` (Principal), `VPR001` (Vice Principal), `STA001` (Students), `TEA001` (Teachers), `ATD001` (Attendance), `FEE001` (Fees), `EXM001` (Exam), `TRP001` (Transport), `HRA001` (HR), `HST001` (Hostel), `PTI001` (Inventory), `STU001` (Student/Parent), `SET001` (Settings), and `TCH001` (Teacher).
+  - Executed automated test suite with 100% assertions passing.
+- Authored the comprehensive documentation guide [`QA&VAPT/QA/docs/account_seeding_14_roles_guide.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/account_seeding_14_roles_guide.md) detailing authentication mapping, shell routing, and governance approval rules.
+
+#### Why It Was Done:
+- Phase 1 testing requires that testers can log in as each of the 14 personas and verify that the administrative shell correctly restricts navigation indices and locks/unlocks the Approvals action.
+- Validating the exact email derivation `{login_id}@edusmart.local` and role string mapping prevents login exceptions during QA test runs.
+
+#### For What:
+- Guarantees seamless login capabilities across all 14 supported personas.
+- Establishes automated regression testing for role access control and shell isolation.
+
+---
+
 ## Summary of Key Files Created / Updated
 
 1. [**`project_overview.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/project_overview.md):
@@ -292,10 +312,16 @@
     PostgreSQL Row-Level Security policy suite enforcing multi-tenant isolation and Principal approval locks.
 11. [**`QA&VAPT/provisioning/03_verify_multi_tenant_isolation.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/03_verify_multi_tenant_isolation.sql):
     Diagnostic SQL queries for audit verification and RLS leak testing.
-12. [**`QA&VAPT/provisioning/verify_provisioning.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/verify_provisioning.py):
+12. [**`QA&VAPT/provisioning/04_seed_all_14_roles.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/04_seed_all_14_roles.sql):
+    Dedicated SQL script for seeding and confirming all 14 personas in `auth.users` and `public.profiles`.
+13. [**`QA&VAPT/provisioning/verify_provisioning.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/verify_provisioning.py):
     Automated Python validation utility for multi-tenant provisioning artifacts.
-13. [**`QA&VAPT/provisioning/README.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/README.md):
+14. [**`QA&VAPT/provisioning/README.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/README.md):
     Full documentation, execution instructions, and credentials reference matrix.
+15. [**`QA&VAPT/QA/tests/test_account_seeding_14_roles.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_account_seeding_14_roles.py):
+    Automated test suite verifying 14 roles accounts, credentials, and shell permissions.
+16. [**`QA&VAPT/QA/docs/account_seeding_14_roles_guide.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/account_seeding_14_roles_guide.md):
+    Exhaustive documentation and verification guide for all 14 roles and shell routing.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
