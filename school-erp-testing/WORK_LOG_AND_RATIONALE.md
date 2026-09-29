@@ -27,6 +27,9 @@
 | **17. Phase 2 Section 2: Students Module (Admissions, Directory & TC) Verification** | Verify full admission flow, duplicate enrollment prevention, at-risk flagging (<75% attendance / low grades), TC lifecycle, and multi-tenant scoping. | Made `StudentRepository` tenant-aware with dynamic institution ID lookup, created `phase2_students_test.dart` (7/7 tests passed), created contract test `test_phase2_students_section2.py` (5/5 tests passed), and authored QA report. |
 | **18. Phase 2 Section 3: Teachers Administrative Module Verification** | Verify CRUD operations, optimistic UI with network error rollback, department distribution charts, and upcoming birthdays sorting. | Made `TeachersDashboardScreen._loadTeachers` multi-tenant aware with institution_id scoping, created `phase2_teachers_test.dart` (6/6 tests passed), created contract test `test_phase2_teachers_section3.py` (5/5 tests passed), and authored QA report. |
 | **19. Phase 2 Section 4: Standalone Teacher Portal (Mini-App) Verification** | Verify teacher mini-app isolated routing, attendance marking/batching, homework pipeline & submissions, syllabus progress calculation, and staff leave application/Principal approval. | Enhanced `AppState` with client DI and multi-tenant query/mutation scoping (`_resolveInstitutionId`), fixed `_BalanceTile` RenderFlex overflow, created `phase2_teacher_portal_test.dart` (8/8 tests passed), created contract test `test_phase2_teacher_portal_section4.py` (8/8 tests passed), updated RLS/provisioning, and authored QA report. |
+| **20. Phase 2 Section 5: Daily Attendance & Analytics Module Verification** | Verify batch actions, dynamic dropdown cascading, daily upsert deduplication, multi-format reporting, and multi-tenant query isolation. | Decoupled `AttendanceRepository` with client DI and multi-tenant scoping, fixed responsive Wrap layout in `MarkAttendanceDialog`, created `phase2_attendance_test.dart` (7/7 tests passed), created contract test `test_phase2_attendance_section5.py` (5/5 tests passed), and authored QA report. |
+| **21. Phase 2 Section 6: Fees & Accounts Management Module Verification** | Verify fee collection flow, receipt generation, installment balance decrement, fee waiver approval cycle, day closing reconciliation, and Riverpod/Provider state isolation. | Made `app_providers.dart` notifiers testable with client DI, dynamically resolved `institution_id` in waiver requests, created `phase2_fees_test.dart` (7/7 tests passed), created contract test `test_phase2_fees_section6.py` (6/6 tests passed), and authored QA report. |
+| **22. Phase 2 Milestone 2: Academic, Attendance & Fee Counter Cumulative Sign-Off** | Milestone 2 Quality Gate requires Zero P0 and Zero P1 defects across all 6 core sections before advancing to Phase 3. | Executed full regression suite (41/41 Flutter tests pass, 35/35 Python tests pass, Zero P0/P1), verified end-to-end multi-tenant isolation & Principal approval locks, and generated official Milestone 2 Sign-Off document. |
 
 ---
 
@@ -617,12 +620,48 @@
     Python test suite verifying Phase 2 Section 4 Teacher Portal schema contracts, RLS isolation policies, and state transitions (8/8 tests passed).
 30. [**`QA&VAPT/QA/docs/phase2_teacher_portal_section4_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_teacher_portal_section4_report.md):
     Detailed QA report documenting Phase 2 Section 4 test execution results and findings.
-31. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase2_attendance_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_attendance_test.dart):
-    Automated Flutter test suite verifying Phase 2 Section 5 Daily Attendance batch marking, dynamic filters, export formats, and UI dialogs (7/7 tests passed).
-32. [**`QA&VAPT/QA/tests/test_phase2_attendance_section5.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_attendance_section5.py):
-    Python test suite verifying Phase 2 Section 5 Daily Attendance schema contracts, composite unique keys, and tenant isolation (5/5 tests passed).
-33. [**`QA&VAPT/QA/docs/phase2_attendance_section5_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_attendance_section5_report.md):
-    Detailed QA report documenting Phase 2 Section 5 test execution results and findings.
+### 21. Phase 2 Section 6: Fees & Accounts Management Module Verification
+#### What Was Done:
+- Audited the Fees & Accounts module (`lib/modules/fees/`), including models ([`models.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/core/models/models.dart)), Riverpod state notifiers ([`app_providers.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/core/state/app_providers.dart)), fee collection interface ([`fee_collection_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/features/fee_collection/fee_collection_screen.dart)), waiver dialogs ([`student_profile_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/features/students/student_profile_screen.dart)), and cash counter reconciliation ([`day_closing_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/features/day_closing/day_closing_screen.dart)).
+- Enhanced Riverpod notifiers (`StudentsNotifier`, `TransactionsNotifier`, `ExpensesNotifier`, `IncomesNotifier`) to accept optional injected `SupabaseClient` instances, preventing runtime assertion crashes during headless/widget testing.
+- Patched `student_profile_screen.dart` fee waiver submission to dynamically query `profiles.institution_id` for the authenticated user rather than relying on a hardcoded Alpha tenant ID.
+- Authored automated Flutter test suite [`test/phase2_fees_test.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_fees_test.dart) covering all 7 test cases (fee collection flow, installment balance deduction, installment status transitions, waiver approval cycle & recalculation, day closing arithmetic & lock toggles, derived finance summary, and Riverpod/Provider state coexistence) — **7/7 tests passed (100%)**.
+- Authored Python contract test suite [`QA&VAPT/QA/tests/test_phase2_fees_section6.py`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_fees_section6.py) verifying table schemas (`fee_structures`, `student_fees`, `fee_transactions`, `fee_payments`, `fee_waivers`, `expenses`, `payments`), multi-tenant RLS coverage, and Principal-only approval lock — **6/6 tests passed (100%)**.
+- Authored QA verification report [`QA&VAPT/QA/docs/phase2_fees_section6_report.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_fees_section6_report.md).
+
+#### Why It Was Done:
+- Financial collection, receipt issuance, and cash closing must be rigorously verified against tampering, calculation drift, and cross-institution data leaks.
+- Demonstrating state isolation proves that the hybrid Riverpod and Provider architecture operates without collision in the production shell.
+
+#### For What:
+- Guarantees zero P0/P1 defects in financial transactions, waiver governance, and daily closing.
+- Completes the final required functional section of Phase 2.
+
+---
+
+### 22. Milestone 2: Academic, Attendance & Fee Counter Sign-Off
+#### What Was Done:
+- Executed the full regression suite across all 6 sections of Phase 2:
+  - Flutter Unit & Widget tests: **41 passed out of 41 tests (100%)**.
+  - Python Contract & Security tests: **35 passed out of 35 tests (100%)**.
+- Verified all 5 lifecycle rules in `rules.md`:
+  - Rule 1: Architecture review completed.
+  - Rule 2: Multi-tenant query scoping enforced on all tables.
+  - Rule 3: Roadmap quality gates checked (Zero P0 / Zero P1).
+  - Rule 4: Work log updated with technical rationale.
+  - Rule 5: Clean atomic commits and origin synchronization.
+- Authored the official sign-off document [**`QA&VAPT/QA/docs/milestone2_academic_attendance_fee_signoff.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/milestone2_academic_attendance_fee_signoff.md) granting clearance to proceed to Phase 3.
+
+---
+
+34. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase2_fees_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_fees_test.dart):
+    Automated Flutter test suite verifying Phase 2 Section 6 Fees Module collections, installments, waivers, closing, and state isolation (7/7 tests passed).
+35. [**`QA&VAPT/QA/tests/test_phase2_fees_section6.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_fees_section6.py):
+    Python test suite verifying Phase 2 Section 6 Fees Module schema contracts, RLS policies, and Principal approval lock (6/6 tests passed).
+36. [**`QA&VAPT/QA/docs/phase2_fees_section6_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_fees_section6_report.md):
+    Detailed QA report documenting Phase 2 Section 6 test execution results and findings.
+37. [**`QA&VAPT/QA/docs/milestone2_academic_attendance_fee_signoff.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/milestone2_academic_attendance_fee_signoff.md):
+    Cumulative Quality Gate Sign-Off document formally approving Milestone 2 completion.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*

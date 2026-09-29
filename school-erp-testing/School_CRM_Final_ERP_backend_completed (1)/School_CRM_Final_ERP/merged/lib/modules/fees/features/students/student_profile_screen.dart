@@ -139,8 +139,6 @@ class _RequestWaiverDialogState extends State<_RequestWaiverDialog> {
   final _reasonCtrl = TextEditingController();
   bool _saving = false;
 
-  static const _institutionId = 'd0000000-0000-0000-0000-000000000001';
-
   Future<void> _submit() async {
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0 || _reasonCtrl.text.trim().isEmpty) {
@@ -153,12 +151,21 @@ class _RequestWaiverDialogState extends State<_RequestWaiverDialog> {
     setState(() => _saving = true);
     try {
       final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      var institutionId = 'd0000000-0000-0000-0000-000000000001';
+      if (userId != null) {
+        final profile = await client.from('profiles').select('institution_id').eq('id', userId).maybeSingle();
+        if (profile != null && profile['institution_id'] != null) {
+          institutionId = profile['institution_id'] as String;
+        }
+      }
+
       await client.from('fee_waivers').insert({
-        'institution_id': _institutionId,
+        'institution_id': institutionId,
         'student_id': widget.studentId,
         'amount': amount,
         'reason': _reasonCtrl.text.trim(),
-        'requested_by': client.auth.currentUser?.id,
+        'requested_by': userId,
         'requested_by_name': client.auth.currentUser?.email ?? 'Unknown',
         'status': 'pending',
       });

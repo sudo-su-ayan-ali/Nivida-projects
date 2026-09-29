@@ -13,8 +13,10 @@ final activeRoleProvider = StateProvider<UserRole>(
 
 /// ---- Students (mutable in-memory dataset simulating the DB) ----
 class StudentsNotifier extends StateNotifier<List<Student>> {
-  StudentsNotifier() : super([]);
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _injectedClient;
+  SupabaseClient get _client => _injectedClient ?? Supabase.instance.client;
+
+  StudentsNotifier([this._injectedClient]) : super([]);
 
   Future<void> loadFromSupabase() async {
     final studentRows = await _client.from('students').select();
@@ -206,9 +208,10 @@ final filteredStudentsProvider = Provider<List<Student>>((ref) {
 
 /// ---- Transactions (receipts) ----
 class TransactionsNotifier extends StateNotifier<List<FeeTransaction>> {
-  TransactionsNotifier() : super([]);
+  final SupabaseClient? _injectedClient;
+  SupabaseClient get _client => _injectedClient ?? Supabase.instance.client;
 
-  final _client = Supabase.instance.client;
+  TransactionsNotifier([this._injectedClient]) : super([]);
 
   /// Load all fee transactions from Supabase, newest first.
   Future<void> loadFromSupabase() async {
@@ -396,8 +399,10 @@ final commandPaletteOpenProvider = StateProvider<bool>((ref) => false);
 
 /// ---- Expenses (mutable in-memory ledger) ----
 class ExpensesNotifier extends StateNotifier<List<ExpenseEntry>> {
-  ExpensesNotifier() : super([]);
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _injectedClient;
+  SupabaseClient get _client => _injectedClient ?? Supabase.instance.client;
+
+  ExpensesNotifier([this._injectedClient]) : super([]);
 
   Future<void> loadFromSupabase() async {
     final rows = await _client
@@ -462,8 +467,10 @@ final expensesProvider =
 
 /// ---- Other Income (mutable in-memory ledger; fee income comes from transactionsProvider) ----
 class IncomesNotifier extends StateNotifier<List<IncomeEntry>> {
-  IncomesNotifier() : super([]);
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _injectedClient;
+  SupabaseClient get _client => _injectedClient ?? Supabase.instance.client;
+
+  IncomesNotifier([this._injectedClient]) : super([]);
 
   Future<void> loadFromSupabase() async {
     final rows = await _client
