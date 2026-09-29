@@ -45,7 +45,8 @@ DECLARE
         'routes', 'drivers', 'vehicles', 'student_transport', 'hostel_blocks', 'rooms',
         'hostel_students', 'hr_departments', 'hr_designations', 'hr_employees',
         'hr_salary_structures', 'staff_leave_requests', 'inventory_items',
-        'stock_movements', 'parent_student_links', 'library_books', 'school_events'
+        'stock_movements', 'parent_student_links', 'library_books', 'school_events',
+        'homework', 'homework_submissions', 'tp_syllabus_chapters'
     ];
 BEGIN
     FOREACH tbl IN ARRAY table_list LOOP
@@ -72,7 +73,8 @@ DECLARE
         'routes', 'drivers', 'vehicles', 'student_transport', 'hostel_blocks', 'rooms',
         'hostel_students', 'hr_departments', 'hr_designations', 'hr_employees',
         'hr_salary_structures', 'inventory_items', 'stock_movements',
-        'parent_student_links', 'library_books', 'school_events'
+        'parent_student_links', 'library_books', 'school_events',
+        'homework', 'homework_submissions', 'tp_syllabus_chapters'
     ];
 BEGIN
     FOREACH tbl IN ARRAY table_list LOOP

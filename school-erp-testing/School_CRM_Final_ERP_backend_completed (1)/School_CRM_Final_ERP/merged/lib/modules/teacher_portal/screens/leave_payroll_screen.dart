@@ -150,7 +150,7 @@ class _BalanceTile extends StatelessWidget {
             children: [
               IconBadge(icon: Icons.beach_access_outlined, color: color, bgColor: bg, size: 36),
               const SizedBox(width: 10),
-              Text('$type Leave', style: AppTextStyles.itemTitle),
+              Expanded(child: Text('$type Leave', style: AppTextStyles.itemTitle, overflow: TextOverflow.ellipsis)),
             ],
           ),
           const SizedBox(height: 14),
@@ -159,9 +159,11 @@ class _BalanceTile extends StatelessWidget {
             children: [
               Text('$remaining', style: AppTextStyles.statValue.copyWith(fontSize: 24, color: color)),
               const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text('/ $total days left', style: AppTextStyles.itemSub),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('/ $total days left', style: AppTextStyles.itemSub, overflow: TextOverflow.ellipsis),
+                ),
               ),
             ],
           ),

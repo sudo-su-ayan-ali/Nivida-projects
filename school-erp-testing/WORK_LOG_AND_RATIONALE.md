@@ -26,6 +26,7 @@
 | **16. Phase 2 Section 1: Institutional Dashboard & Analytics Verification** | Verify mathematical accuracy of KPIs, financial summary calculations, multi-tenant query scoping, and real-time state refresh without restart. | Decoupled `DashboardRepository` with injectable client, created `phase2_dashboard_test.dart` (7/7 tests passed), created contract test `test_phase2_dashboard_section1.py` (6/6 tests passed), and authored detailed QA report. |
 | **17. Phase 2 Section 2: Students Module (Admissions, Directory & TC) Verification** | Verify full admission flow, duplicate enrollment prevention, at-risk flagging (<75% attendance / low grades), TC lifecycle, and multi-tenant scoping. | Made `StudentRepository` tenant-aware with dynamic institution ID lookup, created `phase2_students_test.dart` (7/7 tests passed), created contract test `test_phase2_students_section2.py` (5/5 tests passed), and authored QA report. |
 | **18. Phase 2 Section 3: Teachers Administrative Module Verification** | Verify CRUD operations, optimistic UI with network error rollback, department distribution charts, and upcoming birthdays sorting. | Made `TeachersDashboardScreen._loadTeachers` multi-tenant aware with institution_id scoping, created `phase2_teachers_test.dart` (6/6 tests passed), created contract test `test_phase2_teachers_section3.py` (5/5 tests passed), and authored QA report. |
+| **19. Phase 2 Section 4: Standalone Teacher Portal (Mini-App) Verification** | Verify teacher mini-app isolated routing, attendance marking/batching, homework pipeline & submissions, syllabus progress calculation, and staff leave application/Principal approval. | Enhanced `AppState` with client DI, fixed `_BalanceTile` RenderFlex overflow, created `phase2_teacher_portal_test.dart` (8/8 tests passed), created contract test `test_phase2_teacher_portal_section4.py` (7/7 tests passed), updated RLS/provisioning, and authored QA report. |
 
 ---
 
@@ -512,6 +513,27 @@
 
 ---
 
+### 19. Phase 2 Section 4: Standalone Teacher Portal (Mini-App) Verification
+#### What Was Done:
+- Audited the full Standalone Teacher Portal architecture (`modules/teacher_portal/`), including models ([`dashboard_models.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teacher_portal/models/dashboard_models.dart)), state container ([`app_state.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teacher_portal/state/app_state.dart)), and functional screens ([`attendance_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teacher_portal/screens/attendance_screen.dart), [`homework_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teacher_portal/screens/homework_screen.dart), [`syllabus_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teacher_portal/screens/syllabus_screen.dart), [`leave_payroll_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teacher_portal/screens/leave_payroll_screen.dart)).
+- Enhanced `AppState` constructor to support optional `SupabaseClient` dependency injection and `autoLoad` toggling for deterministic offline testing.
+- Fixed a responsive UI RenderFlex overflow defect in `_BalanceTile` within [`leave_payroll_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teacher_portal/screens/leave_payroll_screen.dart) by wrapping variable labels with `Expanded`.
+- Integrated Teacher Portal target tables into the multi-tenant provisioning schema [`01_tenant_alpha_beta_provisioning.sql`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql) and RLS policy engine [`02_multi_tenant_rls_policies.sql`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/02_multi_tenant_rls_policies.sql) (`public.homework`, `public.homework_submissions`, `public.tp_syllabus_chapters`).
+- Authored automated Flutter test suite [`test/phase2_teacher_portal_test.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_teacher_portal_test.dart) covering all 8 test scenarios — **8/8 tests passed (100%)**.
+- Authored Python contract and schema parity suite [`QA&VAPT/QA/tests/test_phase2_teacher_portal_section4.py`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_teacher_portal_section4.py) — **7/7 tests passed (100%)**.
+- Executed cumulative regression testing across all active test suites — **39/39 tests passed (100%)**.
+- Authored comprehensive QA verification report [`QA&VAPT/QA/docs/phase2_teacher_portal_section4_report.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_teacher_portal_section4_report.md).
+
+#### Why It Was Done:
+- The Standalone Teacher Portal is the primary daily interface for teaching faculty to manage attendance, student homework pipelines, syllabus progress, and leave requests.
+- Isolating its state, preventing layout crashes on mobile devices, and verifying multi-tenant RLS protection ensures educators have a seamless and secure experience without data leakage.
+
+#### For What:
+- Guarantees zero P0/P1 blockers in classroom attendance marking, homework submission pipelines, syllabus topic progress calculation, and staff leave approvals.
+- Fulfills the Quality Gate for Phase 2 Section 4.
+
+---
+
 ## Artifact Index & Reference Links
 1. [**`project_overview.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/project_overview.md):
    Comprehensive architectural reference and guide for all 12 modules, 104 tables, and credentials.
@@ -567,6 +589,13 @@
     Python test suite verifying Phase 2 Section 3 Teachers Module schema contracts, model parity, and optimistic rollback handling (5/5 tests passed).
 27. [**`QA&VAPT/QA/docs/phase2_teachers_section3_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_teachers_section3_report.md):
     Detailed QA report documenting Phase 2 Section 3 test execution results and findings.
+28. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase2_teacher_portal_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_teacher_portal_test.dart):
+    Automated Flutter test suite verifying Phase 2 Section 4 Teacher Portal classroom attendance, homework pipeline, syllabus tracking, and leave approvals (8/8 tests passed).
+29. [**`QA&VAPT/QA/tests/test_phase2_teacher_portal_section4.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_teacher_portal_section4.py):
+    Python test suite verifying Phase 2 Section 4 Teacher Portal schema contracts, RLS isolation policies, and state transitions (7/7 tests passed).
+30. [**`QA&VAPT/QA/docs/phase2_teacher_portal_section4_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_teacher_portal_section4_report.md):
+    Detailed QA report documenting Phase 2 Section 4 test execution results and findings.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+

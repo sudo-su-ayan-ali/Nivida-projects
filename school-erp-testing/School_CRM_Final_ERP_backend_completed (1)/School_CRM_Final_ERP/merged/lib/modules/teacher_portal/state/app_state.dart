@@ -15,57 +15,63 @@ class AppState extends ChangeNotifier {
   /// "Logout" tap can hand control back to the main ERP's login screen
   /// instead of just showing a demo snackbar.
   VoidCallback? onLogout;
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _injectedClient;
+  SupabaseClient get _client => _injectedClient ?? Supabase.instance.client;
 
-  AppState() {
-        students = [];
-    unawaited(_loadStudents().then((_) {
-  _loadAttendanceToday();
-  _loadGradebook();
-}));
-       assignments = [];
-    unawaited(_loadAssignments());
+  AppState({SupabaseClient? client, bool autoLoad = true})
+      : _injectedClient = client {
+    students = [];
+    assignments = [];
     exams = [];
-unawaited(_loadExams());
     messages = [];
-unawaited(_loadMessages());
     notifications = [];
-unawaited(_loadNotifications());
     studyMaterials = [];
     questionBank = [];
     library = [];
     lessonPlans = [];
-    unawaited(_loadResources());
-    unawaited(_loadLessonPlans());
     gradebook = {};
     syllabus = [];
-unawaited(_loadSyllabus());
     ptmSlots = [];
-unawaited(_loadPtmSlots());
     todos = [];
-unawaited(_loadTodos());
-   homework = [];
-unawaited(_loadHomework());
+    homework = [];
     onlineClasses = _seedOnlineClasses();
     feeRecords = _seedFeeRecords();
     notices = [];
-unawaited(_loadNotices());
-timetableData = {for (final d in _weekdayShort) d: []};
-unawaited(_loadTimetable());
-calendarEvents = _seedCalendarEvents();
-leaveRequests = [];
-unawaited(_loadLeaveRequests());
-accessRequests = _seedAccessRequests();
-payslips = [];
-unawaited(_loadPayslips());
-studentDocuments = [];
-unawaited(_loadDocuments());
-totalStaff = 0;
-unawaited(_loadStaffCount());
-weeklyAttendanceLabels = [];
-weeklyAttendance = [];
-unawaited(_loadWeeklyAttendance());
-}
+    timetableData = {for (final d in _weekdayShort) d: []};
+    calendarEvents = _seedCalendarEvents();
+    leaveRequests = [];
+    accessRequests = _seedAccessRequests();
+    payslips = [];
+    studentDocuments = [];
+    totalStaff = 0;
+    weeklyAttendanceLabels = [];
+    weeklyAttendance = [];
+
+    if (autoLoad) {
+      unawaited(_loadStudents().then((_) {
+        _loadAttendanceToday();
+        _loadGradebook();
+      }));
+      unawaited(_loadAssignments());
+      unawaited(_loadExams());
+      unawaited(_loadMessages());
+      unawaited(_loadNotifications());
+      unawaited(_loadResources());
+      unawaited(_loadLessonPlans());
+      unawaited(_loadSyllabus());
+      unawaited(_loadPtmSlots());
+      unawaited(_loadTodos());
+      unawaited(_loadHomework());
+      unawaited(_loadNotices());
+      unawaited(_loadTimetable());
+      unawaited(_loadLeaveRequests());
+      unawaited(_loadPayslips());
+      unawaited(_loadDocuments());
+      unawaited(_loadStaffCount());
+      unawaited(_loadWeeklyAttendance());
+    }
+  }
+
 Future<void> _loadAssignments() async {
   final rows = await _client
       .from('assignments')

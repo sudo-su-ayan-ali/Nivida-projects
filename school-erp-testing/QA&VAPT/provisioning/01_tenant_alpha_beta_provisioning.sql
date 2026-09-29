@@ -537,6 +537,37 @@ CREATE TABLE IF NOT EXISTS public.school_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 1.15 Teacher Portal
+CREATE TABLE IF NOT EXISTS public.homework (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institution_id UUID NOT NULL,
+    title TEXT NOT NULL,
+    class_name TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    due_date TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.homework_submissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institution_id UUID NOT NULL,
+    homework_id UUID NOT NULL REFERENCES public.homework(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'Pending',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.tp_syllabus_chapters (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institution_id UUID NOT NULL,
+    class_name TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    title TEXT NOT NULL,
+    total_topics INT NOT NULL DEFAULT 1,
+    completed_topics INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ============================================================================
 -- 2. SEEDING AUTH USERS & PROFILES (Alpha & Beta Tenants)
 -- ============================================================================
