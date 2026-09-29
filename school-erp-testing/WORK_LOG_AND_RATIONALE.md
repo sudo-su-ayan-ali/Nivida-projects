@@ -592,11 +592,39 @@
     Detailed QA report documenting Phase 2 Section 3 test execution results and findings.
 28. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase2_teacher_portal_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_teacher_portal_test.dart):
     Automated Flutter test suite verifying Phase 2 Section 4 Teacher Portal classroom attendance, homework pipeline, syllabus tracking, and leave approvals (8/8 tests passed).
+### 20. Phase 2 Section 5: Daily Attendance & Analytics Module Verification
+#### What Was Done:
+- Audited the administrative Daily Attendance & Analytics architecture (`modules/attendance/`), including models ([`attendance_record.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/attendance/models/attendance_record.dart)), repository ([`attendance_repository.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/attendance/data/attendance_repository.dart)), screens ([`attendance_dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/attendance/screens/attendance_dashboard_screen.dart)), and dialog widgets ([`mark_attendance_dialog.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/attendance/widgets/mark_attendance_dialog.dart), [`export_dialog.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/attendance/widgets/export_dialog.dart)).
+- Enhanced `AttendanceRepository` to support optional `SupabaseClient` dependency injection for offline/mock testing.
+- Hardened multi-tenant query & mutation scoping via `_resolveInstitutionId()`, applying `.eq('institution_id', institutionId)` across all operations (`loadForDate`, `markAttendance`, `loadAllStudentsForMarking`, `fetchClassOptions`, `fetchSectionOptions`, `fetchTrend`, and `bulkImportAttendance`).
+- Fixed a responsive UI RenderFlex overflow defect in `MarkAttendanceDialog` by replacing a rigid `Row` layout with responsive `Wrap` for the bottom action buttons.
+- Authored automated Flutter test suite [`test/phase2_attendance_test.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_attendance_test.dart) covering all 7 test scenarios (batch actions, dynamic class roster filtering, daily upsert conflict key integrity, export formats PDF/Excel/CSV, dialog widget flows, and status badge) — **7/7 tests passed (100%)**.
+- Authored Python contract and schema parity suite [`QA&VAPT/QA/tests/test_phase2_attendance_section5.py`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_attendance_section5.py) verifying `attendance_records` schema, unique constraints, and tenant scoping — **5/5 tests passed (100%)**.
+- Authored comprehensive QA verification report [`QA&VAPT/QA/docs/phase2_attendance_section5_report.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_attendance_section5_report.md).
+
+#### Why It Was Done:
+- Accurate attendance tracking is central to school compliance and student safety.
+- Enforcing the composite unique key `(student_id, session_date)` ensures idempotency and eliminates accidental duplicate daily attendance rows.
+- Dynamic tenant scoping prevents cross-institution roster exposure.
+
+#### For What:
+- Guarantees zero P0/P1 blockers in daily student attendance marking, dynamic filtering, multi-format exports, and daily conflict handling.
+- Fulfills Quality Gate 2 criteria for Phase 2 Section 5.
+
+---
+
 29. [**`QA&VAPT/QA/tests/test_phase2_teacher_portal_section4.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_teacher_portal_section4.py):
     Python test suite verifying Phase 2 Section 4 Teacher Portal schema contracts, RLS isolation policies, and state transitions (8/8 tests passed).
 30. [**`QA&VAPT/QA/docs/phase2_teacher_portal_section4_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_teacher_portal_section4_report.md):
     Detailed QA report documenting Phase 2 Section 4 test execution results and findings.
+31. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase2_attendance_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_attendance_test.dart):
+    Automated Flutter test suite verifying Phase 2 Section 5 Daily Attendance batch marking, dynamic filters, export formats, and UI dialogs (7/7 tests passed).
+32. [**`QA&VAPT/QA/tests/test_phase2_attendance_section5.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_attendance_section5.py):
+    Python test suite verifying Phase 2 Section 5 Daily Attendance schema contracts, composite unique keys, and tenant isolation (5/5 tests passed).
+33. [**`QA&VAPT/QA/docs/phase2_attendance_section5_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_attendance_section5_report.md):
+    Detailed QA report documenting Phase 2 Section 5 test execution results and findings.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+
 

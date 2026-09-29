@@ -3,37 +3,74 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/attendance_record.dart';
 
 class AttendanceRepository extends ChangeNotifier {
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _injectedClient;
+  SupabaseClient get _client => _injectedClient ?? Supabase.instance.client;
+
   List<AttendanceRecord> records = [];
   bool isLoading = true;
+
+  AttendanceRepository({SupabaseClient? client}) : _injectedClient = client;
+
+  Future<String?> _resolveInstitutionId() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return null;
+      final profile = await _client
+          .from('profiles')
+          .select('institution_id')
+          .eq('id', userId)
+          .maybeSingle();
+      return profile?['institution_id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> loadForDate(DateTime date) async {
     isLoading = true;
     notifyListeners();
     final dateStr = date.toIso8601String().split('T').first;
-    final data = await _client
+    final institutionId = await _resolveInstitutionId();
+
+    var query = _client
         .from('attendance_records')
         .select('*, students(full_name, enrollment_no, class_num, section)')
         .eq('session_date', dateStr);
+
+    if (institutionId != null) {
+      query = query.eq('institution_id', institutionId);
+    }
+
+    final data = await query;
     records = (data as List).map((row) => AttendanceRecord.fromMap(row)).toList();
     isLoading = false;
     notifyListeners();
   }
 
   Future<void> markAttendance(String studentId, String className, DateTime date, String status) async {
-    final userId = _client.auth.currentUser!.id;
-    await _client.from('attendance_records').upsert({
+    final userId = _client.auth.currentUser?.id;
+    final institutionId = await _resolveInstitutionId();
+    final payload = <String, dynamic>{
       'student_id': studentId,
       'session_date': date.toIso8601String().split('T').first,
       'status': status,
       'marked_by': userId,
-    }, onConflict: 'student_id,session_date');
+    };
+    if (institutionId != null) {
+      payload['institution_id'] = institutionId;
+    }
+
+    await _client.from('attendance_records').upsert(payload, onConflict: 'student_id,session_date');
   }
+
   Future<List<AttendanceRecord>> loadAllStudentsForMarking() async {
-  final data = await _client
-      .from('students')
-      .select('id, full_name, enrollment_no, class_num, section');
-  return (data as List).map((row) => AttendanceRecord(
+    final institutionId = await _resolveInstitutionId();
+    var query = _client.from('students').select('id, full_name, enrollment_no, class_num, section');
+    if (institutionId != null) {
+      query = query.eq('institution_id', institutionId);
+    }
+    final data = await query;
+    return (data as List).map((row) => AttendanceRecord(
     id: row['id'],
     studentName: row['full_name'] ?? '',
     rollNo: row['enrollment_no'] ?? '',
@@ -50,7 +87,12 @@ class AttendanceRepository extends ChangeNotifier {
   /// Real "Class 1".."Class 12" style options built from whatever classes
   /// actually exist in the `students` table — not a hardcoded list.
   Future<List<String>> fetchClassOptions() async {
-    final rows = await _client.from('students').select('class_num');
+    final institutionId = await _resolveInstitutionId();
+    var query = _client.from('students').select('class_num');
+    if (institutionId != null) {
+      query = query.eq('institution_id', institutionId);
+    }
+    final rows = await query;
     final classes = <int>{};
     for (final r in rows as List) {
       final c = r['class_num'];
@@ -62,7 +104,12 @@ class AttendanceRepository extends ChangeNotifier {
 
   /// Real distinct section letters from the `students` table.
   Future<List<String>> fetchSectionOptions() async {
-    final rows = await _client.from('students').select('section');
+    final institutionId = await _resolveInstitutionId();
+    var query = _client.from('students').select('section');
+    if (institutionId != null) {
+      query = query.eq('institution_id', institutionId);
+    }
+    final rows = await query;
     final sections = <String>{};
     for (final r in rows as List) {
       final s = r['section']?.toString();
@@ -92,12 +139,18 @@ class AttendanceRepository extends ChangeNotifier {
         break;
     }
     final fromStr = from.toIso8601String().split('T').first;
+    final institutionId = await _resolveInstitutionId();
 
-    final rows = await _client
+    var query = _client
         .from('attendance_records')
         .select('session_date, status')
-        .gte('session_date', fromStr)
-        .order('session_date');
+        .gte('session_date', fromStr);
+
+    if (institutionId != null) {
+      query = query.eq('institution_id', institutionId);
+    }
+
+    final rows = await query.order('session_date');
 
     // Group by day: percentage present = present_count / total_count * 100
     final byDay = <String, List<String>>{};
@@ -136,9 +189,13 @@ class AttendanceRepository extends ChangeNotifier {
     List<Map<String, String>> rows,
     DateTime date,
   ) async {
-    final studentRows = await _client
-        .from('students')
-        .select('id, enrollment_no');
+    final institutionId = await _resolveInstitutionId();
+    var studentsQuery = _client.from('students').select('id, enrollment_no');
+    if (institutionId != null) {
+      studentsQuery = studentsQuery.eq('institution_id', institutionId);
+    }
+    final studentRows = await studentsQuery;
+
     final rollToId = <String, String>{
       for (final s in studentRows as List)
         (s['enrollment_no'] ?? '').toString(): s['id'] as String,
@@ -158,12 +215,16 @@ class AttendanceRepository extends ChangeNotifier {
         skipped++;
         continue;
       }
-      upserts.add({
+      final payload = <String, dynamic>{
         'student_id': studentId,
         'session_date': dateStr,
         'status': status,
         'marked_by': userId,
-      });
+      };
+      if (institutionId != null) {
+        payload['institution_id'] = institutionId;
+      }
+      upserts.add(payload);
     }
 
     if (upserts.isNotEmpty) {

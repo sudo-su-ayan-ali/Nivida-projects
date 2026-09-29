@@ -232,12 +232,16 @@ class _MarkAttendanceDialogState extends State<MarkAttendanceDialog> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 12.5)),
                     ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text('${widget.students.length} students · ${_statuses.length} marked',
                           style: AppText.cardLabel),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           OutlinedButton(
                             onPressed: () => Navigator.of(context).pop(),
