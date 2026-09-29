@@ -23,6 +23,7 @@
 | **13. Multi-Tenant Test Environment & Provisioning Engine** | Functional QA and VAPT penetration testing cannot proceed without reproducible test tenants and isolated data fixtures. | Establishes Tenant Alpha (Primary) and Tenant Beta (Isolation), provisions 28 accounts across all 14 personas, installs multi-tenant RLS policies, and automates verification. |
 | **14. Account Seeding & Verification for All 14 Roles** | Phase 1 testing mandates that all 14 personas have verified accounts in `auth.users` and `public.profiles` matching app auth and shell routing. | Seeds dedicated accounts for all 14 roles, creates automated Python test suite (`test_account_seeding_14_roles.py` - 100% pass), and documents the complete RBAC matrix. |
 | **15. Implementation & 100% Verification of Phase 1 Test Scenarios** | Verify the 6 critical authentication, routing, and approvals security scenarios defined in QA Phase 1. | Created `phase1_scenarios_test.dart` (11/11 tests passed), resolved Linux directory casing (`Data` -> `data`), and authored full QA verification report. |
+| **16. Phase 2 Section 1: Institutional Dashboard & Analytics Verification** | Verify mathematical accuracy of KPIs, financial summary calculations, multi-tenant query scoping, and real-time state refresh without restart. | Decoupled `DashboardRepository` with injectable client, created `phase2_dashboard_test.dart` (7/7 tests passed), created contract test `test_phase2_dashboard_section1.py` (6/6 tests passed), and authored detailed QA report. |
 
 ---
 
@@ -350,6 +351,71 @@
     Automated Flutter widget and unit test suite verifying all 6 specific Phase 1 scenarios (11/11 tests passed).
 18. [**`QA&VAPT/QA/docs/phase1_test_scenarios_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase1_test_scenarios_report.md):
     Detailed QA verification and test execution report for the 6 Phase 1 scenarios.
+
+---
+
+### 14. Phase 2 Section 1: Institutional Dashboard & Analytics Verification
+#### What Was Done:
+- Audited the implementation of the Institutional Overview Dashboard across [`lib/screens/dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/screens/dashboard_screen.dart), [`lib/data/dashboard_repository.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/data/dashboard_repository.dart), and associated cards ([`StatCardsRow`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart), [`FeeCollectionCard`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/fee_collection_card.dart), [`AdmissionChartCard`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/admission_chart_card.dart)).
+- Refactored `DashboardRepository` to support dependency injection for `SupabaseClient? client`, enabling hermetic testability without relying on live global singleton state.
+- Authored automated Flutter test suite [`test/phase2_dashboard_test.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_dashboard_test.dart) covering all 7 test dimensions (attendance %, staff keywords, fee classification, KPI rendering, real-time reactive reload, and chart containers) — **7/7 tests passed (100%)**.
+- Authored Python contract and SQL schema parity suite [`QA&VAPT/QA/tests/test_phase2_dashboard_section1.py`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_dashboard_section1.py) validating multi-tenant `institution_id` query scoping and SQL fixture precision — **6/6 tests passed (100%)**.
+- Documented findings in [`QA&VAPT/QA/docs/phase2_dashboard_section1_report.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_dashboard_section1_report.md).
+
+#### Why It Was Done:
+- Phase 2 Milestone 2 mandates that all core administrative modules and dashboards pass rigorous Quality Gate 2 criteria (zero P0/P1 defects).
+- The dashboard aggregates critical high-level metrics (finances, attendance, admissions, staffing) that leadership relies on; any calculation or multi-tenant leakage error could lead to compliance failures or bad administrative decisions.
+
+#### For What:
+- Guarantees 100% mathematical precision of all dashboard indicators against PostgreSQL database rows.
+- Confirms zero cross-tenant leakage between Tenant Alpha (`00000000-0000-0000-0000-000000000001`) and Tenant Beta (`00000000-0000-0000-0000-000000000002`).
+- Validates that UI state reacts immediately to new transactions or student registrations in real-time.
+
+---
+
+## Artifact Index & Reference Links
+1. [**`project_overview.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/project_overview.md):
+   Comprehensive architectural reference and guide for all 12 modules, 104 tables, and credentials.
+2. [**`project_overview`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/project_overview):
+   Convenience symlink pointing directly to `project_overview.md`.
+3. [**`WORK_LOG_AND_RATIONALE.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/WORK_LOG_AND_RATIONALE.md):
+   This document — explaining the actions taken, the underlying rationale (**Why**), and the tangible outcomes (**For What**).
+4. [**`rules.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/rules.md):
+   The core mission statement (QA & VAPT) and the 5-step mandatory development/testing workflow rules.
+5. [**`QA&VAPT/QA/QA_roadmap.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/QA_roadmap.md):
+   The enterprise-level Quality Assurance master roadmap covering all modules, scenarios, quality gates, and automated test strategies.
+6. [**`QA&VAPT/QA/QA_roadmap`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/QA_roadmap):
+   Convenience symlink pointing directly to `QA_roadmap.md`.
+7. [**`QA&VAPT/VAPT/VAPT_roadmap.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/VAPT/VAPT_roadmap.md):
+   The enterprise-level Vulnerability Assessment & Penetration Testing master roadmap covering RLS penetration, BOLA/IDOR, threat actors, and CVSS v3.1 SLAs.
+8. [**`QA&VAPT/VAPT/VAPT_roadmap`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/VAPT/VAPT_roadmap):
+   Convenience symlink pointing directly to `VAPT_roadmap.md`.
+9. [**`QA&VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql):
+   SQL provisioning script for Tenant Alpha, Tenant Beta, all 28 accounts, and baseline module fixtures.
+10. [**`QA&VAPT/provisioning/02_multi_tenant_rls_policies.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/02_multi_tenant_rls_policies.sql):
+    PostgreSQL Row-Level Security policy suite enforcing multi-tenant isolation and Principal approval locks.
+11. [**`QA&VAPT/provisioning/03_verify_multi_tenant_isolation.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/03_verify_multi_tenant_isolation.sql):
+    Diagnostic SQL queries for audit verification and RLS leak testing.
+12. [**`QA&VAPT/provisioning/04_seed_all_14_roles.sql`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/04_seed_all_14_roles.sql):
+    Dedicated SQL script for seeding and confirming all 14 personas in `auth.users` and `public.profiles`.
+13. [**`QA&VAPT/provisioning/verify_provisioning.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/verify_provisioning.py):
+    Automated Python validation utility for multi-tenant provisioning artifacts.
+14. [**`QA&VAPT/provisioning/README.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/provisioning/README.md):
+    Full documentation, execution instructions, and credentials reference matrix.
+15. [**`QA&VAPT/QA/tests/test_account_seeding_14_roles.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_account_seeding_14_roles.py):
+    Automated test suite verifying 14 roles accounts, credentials, and shell permissions.
+16. [**`QA&VAPT/QA/docs/account_seeding_14_roles_guide.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/account_seeding_14_roles_guide.md):
+    Exhaustive documentation and verification guide for all 14 roles and shell routing.
+17. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase1_scenarios_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase1_scenarios_test.dart):
+    Automated Flutter widget and unit test suite verifying all 6 specific Phase 1 scenarios (11/11 tests passed).
+18. [**`QA&VAPT/QA/docs/phase1_test_scenarios_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase1_test_scenarios_report.md):
+    Detailed QA verification and test execution report for the 6 Phase 1 scenarios.
+19. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase2_dashboard_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_dashboard_test.dart):
+    Automated Flutter test suite verifying Phase 2 Section 1 Dashboard KPI calculation accuracy, fee breakdown, and real-time state refresh (7/7 tests passed).
+20. [**`QA&VAPT/QA/tests/test_phase2_dashboard_section1.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase2_dashboard_section1.py):
+    Python test suite verifying Phase 2 Section 1 Dashboard contract precision, SQL fixtures parity, and multi-tenant scoping (6/6 tests passed).
+21. [**`QA&VAPT/QA/docs/phase2_dashboard_section1_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase2_dashboard_section1_report.md):
+    Detailed QA report documenting Phase 2 Section 1 test execution results and findings.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*

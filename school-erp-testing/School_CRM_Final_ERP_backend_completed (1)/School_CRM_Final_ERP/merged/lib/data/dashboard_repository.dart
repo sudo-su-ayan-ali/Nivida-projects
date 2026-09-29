@@ -10,7 +10,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// current logged-in user's own institution_id — otherwise counts
 /// would leak across schools.
 class DashboardRepository extends ChangeNotifier {
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _customClient;
+
+  DashboardRepository({SupabaseClient? client}) : _customClient = client;
+
+  SupabaseClient get _client => _customClient ?? Supabase.instance.client;
 
   int totalStudents = 0;
   int totalTeachers = 0;
