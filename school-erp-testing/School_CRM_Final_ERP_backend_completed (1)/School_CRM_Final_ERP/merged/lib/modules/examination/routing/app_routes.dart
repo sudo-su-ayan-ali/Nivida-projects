@@ -1,0 +1,31 @@
+class AppRoutes {
+  static const dashboard = '/';
+  static const examManagement = '/exams';
+  static const calendar = '/calendar';
+  static const eligibility = '/eligibility';
+  static const paperSecurity = '/paper-security';
+  static const seating = '/seating';
+  static const examHall = '/exam-hall';
+  static const barcodeCenter = '/barcode-center';
+  static const answerBooks = '/answer-books';
+  static const evaluation = '/evaluation';
+  static const moderation = '/moderation';
+  static const results = '/results';
+  static const gradingEngine = '/grading-engine';
+  static const revaluation = '/revaluation';
+  static const admitCards = '/admit-cards';
+  static const certificates = '/certificates';
+  static const malpractice = '/malpractice';
+  static const accommodation = '/accommodation';
+  static const analytics = '/analytics';
+  static const notifications = '/notifications';
+  static const portal = '/portal';
+  static const archive = '/archive';
+  static const backup = '/backup';
+  static const roles = '/roles';
+  static const auditLogs = '/audit-logs';
+  static const reportCardDesigner = '/report-card-designer';
+  static const reschedule = '/reschedule';
+  static const substituteInvigilator = '/substitute-invigilator';
+  static const digitalInstructions = '/digital-instructions';
+}
