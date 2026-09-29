@@ -17,6 +17,7 @@
 | **7. Creation of this Action & Rationale Record (`WORK_LOG_AND_RATIONALE.md`)** | Team members and reviewers need a clear log of what work was completed, why decisions were made, and how to use the results. | To provide clear accountability, traceability, and continuity for ongoing and future sprint planning. |
 | **8. Establishment of Working Rules (`rules.md`) & Git Sync** | Standardize developer workflow so that every contributor reads the architecture, reviews past work, updates the work log, and commits/pushes changes cleanly. | Prevents deviations in coding standards, keeps documentation synchronized with code, and maintains an up-to-date remote repository. |
 | **9. Enactment of the QA & VAPT Project Mission** | The core objective of this project repository is end-to-end quality assurance and vulnerability assessment / penetration testing across all 12 modules. | Focuses every contributor and agent on functional test coverage, cross-role RBAC security, multi-tenant RLS isolation, and vulnerability testing. |
+| **10. Creation of Enterprise QA Master Roadmap (`QA&VAPT/QA/QA_roadmap.md`)** | Testing an ERP with 12 modules, 14 roles, 104 tables, and hybrid state scopes requires an exhaustive, industry-level QA plan. | Provides comprehensive test scenarios, quality gates, boundary value checks, defect SLAs, and a phased execution timeline for the entire test team. |
 
 ---
 
@@ -186,6 +187,29 @@
 
 ---
 
+### 9. Creation of Enterprise QA Master Roadmap (`QA&VAPT/QA/QA_roadmap.md`)
+#### What Was Done:
+- Designed and authored the master Quality Assurance roadmap in [`QA&VAPT/QA/QA_roadmap.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/QA_roadmap.md) (with symlink [`QA&VAPT/QA/QA_roadmap`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/QA_roadmap)).
+- Structured the roadmap around enterprise software engineering QA standards:
+  1. **Testing Philosophy & Pyramid**: E2E, Integration/Contract, Widget/Golden, and Unit test distributions.
+  2. **Quality Gates & Definition of Done (DoD)**: 4-gate verification process with zero-defect thresholds for production sign-off.
+  3. **Multi-Tenant Test Fixture Architecture**: Defined isolated test schools (Tenant Alpha vs Tenant Beta) and pre-configured accounts for all 14 personas.
+  4. **Detailed Test Suites for All 12 Modules + Shell**: Exhaustive positive, negative, boundary, and error-handling test cases covering Auth, Dashboard, Students, Teachers, Teacher Portal, Attendance, Fees, Examination (21 tables), Transport, Hostel, HR & Payroll, Inventory, Parents, and Settings.
+  5. **Cross-Cutting Non-Functional Testing**: Responsive layout breakpoints (<1100px vs >=1100px), state coexistence (Provider + Riverpod), memory leak profiles, network latency/offline simulation, and concurrency/race conditions.
+  6. **Automated Tooling Stack**: Dart test, mocktail, WidgetTester, Patrol, Postman/Newman for Supabase API contracts, and CI/CD GitHub Actions integration.
+  7. **Defect Severity & Bug Lifecycle**: Clear classification rules for P0 (Blocker), P1 (Critical), P2 (Major), and P3 (Minor) with resolution SLAs.
+  8. **Phased Execution Schedule & Gantt Chart**: Structured 5-phase execution plan spanning 6 weeks from initial sanity checks to final UAT sign-off.
+
+#### Why It Was Done:
+- Enterprise school ERPs handle complex domain interactions (such as automated question paper generation, marks moderation, multi-child switching, fee installments, and payroll deductions). Ad-hoc testing leads to unspotted regression bugs and broken customer trust.
+- Having a comprehensive, industry-grade test plan provides a clear, repeatable roadmap for manual testers, automation engineers, and security auditors.
+
+#### For What:
+- Guarantees systematic, measurable test coverage across the entire system.
+- Serves as the operational blueprint for the QA team to execute end-to-end verification and report actionable defect logs.
+
+---
+
 ## Summary of Key Files Created / Updated
 
 1. [**`project_overview.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/project_overview.md):
@@ -196,6 +220,10 @@
    This document — explaining the actions taken, the underlying rationale (**Why**), and the tangible outcomes (**For What**).
 4. [**`rules.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/rules.md):
    The core mission statement (QA & VAPT) and the 5-step mandatory development/testing workflow rules.
+5. [**`QA&VAPT/QA/QA_roadmap.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/QA_roadmap.md):
+   The enterprise-level Quality Assurance master roadmap covering all modules, scenarios, quality gates, and automated test strategies.
+6. [**`QA&VAPT/QA/QA_roadmap`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/QA_roadmap):
+   Convenience symlink pointing directly to `QA_roadmap.md`.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
