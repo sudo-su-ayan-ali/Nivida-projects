@@ -51,10 +51,25 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
   }
 
   Future<void> _loadTeachers() async {
-    final data = await Supabase.instance.client
-        .from('teachers')
-        .select()
-        .order('created_at');
+    final client = Supabase.instance.client;
+    String? institutionId;
+    try {
+      final userId = client.auth.currentUser?.id;
+      if (userId != null) {
+        final profile = await client
+            .from('profiles')
+            .select('institution_id')
+            .eq('id', userId)
+            .maybeSingle();
+        institutionId = profile?['institution_id'] as String?;
+      }
+    } catch (_) {}
+
+    var query = client.from('teachers').select();
+    if (institutionId != null) {
+      query = query.eq('institution_id', institutionId);
+    }
+    final data = await query.order('created_at');
     setState(() {
       _teachers = (data as List)
           .map((row) => Teacher.fromMap(row as Map<String, dynamic>))
