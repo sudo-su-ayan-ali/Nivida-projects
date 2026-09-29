@@ -3,7 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/student.dart';
 
 class StudentRepository extends ChangeNotifier {
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _customClient;
+
+  StudentRepository({SupabaseClient? client}) : _customClient = client;
+
+  SupabaseClient get _client => _customClient ?? Supabase.instance.client;
+
   final List<Student> _students = [];
   bool isLoading = true;
   int pendingTcRequests = 0;
@@ -12,28 +17,63 @@ class StudentRepository extends ChangeNotifier {
 
   List<Student> get all => List.unmodifiable(_students);
 
+  Future<String?> _resolveInstitutionId() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return null;
+      final profile = await _client
+          .from('profiles')
+          .select('institution_id')
+          .eq('id', userId)
+          .maybeSingle();
+      return profile?['institution_id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> load() async {
     isLoading = true;
     notifyListeners();
-    final data = await _client.from('students').select().order('created_at');
+
+    final institutionId = await _resolveInstitutionId();
+
+    var studentsQuery = _client.from('students').select();
+    if (institutionId != null) {
+      studentsQuery = studentsQuery.eq('institution_id', institutionId);
+    }
+    final data = await studentsQuery.order('created_at');
+
     _students
       ..clear()
       ..addAll(
         (data as List).map((row) => Student.fromMap(row as Map<String, dynamic>)),
       );
 
-    final tcRows = await _client.from('tc_requests').select().eq('status', 'pending');
+    var tcQuery = _client.from('tc_requests').select().eq('status', 'pending');
+    if (institutionId != null) {
+      tcQuery = tcQuery.eq('institution_id', institutionId);
+    }
+    final tcRows = await tcQuery;
     pendingTcRequests = (tcRows as List).length;
 
     final todayStr = DateTime.now().toIso8601String().split('T').first;
-    final presentRows = await _client
+    var presentQuery = _client
         .from('attendance_records')
         .select('id')
         .eq('session_date', todayStr)
         .eq('status', 'present');
+    if (institutionId != null) {
+      presentQuery = presentQuery.eq('institution_id', institutionId);
+    }
+    final presentRows = await presentQuery;
     presentTodayCount = (presentRows as List).length;
 
-    final hostelBlockRows = await _client.from('hostel_blocks').select('id');
+    var hostelQuery = _client.from('hostel_blocks').select('id');
+    if (institutionId != null) {
+      hostelQuery = hostelQuery.eq('institution_id', institutionId);
+    }
+    final hostelBlockRows = await hostelQuery;
     activeHostelBlocksCount = (hostelBlockRows as List).length;
 
     isLoading = false;
@@ -42,9 +82,10 @@ class StudentRepository extends ChangeNotifier {
   // ... baaki sab methods same rahenge
 
   Future<void> addStudent(Student student) async {
-  const institutionId = 'd0000000-0000-0000-0000-000000000001';
-  const courseId = 'd0000000-0000-0000-0000-000000000020';
-  const sectionId = 'd0000000-0000-0000-0000-000000000040';
+    final currentInstId = await _resolveInstitutionId();
+    final institutionId = currentInstId ?? '00000000-0000-0000-0000-000000000001';
+    const courseId = 'd0000000-0000-0000-0000-000000000020';
+    const sectionId = 'd0000000-0000-0000-0000-000000000040';
 
   // Step A: pehle 'admissions' table mein entry banao — students.admission_id
   // NOT NULL hai, aur har student ke liye alag admission record chahiye.
