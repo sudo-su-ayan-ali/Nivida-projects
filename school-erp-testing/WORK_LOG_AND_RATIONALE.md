@@ -19,6 +19,7 @@
 | **9. Enactment of the QA & VAPT Project Mission** | The core objective of this project repository is end-to-end quality assurance and vulnerability assessment / penetration testing across all 12 modules. | Focuses every contributor and agent on functional test coverage, cross-role RBAC security, multi-tenant RLS isolation, and vulnerability testing. |
 | **10. Creation of Enterprise QA Master Roadmap (`QA&VAPT/QA/QA_roadmap.md`)** | Testing an ERP with 12 modules, 14 roles, 104 tables, and hybrid state scopes requires an exhaustive, industry-level QA plan. | Provides comprehensive test scenarios, quality gates, boundary value checks, defect SLAs, and a phased execution timeline for the entire test team. |
 | **11. Creation of Enterprise VAPT Master Roadmap (`QA&VAPT/VAPT/VAPT_roadmap.md`)** | The direct-to-database Supabase architecture relies 100% on Row-Level Security (RLS) for data protection, requiring penetration testing against BOLA, privilege escalation, multi-tenant leaks, and ledger tampering. | Equips security engineers and penetration testers with an adversarial testing blueprint, CVSS v3.1 scoring matrix, and OWASP Top 10/API Top 10 vectors. |
+| **12. Update Rule 3 in `rules.md` to Mandate Reading Both QA & VAPT Roadmaps** | Testers and engineers must explicitly consult the dedicated roadmaps in `QA&VAPT/` before performing any testing or development. | Enforces systematic compliance with established QA milestones and VAPT penetration vectors directly in the contributor workflow. |
 
 ---
 

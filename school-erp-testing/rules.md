@@ -36,9 +36,12 @@ Whenever starting a new task, making changes, or completing work on this reposit
 - **Action**: Always read [`WORK_LOG_AND_RATIONALE.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/WORK_LOG_AND_RATIONALE.md) before starting work.
 - **Why**: Review previous decisions, historical context, backend audit findings, solved problems, and identified gaps (such as the Transport module dropdown selectors) so you do not repeat past mistakes or duplicate effort.
 
-### Rule 3: Execute Testing with QA & VAPT Rigor
-- **Action**: Every test, bug fix, or feature enhancement must include verification against QA functional test cases and VAPT security principles (RLS enforcement, multi-tenant isolation, role authorization, and input validation).
-- **Why**: The mission of this project is to achieve production-grade stability, zero data leakage, and total security compliance across all 12 modules.
+### Rule 3: Read QA & VAPT Roadmaps from `QA&VAPT/` & Execute with Rigor
+- **Action**: Always consult both roadmaps located in the `QA&VAPT/` directory before planning or executing testing, bug fixes, or enhancements:
+  - QA Roadmap: [`QA&VAPT/QA/QA_roadmap.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA&VAPT/QA/QA_roadmap.md) (or [`QA_roadmap`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA&VAPT/QA/QA_roadmap))
+  - VAPT Roadmap: [`QA&VAPT/VAPT/VAPT_roadmap.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA&VAPT/VAPT/VAPT_roadmap.md) (or [`VAPT_roadmap`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA&VAPT/VAPT/VAPT_roadmap))
+  Every test, bug fix, or feature enhancement must adhere to and be verified against these roadmaps, incorporating QA functional test coverage and VAPT security principles (RLS enforcement, multi-tenant isolation, role authorization, and input validation).
+- **Why**: The QA and VAPT roadmaps define the systematic milestones, test scopes, and vulnerability audit checkpoints required to achieve production-grade stability, zero data leakage, and total security compliance across all 12 modules.
 
 ### Rule 4: Update `WORK_LOG_AND_RATIONALE.md` with Every Change
 - **Action**: After completing any task, test execution, bug fix, or refactor, update [`WORK_LOG_AND_RATIONALE.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/WORK_LOG_AND_RATIONALE.md) immediately.
