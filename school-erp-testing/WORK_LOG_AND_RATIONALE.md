@@ -16,6 +16,7 @@
 | **6. Verification of Backend Status & Known Gaps** | Need to verify which screens write back to Supabase and track remaining gaps (such as Transport dropdowns) without making unverified schema assumptions. | To prevent regressions, ensure data persistence, and give the engineering team a prioritized task list for remaining tasks. |
 | **7. Creation of this Action & Rationale Record (`WORK_LOG_AND_RATIONALE.md`)** | Team members and reviewers need a clear log of what work was completed, why decisions were made, and how to use the results. | To provide clear accountability, traceability, and continuity for ongoing and future sprint planning. |
 | **8. Establishment of Working Rules (`rules.md`) & Git Sync** | Standardize developer workflow so that every contributor reads the architecture, reviews past work, updates the work log, and commits/pushes changes cleanly. | Prevents deviations in coding standards, keeps documentation synchronized with code, and maintains an up-to-date remote repository. |
+| **9. Enactment of the QA & VAPT Project Mission** | The core objective of this project repository is end-to-end quality assurance and vulnerability assessment / penetration testing across all 12 modules. | Focuses every contributor and agent on functional test coverage, cross-role RBAC security, multi-tenant RLS isolation, and vulnerability testing. |
 
 ---
 
@@ -167,6 +168,24 @@
 
 ---
 
+### 8. Enactment of the QA & VAPT Mission in `rules.md`
+#### What Was Done:
+- Updated [`rules.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/rules.md) to enshrine the core project mission: **Complete Quality Assurance (QA) and Vulnerability Assessment & Penetration Testing (VAPT)**.
+- Defined clear testing pillars:
+  - **QA**: Functional verification of all 12 modules, CRUD persistence integrity, role-based screen visibility, and edge-case handling.
+  - **VAPT**: Multi-tenant data isolation testing (`institution_id` RLS boundary tests), privilege escalation prevention (e.g. testing unauthorized calls to Approvals or exam question papers), session token security, and parameter tampering checks.
+- Formalized this as Rule 3 in the standard development workflow.
+
+#### Why It Was Done:
+- The school ERP manages sensitive records (student personal data, financial ledgers, exam question papers, staff salaries). A purely functional approach is insufficient—security and compliance must be verified alongside feature behavior.
+- Explicitly documenting this mission ensures that every developer and AI agent approaches tests and reviews through both a functional QA lens and an adversarial security (VAPT) lens.
+
+#### For What:
+- Transforms the repository into a production-hardened, penetration-tested application with verified multi-tenant isolation.
+- Establishes clear test criteria for future test suites, penetration test audits, and deployment sign-offs.
+
+---
+
 ## Summary of Key Files Created / Updated
 
 1. [**`project_overview.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/project_overview.md):
@@ -176,7 +195,7 @@
 3. [**`WORK_LOG_AND_RATIONALE.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/WORK_LOG_AND_RATIONALE.md):
    This document — explaining the actions taken, the underlying rationale (**Why**), and the tangible outcomes (**For What**).
 4. [**`rules.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/rules.md):
-   The 4-step mandatory development and git workflow rules for the project.
+   The core mission statement (QA & VAPT) and the 5-step mandatory development/testing workflow rules.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
