@@ -18,6 +18,7 @@
 | **8. Establishment of Working Rules (`rules.md`) & Git Sync** | Standardize developer workflow so that every contributor reads the architecture, reviews past work, updates the work log, and commits/pushes changes cleanly. | Prevents deviations in coding standards, keeps documentation synchronized with code, and maintains an up-to-date remote repository. |
 | **9. Enactment of the QA & VAPT Project Mission** | The core objective of this project repository is end-to-end quality assurance and vulnerability assessment / penetration testing across all 12 modules. | Focuses every contributor and agent on functional test coverage, cross-role RBAC security, multi-tenant RLS isolation, and vulnerability testing. |
 | **10. Creation of Enterprise QA Master Roadmap (`QA&VAPT/QA/QA_roadmap.md`)** | Testing an ERP with 12 modules, 14 roles, 104 tables, and hybrid state scopes requires an exhaustive, industry-level QA plan. | Provides comprehensive test scenarios, quality gates, boundary value checks, defect SLAs, and a phased execution timeline for the entire test team. |
+| **11. Creation of Enterprise VAPT Master Roadmap (`QA&VAPT/VAPT/VAPT_roadmap.md`)** | The direct-to-database Supabase architecture relies 100% on Row-Level Security (RLS) for data protection, requiring penetration testing against BOLA, privilege escalation, multi-tenant leaks, and ledger tampering. | Equips security engineers and penetration testers with an adversarial testing blueprint, CVSS v3.1 scoring matrix, and OWASP Top 10/API Top 10 vectors. |
 
 ---
 
@@ -210,6 +211,29 @@
 
 ---
 
+### 10. Creation of Enterprise VAPT Master Roadmap (`QA&VAPT/VAPT/VAPT_roadmap.md`)
+#### What Was Done:
+- Formulated and authored the comprehensive penetration testing roadmap in [`QA&VAPT/VAPT/VAPT_roadmap.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/VAPT/VAPT_roadmap.md) (with symlink [`QA&VAPT/VAPT/VAPT_roadmap`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/VAPT/VAPT_roadmap)).
+- Modeled the security roadmap around **OWASP Top 10 (2021)**, **OWASP API Security Top 10 (2023)**, and **NIST SP 800-115**:
+  1. **Direct-to-Database Threat Landscape**: Identified that in a serverless Flutter + Supabase architecture, Row-Level Security (RLS) is the sole defense barrier; any misconfigured policy directly exposes PostgreSQL tables.
+  2. **Attacker Models & Threat Actors**: Mapped concrete attack personas including External Unauthenticated Adversaries, Malicious Students/Parents (`STU001`), Rogue Teachers (`TCH001`), Disgruntled Staff (`FEE001`), and Privilege-Escalating Vice Principals (`VPR001`).
+  3. **Multi-Tenant Boundary Penetration**: Step-by-step procedures to attempt tenant ID swapping in PostgREST headers/URLs, cross-tenant mutation injection, and universal RLS audits across all 104 tables.
+  4. **BOLA / IDOR & Vertical Escalation**: Concrete vectors testing direct REST calls by Vice Principals to bypass UI locks and approve question papers, student inspection of peer grades, and teacher access to peer payslips.
+  5. **PostgREST Parameter Tampering & Mass Assignment**: Audits for SQL injection through URL filters, attribute overwriting (`is_admin`, `role`), and excessive data exposure via `select=*`.
+  6. **Module-Specific Attack Vectors**: Financial ledger tampering (negative payment amounts, day closing manipulation, self-approved waivers), examination leakage (premature paper retrieval, barcode deanonymization, mark alterations), and PII data harvesting.
+  7. **Client-Side & Secret Security**: Decompilation and binary analysis for leaked service role keys, insecure local storage tokens, and stripping sensitive `debugPrint` logs.
+  8. **Tooling & CVSS Scoring**: Tool integrations (Burp Suite, Postman/Newman, jwt_tool, SQLMap, Semgrep, Supabase CLI) and CVSS v3.1 severity matrices with strict SLAs (<24h for Critical).
+
+#### Why It Was Done:
+- A school ERP handles minors' sensitive personal data, financial balances, and confidential exam materials. Standard functional testing does not catch subtle authorization flaws, missing RLS check constraints, or client-side bypasses.
+- Providing an enterprise-grade penetration testing roadmap guarantees that the application is audited against real-world adversarial attacks before going live.
+
+#### For What:
+- Serves as the definitive guide for security engineers to conduct ethical hacking, verify zero data leakage, and harden Supabase RLS policies.
+- Ensures institutional compliance with student data privacy laws (FERPA / GDPR / DPDP).
+
+---
+
 ## Summary of Key Files Created / Updated
 
 1. [**`project_overview.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/project_overview.md):
@@ -224,6 +248,10 @@
    The enterprise-level Quality Assurance master roadmap covering all modules, scenarios, quality gates, and automated test strategies.
 6. [**`QA&VAPT/QA/QA_roadmap`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/QA_roadmap):
    Convenience symlink pointing directly to `QA_roadmap.md`.
+7. [**`QA&VAPT/VAPT/VAPT_roadmap.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/VAPT/VAPT_roadmap.md):
+   The enterprise-level Vulnerability Assessment & Penetration Testing master roadmap covering RLS penetration, BOLA/IDOR, threat actors, and CVSS v3.1 SLAs.
+8. [**`QA&VAPT/VAPT/VAPT_roadmap`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/VAPT/VAPT_roadmap):
+   Convenience symlink pointing directly to `VAPT_roadmap.md`.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
