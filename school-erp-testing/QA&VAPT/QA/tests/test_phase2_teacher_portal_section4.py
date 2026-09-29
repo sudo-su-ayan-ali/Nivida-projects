@@ -100,5 +100,11 @@ class TestPhase2TeacherPortalSection4(unittest.TestCase):
         self.assertIn("'status': 'Approved'", self.app_state_code)
         self.assertIn("'status': 'Rejected'", self.app_state_code)
 
+    def test_08_multi_tenant_queries_scoped(self):
+        """Confirm teacher portal queries and mutations scope data by institution_id."""
+        self.assertIn("_resolveInstitutionId()", self.app_state_code)
+        self.assertIn("'institution_id': institutionId", self.app_state_code)
+        self.assertIn("query.eq('institution_id', institutionId)", self.app_state_code)
+
 if __name__ == "__main__":
     unittest.main()

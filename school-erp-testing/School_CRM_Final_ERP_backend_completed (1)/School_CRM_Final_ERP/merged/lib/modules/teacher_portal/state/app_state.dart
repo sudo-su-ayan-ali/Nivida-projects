@@ -150,8 +150,15 @@ Future<void> _loadNotices() async {
     notifyListeners();
   }
 Future<void> _loadHomework() async {
-  final hwRows = await _client.from('homework').select().order('created_at', ascending: false);
-  final subRows = await _client.from('homework_submissions').select();
+  final institutionId = await _resolveInstitutionId();
+  var hwQuery = _client.from('homework').select();
+  var subQuery = _client.from('homework_submissions').select();
+  if (institutionId != null) {
+    hwQuery = hwQuery.eq('institution_id', institutionId);
+    subQuery = subQuery.eq('institution_id', institutionId);
+  }
+  final hwRows = await hwQuery.order('created_at', ascending: false);
+  final subRows = await subQuery;
 
   homework = (hwRows as List).map((row) {
     final subs = <String, String>{
@@ -177,6 +184,22 @@ Future<void> _loadHomework() async {
     }
     return '${dt.day}/${dt.month}/${dt.year}';
   }
+
+  Future<String?> _resolveInstitutionId() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return null;
+      final profile = await _client
+          .from('profiles')
+          .select('institution_id')
+          .eq('id', userId)
+          .maybeSingle();
+      return profile?['institution_id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   int _idCounter = 100;
   String _newId(String prefix) => '$prefix-${_idCounter++}';
 
@@ -283,12 +306,18 @@ Future<void> _loadHomework() async {
   s.attendanceToday = status;
   notifyListeners();
 
-  await _client.from('attendance_records').upsert({
+  final institutionId = await _resolveInstitutionId();
+  final payload = <String, dynamic>{
     'student_id': studentId,
     'session_date': DateTime.now().toIso8601String().split('T')[0],
     'status': status.name,
     'marked_by': _client.auth.currentUser?.id,
-  }, onConflict: 'student_id,session_date');
+  };
+  if (institutionId != null) {
+    payload['institution_id'] = institutionId;
+  }
+
+  await _client.from('attendance_records').upsert(payload, onConflict: 'student_id,session_date');
 }
 
 Future<void> markAllAttendance(String className, AttendanceStatus status) async {
@@ -300,9 +329,11 @@ Future<void> markAllAttendance(String className, AttendanceStatus status) async 
   }
   notifyListeners();
 
+  final institutionId = await _resolveInstitutionId();
   await _client.from('attendance_records').upsert([
     for (final s in targeted)
       {
+        if (institutionId != null) 'institution_id': institutionId,
         'student_id': s.id,
         'session_date': today,
         'status': status.name,
@@ -740,7 +771,8 @@ Future<void> markMessageRead(String id) async {
   final finalToDate = toDate.trim().isEmpty ? date : toDate;
   final finalDays = days < 1 ? 1 : days;
 
-  final inserted = await _client.from('staff_leave_requests').insert({
+  final institutionId = await _resolveInstitutionId();
+  final payload = <String, dynamic>{
     'staff_id': _client.auth.currentUser?.id,
     'staff_name': teacherName,
     'leave_type': leaveType,
@@ -749,7 +781,12 @@ Future<void> markMessageRead(String id) async {
     'to_date': finalToDate,
     'days': finalDays,
     'status': 'Pending',
-  }).select().single();
+  };
+  if (institutionId != null) {
+    payload['institution_id'] = institutionId;
+  }
+
+  final inserted = await _client.from('staff_leave_requests').insert(payload).select().single();
 
   leaveRequests.insert(
     0,
@@ -980,10 +1017,12 @@ late Map<String, List<ScheduleItem>> timetableData;
 Map<String, List<ScheduleItem>> get weekTimetable => timetableData;
 
 Future<void> _loadStudents() async {
-  final rows = await _client
-      .from('students')
-      .select()
-      .order('full_name');
+  final institutionId = await _resolveInstitutionId();
+  var query = _client.from('students').select();
+  if (institutionId != null) {
+    query = query.eq('institution_id', institutionId);
+  }
+  final rows = await query.order('full_name');
 
   students = (rows as List).map((row) {
     return StudentItem(
@@ -1047,10 +1086,12 @@ Future<void> _loadDocuments() async {
   notifyListeners();
 }
 Future<void> _loadLeaveRequests() async {
-  final rows = await _client
-      .from('staff_leave_requests')
-      .select()
-      .order('applied_on', ascending: false);
+  final institutionId = await _resolveInstitutionId();
+  var query = _client.from('staff_leave_requests').select();
+  if (institutionId != null) {
+    query = query.eq('institution_id', institutionId);
+  }
+  final rows = await query.order('applied_on', ascending: false);
 
   leaveRequests = (rows as List).map((row) {
     return LeaveRequest(
@@ -1091,10 +1132,12 @@ Future<void> _loadGradebook() async {
 }
 Future<void> _loadAttendanceToday() async {
   final today = DateTime.now().toIso8601String().split('T')[0];
-  final rows = await _client
-      .from('attendance_records')
-      .select()
-      .eq('session_date', today);
+  final institutionId = await _resolveInstitutionId();
+  var query = _client.from('attendance_records').select().eq('session_date', today);
+  if (institutionId != null) {
+    query = query.eq('institution_id', institutionId);
+  }
+  final rows = await query;
 
   final statusMap = {
     for (final r in rows as List)
@@ -1376,7 +1419,12 @@ Future<void> deleteAssessment(String studentId, String recordId) async {
   late List<SyllabusChapter> syllabus;
 
   Future<void> _loadSyllabus() async {
-    final rows = await _client.from('tp_syllabus_chapters').select().order('created_at');
+    final institutionId = await _resolveInstitutionId();
+    var query = _client.from('tp_syllabus_chapters').select();
+    if (institutionId != null) {
+      query = query.eq('institution_id', institutionId);
+    }
+    final rows = await query.order('created_at');
     syllabus = (rows as List)
         .map((row) => SyllabusChapter(
               id: row['id'] as String,
@@ -1406,13 +1454,19 @@ Future<void> deleteAssessment(String studentId, String recordId) async {
     required String title,
     required int totalTopics,
   }) async {
-    await _client.from('tp_syllabus_chapters').insert({
+    final institutionId = await _resolveInstitutionId();
+    final payload = <String, dynamic>{
       'class_name': className,
       'subject': subject,
       'title': title,
       'total_topics': totalTopics,
       'completed_topics': 0,
-    });
+    };
+    if (institutionId != null) {
+      payload['institution_id'] = institutionId;
+    }
+
+    await _client.from('tp_syllabus_chapters').insert(payload);
     await _loadSyllabus();
   }
 
@@ -1707,18 +1761,30 @@ Future<void> deleteAssessment(String studentId, String recordId) async {
   required String subject,
   required String dueDate,
 }) async {
-  final inserted = await _client.from('homework').insert({
+  final institutionId = await _resolveInstitutionId();
+  final hwPayload = <String, dynamic>{
     'title': title,
     'class_name': className,
     'subject': subject,
     'due_date': dueDate,
-  }).select().single();
+  };
+  if (institutionId != null) {
+    hwPayload['institution_id'] = institutionId;
+  }
+
+  final inserted = await _client.from('homework').insert(hwPayload).select().single();
 
   final ids = studentsFiltered(className: className).map((s) => s.id).toList();
   final subs = {for (final id in ids) id: 'Pending'};
 
   await _client.from('homework_submissions').insert([
-    for (final id in ids) {'homework_id': inserted['id'], 'student_id': id, 'status': 'Pending'}
+    for (final id in ids)
+      {
+        if (institutionId != null) 'institution_id': institutionId,
+        'homework_id': inserted['id'],
+        'student_id': id,
+        'status': 'Pending',
+      }
   ]);
 
   homework.insert(0, HomeworkItem(

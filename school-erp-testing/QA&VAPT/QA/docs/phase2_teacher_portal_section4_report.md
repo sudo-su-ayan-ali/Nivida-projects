@@ -27,7 +27,7 @@ The Teacher Portal is designed as a focused educator mini-application (`teacher_
 | Test Suite | File | Tests Run | Passed | Failed |
 | :--- | :--- | :---: | :---: | :---: |
 | **Flutter Functional & Widget Tests** | `test/phase2_teacher_portal_test.dart` | 8 | 8 | 0 |
-| **Python Contract & RLS Parity Tests** | `QA&VAPT/QA/tests/test_phase2_teacher_portal_section4.py` | 7 | 7 | 0 |
+| **Python Contract & RLS Parity Tests** | `QA&VAPT/QA/tests/test_phase2_teacher_portal_section4.py` | 8 | 8 | 0 |
 | **Full Cumulative Regression Suite** | `phase1_scenarios_test.dart` + `phase2_dashboard_test.dart` + `phase2_students_test.dart` + `phase2_teachers_test.dart` + `phase2_teacher_portal_test.dart` | 39 | 39 | 0 |
 
 ---
