@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:edusmart_school_erp_flutter/data/erp_backup_tables.dart';
 import 'package:edusmart_school_erp_flutter/modules/teachers/models/teacher.dart';
 import 'package:edusmart_school_erp_flutter/modules/teachers/widgets/department_chart_card.dart';
 import 'package:edusmart_school_erp_flutter/modules/teachers/widgets/birthday_card.dart';
@@ -240,6 +241,30 @@ void main() {
       await tester.pump();
 
       expect(capturedSearch, equals('Meera'));
+    });
+
+    test('7. Teachers table conflict key and generated identity configuration', () {
+      // Teachers primary key in Supabase is an identity column (GENERATED ALWAYS AS IDENTITY).
+      // On Excel import, the conflict key must be emp_id, and teachers must be in tablesWithGeneratedIdentity.
+      expect(ErpBackupTables.conflictKeyFor('teachers'), equals('emp_id'));
+      expect(ErpBackupTables.tablesWithGeneratedIdentity.contains('teachers'), isTrue);
+
+      // Verify that stripping 'id' simulates correctly without mutating other keys
+      final sampleRow = <String, dynamic>{
+        'id': 101,
+        'emp_id': 'EMP-001',
+        'name': 'Dr. Meera Nambiar',
+        'department': 'Science',
+        'institution_id': 'd0000000-0000-0000-0000-000000000001',
+      };
+
+      if (ErpBackupTables.tablesWithGeneratedIdentity.contains('teachers')) {
+        sampleRow.remove('id');
+      }
+
+      expect(sampleRow.containsKey('id'), isFalse);
+      expect(sampleRow['emp_id'], equals('EMP-001'));
+      expect(sampleRow['name'], equals('Dr. Meera Nambiar'));
     });
   });
 }

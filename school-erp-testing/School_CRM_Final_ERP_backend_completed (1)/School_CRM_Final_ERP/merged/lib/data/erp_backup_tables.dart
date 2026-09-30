@@ -64,11 +64,19 @@ class ErpBackupTables {
 
   /// Zyada tar tables ka primary key 'id' hota hai, isliye default
   /// wahi use hota hai. Agar kisi table ka key alag hai (jaise
-  /// composite unique constraint), yahan override daal do.
+  /// composite unique constraint ya identity column), yahan override daal do.
   /// Example: 'attendance_records': 'student_id,session_date'
   static const Map<String, String> conflictKeyOverrides = {
     'fee_transactions': 'receipt_no',
     'hr_salary_structures': 'employee_id',
+    'teachers': 'emp_id',
+  };
+
+  /// Tables jinka 'id' column GENERATED ALWAYS AS IDENTITY hai.
+  /// Import ke dauran inka 'id' column strip karna zaroori hai
+  /// taaki Postgres SQLState 428C9 throw na kare.
+  static const Set<String> tablesWithGeneratedIdentity = {
+    'teachers',
   };
 
   static String conflictKeyFor(String table) =>

@@ -204,6 +204,16 @@ class ErpBackupService {
               r['institution_id'] = institutionId;
             }
           }
+
+          // Tables jisme 'id' GENERATED ALWAYS AS IDENTITY hai (jaise 'teachers'),
+          // unme se 'id' column hatana zaroori hai warna Postgres SQLState 428C9 throw
+          // karta hai.
+          if (ErpBackupTables.tablesWithGeneratedIdentity.contains(table)) {
+            for (final r in parsedRows) {
+              r.remove('id');
+            }
+          }
+
           final batchResult = await _upsertInBatches(table, parsedRows);
           tr
             ..rows = batchResult.successCount
