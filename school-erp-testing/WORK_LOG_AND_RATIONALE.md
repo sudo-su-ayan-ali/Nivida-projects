@@ -34,6 +34,7 @@
 | **24. Phase 3 Section 2: HR & Monthly Payroll Module Verification** | Verify 16 tables, employee onboarding, salary structure formulas (Gross, PF, ESI, TDS, PT, Net), monthly payroll batch runs, loan EMI amortization, and recruitment pipeline. | Enhanced `HrService` & `AppState` with client DI and resilient offline fallbacks, fixed payroll local record updates, created `phase3_hr_payroll_test.dart` (6/6 tests passed), created contract test `test_phase3_hr_payroll_section2.py` (7/7 tests passed), and authored QA report. |
 | **25. Phase 3 Section 3: Transport, Hostel, Inventory, Parents & Settings Verification** | Verify remaining 5 modules: Transport fleet metrics, Hostel bed capacity enforcement, Inventory stock-in/out and low-stock alerts, Parents multi-child encapsulation, and Settings toggles/drafts. | Enhanced `SettingsService` with client DI, created `phase3_remaining_modules_test.dart` (5/5 tests passed), created contract test `test_phase3_remaining_section3.py` (6/6 tests passed), and authored QA report. |
 | **26. Phase 3 Milestone 3: Complex Modules Cumulative Sign-Off** | Full regression suite across all 7 complex subsystems in Phase 3. Quality Gate criteria: Zero P0/P1 defects, 100% pass rate. | Executed full test suite (18/18 Flutter tests passed, 21/21 Python tests passed; Cumulative 130/130 tests passed across Phases 1–3), verified multi-tenant isolation, and generated official Milestone 3 Sign-Off document. |
+| **27. Phase 4: Cross-Cutting Non-Functional Testing Verification** | Verify responsive layouts (<1100px vs >=1100px), Provider + Riverpod state coexistence, network resiliency & offline fallback, and rapid double-tap concurrency guards. | Created `phase4_non_functional_test.dart` (4/4 tests passed), created architectural contract test `test_phase4_non_functional.py` (4/4 tests passed), verified zero RenderFlex overflows and zero state collisions, and authored QA report. |
 
 ---
 
@@ -755,6 +756,36 @@
     Detailed QA report documenting Phase 3 Section 3 test execution results and findings.
 47. [**`QA&VAPT/QA/docs/milestone3_complex_modules_signoff.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/milestone3_complex_modules_signoff.md):
     Cumulative Quality Gate Sign-Off document formally approving Milestone 3 completion.
+
+---
+
+### 27. Phase 4: Cross-Cutting Non-Functional Testing Verification
+#### What Was Done:
+- Audited the cross-cutting dimensions across all 12 modules and the administrative shell:
+  - Multi-platform responsive layout breakpoints (<1100px stacked Column vs >=1100px multi-column Row via `_ResponsiveRow` in [`dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/screens/dashboard_screen.dart)).
+  - Hybrid state management coexistence (local `riverpod.ProviderScope` isolation for Fees and Hostel within the outer `Provider` tree).
+  - Network timeout and socket error handling with user-facing alerts preventing red-screen crashes.
+  - Concurrency guards (`isSaving` / `isLoading`) intercepting rapid double-taps before duplicate PostgREST mutations can trigger.
+- Authored automated Flutter test suite [`test/phase4_non_functional_test.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase4_non_functional_test.dart) covering all 4 dimensions (Responsive Layout, State Coexistence, Network Resiliency, Double-Tap Concurrency Guard) — **4/4 tests passed (100%)**.
+- Authored Python architectural contract test suite [`QA&VAPT/QA/tests/test_phase4_non_functional.py`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase4_non_functional.py) — **4/4 tests passed (100%)**.
+- Authored QA verification report [`QA&VAPT/QA/docs/phase4_non_functional_report.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase4_non_functional_report.md).
+
+#### Why It Was Done:
+- Enterprise ERPs must perform reliably under adverse operating conditions (variable mobile network speeds, rapid user inputs, and mixed-device screen viewports).
+- Validating non-functional dimensions fulfills DoD Quality Gate 4 (Performance & Platform).
+
+#### For What:
+- Guarantees zero yellow-and-black RenderFlex layout overflows across desktop, tablet, and mobile viewports.
+- Prevents race conditions, duplicate fee collections, and state management crashes.
+
+---
+
+48. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase4_non_functional_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase4_non_functional_test.dart):
+    Automated Flutter test suite verifying responsive layout, Riverpod/Provider coexistence, network resiliency, and double-tap concurrency (4/4 tests passed).
+49. [**`QA&VAPT/QA/tests/test_phase4_non_functional.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase4_non_functional.py):
+    Python architectural contract test suite verifying responsive breakpoint contracts, Riverpod isolation scopes, and error boundary patterns (4/4 tests passed).
+50. [**`QA&VAPT/QA/docs/phase4_non_functional_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase4_non_functional_report.md):
+    Detailed QA report documenting Phase 4 test execution results and findings.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
