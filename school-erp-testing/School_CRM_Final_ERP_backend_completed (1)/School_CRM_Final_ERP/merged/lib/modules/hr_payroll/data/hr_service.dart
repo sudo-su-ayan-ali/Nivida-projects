@@ -1,7 +1,17 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HrService {
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _clientInstance;
+  HrService({SupabaseClient? client}) : _clientInstance = client;
+
+  SupabaseClient get _client {
+    if (_clientInstance != null) return _clientInstance!;
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      throw StateError('Supabase client is not initialized.');
+    }
+  }
 
   Future<List<Map<String, dynamic>>> fetchDepartments() async {
     return await _client.from('hr_departments').select();

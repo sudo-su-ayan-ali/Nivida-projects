@@ -1,7 +1,17 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsService {
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _clientInstance;
+  SettingsService({SupabaseClient? client}) : _clientInstance = client;
+
+  SupabaseClient get _client {
+    if (_clientInstance != null) return _clientInstance!;
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      throw StateError('Supabase client is not initialized.');
+    }
+  }
 
   Future<Map<String, dynamic>?> fetchSettings() async {
     final rows = await _client.from('school_settings').select().limit(1);

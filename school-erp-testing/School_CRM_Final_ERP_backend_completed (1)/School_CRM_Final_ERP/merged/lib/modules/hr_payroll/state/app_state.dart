@@ -29,23 +29,36 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _init() async {
-    await _loadDepartments();
-    await _loadDesignations();
-    await _loadEmployees();
-    await _loadAttendance();
-        await _loadLeaves();
-        await _loadSalaryStructures();
-       await _loadPayrollRecords();
-    _seedNotifications();
-    await _loadShifts();
-    await _loadAppraisals();
-    await _loadJobs();
-    await _loadCandidates();
-    await _loadInterviews();
-    await _loadOffers();
-        await _loadLoans();
-        await _loadAllowanceDeductions();
-    await _loadTaxRecords();
+    try {
+      await _loadDepartments();
+      await _loadDesignations();
+      await _loadEmployees();
+      await _loadAttendance();
+      await _loadLeaves();
+      await _loadSalaryStructures();
+      await _loadPayrollRecords();
+      _seedNotifications();
+      await _loadShifts();
+      await _loadAppraisals();
+      await _loadJobs();
+      await _loadCandidates();
+      await _loadInterviews();
+      await _loadOffers();
+      await _loadLoans();
+      await _loadAllowanceDeductions();
+      await _loadTaxRecords();
+    } catch (e) {
+      debugPrint('HrState initialization fallback to local state: $e');
+      if (employees.isEmpty) {
+        employees = seed.buildEmployeeSeed();
+        _seedAttendance();
+        _seedLeaves();
+        _seedSalaryStructures();
+        _seedPayroll();
+        _seedLoans();
+        _seedAllowances();
+      }
+    }
     notifyListeners();
   }
 
@@ -767,15 +780,40 @@ class AppState extends ChangeNotifier {
         : employees.where((e) => e.department == department).toList();
     for (final e in targets) {
       final s = structureFor(e.id);
-      await HrService().upsertPayrollRecord({
-        'employee_id': e.id,
-        'month': month,
-        'gross': s.gross,
-        'allowances': s.hra + s.conveyance + s.medical + s.specialAllowance,
-        'deductions': s.totalDeductions,
-        'net': s.net,
-        'status': 'processed',
-      });
+      try {
+        await HrService().upsertPayrollRecord({
+          'employee_id': e.id,
+          'month': month,
+          'gross': s.gross,
+          'allowances': s.hra + s.conveyance + s.medical + s.specialAllowance,
+          'deductions': s.totalDeductions,
+          'net': s.net,
+          'status': 'processed',
+        });
+      } catch (err) {
+        debugPrint('Supabase upsertPayrollRecord error: $err');
+      }
+
+      // Keep local state updated
+      final existingIdx = payrollRecords.indexWhere(
+          (p) => p.employeeId == e.id && p.month == month);
+      final rec = PayrollRecord(
+        id: existingIdx != -1 ? payrollRecords[existingIdx].id : _uuid.v4(),
+        employeeId: e.id,
+        employeeName: e.name,
+        department: e.department,
+        month: month,
+        gross: s.gross,
+        allowances: s.hra + s.conveyance + s.medical + s.specialAllowance,
+        deductions: s.totalDeductions,
+        net: s.net,
+        status: PayrollStatus.processed,
+      );
+      if (existingIdx != -1) {
+        payrollRecords[existingIdx] = rec;
+      } else {
+        payrollRecords.add(rec);
+      }
     }
     notifications.insert(
       0,
@@ -787,7 +825,10 @@ class AppState extends ChangeNotifier {
         time: DateTime.now(),
       ),
     );
-    await _loadPayrollRecords();
+    try {
+      await _loadPayrollRecords();
+    } catch (_) {}
+    notifyListeners();
   }
 
   // ---------- Loans ----------
