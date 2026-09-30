@@ -1,0 +1,21 @@
+{
+  "assets": {},
+  "config": {
+    "build_asset_types": [
+      "code_assets/code"
+    ],
+    "extensions": {
+      "code_assets": {
+        "link_mode_preference": "dynamic",
+        "target_architecture": "x64",
+        "target_os": "linux"
+      }
+    },
+    "linking_enabled": false
+  },
+  "out_dir_shared": "/home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/.dart_tool/hooks_runner/shared/objective_c/build/",
+  "out_file": "/home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/.dart_tool/hooks_runner/objective_c/6b4ebf10e7/output.json",
+  "package_name": "objective_c",
+  "package_root": "/home/user/.pub-cache/hosted/pub.dev/objective_c-9.5.0/",
+  "user_defines": {}
+}

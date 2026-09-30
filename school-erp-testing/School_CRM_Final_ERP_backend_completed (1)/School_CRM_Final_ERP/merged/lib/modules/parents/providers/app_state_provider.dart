@@ -880,12 +880,11 @@ class AppStateProvider extends ChangeNotifier {
             .update({'amount_paid': due, 'status': 'paid'})
             .eq('id', row['id']);
 
-        await _client.from('fee_payments').insert({
-          'student_id': childId,
-          'amount_paid': due,
-          'payment_date': DateTime.now().toIso8601String().split('T').first,
-          'payment_mode': 'online',
-          'status': 'paid',
+        await _client.from('payments').insert({
+          'student_fee_id': row['id'],
+          'amount': due,
+          'status': 'confirmed',
+          if (_institutionId != null) 'institution_id': _institutionId,
         });
       }
 

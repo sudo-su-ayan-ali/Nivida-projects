@@ -29,14 +29,14 @@ class ErpBackupTables {
     'transport_messages', 'trips',
 
     // ---- day-to-day academic ----
-    'attendance', 'attendance_records', 'homework', 'homework_submissions',
+    'attendance_records', 'homework', 'homework_submissions',
     'assignments', 'documents', 'notices', 'notifications', 'school_events',
     'staff_messages', 'staff_leave_requests', 'parent_teacher_threads',
     'parent_teacher_messages',
 
     // ---- finance ----
-    'fee_structures', 'fee_payments', 'fee_transactions', 'fee_waivers',
-    'student_fees', 'installments', 'payments', 'income_entries', 'expenses',
+    'fee_structures', 'fee_transactions', 'fee_waivers',
+    'student_fees', 'payments', 'income_entries', 'expenses',
 
     // ---- examinations (strict dependency chain) ----
     'exams', 'exam_subject_schedule', 'exam_invigilators',

@@ -367,10 +367,10 @@ class _ExportImportCard extends StatelessWidget {
     );
   }
 
-  String _buildErrorReport(ErpBackupOutcome result) {
+  String _buildErrorReport(ErpBackupOutcome result, {required bool isImport}) {
     final buffer = StringBuffer();
     buffer.writeln('Total tables processed: ${result.tables.length}');
-    buffer.writeln('Total rows imported: ${result.totalRows}');
+    buffer.writeln('Total rows ${isImport ? "imported" : "exported"}: ${result.totalRows}');
     buffer.writeln();
     for (final f in result.failed) {
       buffer.writeln('${f.table}: ${f.error}');
@@ -404,7 +404,7 @@ class _ExportImportCard extends StatelessWidget {
               TextButton.icon(
                 onPressed: () {
                   Clipboard.setData(
-                      ClipboardData(text: _buildErrorReport(result)));
+                      ClipboardData(text: _buildErrorReport(result, isImport: isImport)));
                   ScaffoldMessenger.of(dialogCtx).showSnackBar(
                     const SnackBar(
                         content: Text('Saari errors clipboard me copy ho gayi')),
