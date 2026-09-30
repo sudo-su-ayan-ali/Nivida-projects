@@ -35,6 +35,7 @@
 | **25. Phase 3 Section 3: Transport, Hostel, Inventory, Parents & Settings Verification** | Verify remaining 5 modules: Transport fleet metrics, Hostel bed capacity enforcement, Inventory stock-in/out and low-stock alerts, Parents multi-child encapsulation, and Settings toggles/drafts. | Enhanced `SettingsService` with client DI, created `phase3_remaining_modules_test.dart` (5/5 tests passed), created contract test `test_phase3_remaining_section3.py` (6/6 tests passed), and authored QA report. |
 | **26. Phase 3 Milestone 3: Complex Modules Cumulative Sign-Off** | Full regression suite across all 7 complex subsystems in Phase 3. Quality Gate criteria: Zero P0/P1 defects, 100% pass rate. | Executed full test suite (18/18 Flutter tests passed, 21/21 Python tests passed; Cumulative 130/130 tests passed across Phases 1–3), verified multi-tenant isolation, and generated official Milestone 3 Sign-Off document. |
 | **27. Phase 4: Cross-Cutting Non-Functional Testing Verification** | Verify responsive layouts (<1100px vs >=1100px), Provider + Riverpod state coexistence, network resiliency & offline fallback, and rapid double-tap concurrency guards. | Created `phase4_non_functional_test.dart` (4/4 tests passed), created architectural contract test `test_phase4_non_functional.py` (4/4 tests passed), verified zero RenderFlex overflows and zero state collisions, and authored QA report. |
+| **28. Phase 5: Full Regression Suite & Final Release UAT Sign-Off** | Milestone 5 release sign-off requires complete regression verification across all 14 personas, 12 modules, and 104 DB tables with 100% pass rate. | Executed full test regression (75/75 Flutter client tests passed, 64/64 Python contract tests passed = 139/139 total tests, 100% pass rate, Zero P0/P1 defects), verified DoD Quality Gates 1-4, authored official Phase 5 Release Sign-Off Report, and certified system ready for release / VAPT penetration testing. |
 
 ---
 
@@ -780,12 +781,33 @@
 
 ---
 
+### 28. Phase 5: Full Regression Suite & Final Release UAT Sign-Off
+#### What Was Done:
+- Conducted the full regression audit across both testing stacks of EduSmart School ERP:
+  - **Flutter Client & Widget Regression Suite**: Ran all 11 test suites (`test/phase*.dart`) covering Authentication, Dashboard, Students, Teachers, Teacher Portal, Attendance, Fees, Examination, HR & Payroll, Transport/Hostel/Inventory/Parents/Settings, and Non-Functional dimensions. All 75 tests executed cleanly and passed (**75/75 passed, 100%**).
+  - **Supabase / PostgREST Contract Suite**: Executed the complete suite of 11 Python contract test suites in `QA&VAPT/QA/tests/` discovering and evaluating all 104 database tables, RLS policies, RBAC profiles, and dynamic aggregation queries (**64/64 passed, 100%**).
+  - Evaluated full compliance against the four enterprise Definition of Done (DoD) Quality Gates: Gate 1 (Smoke & Sanity), Gate 2 (Functional Integrity), Gate 3 (RBAC & Multi-Tenant Isolation), Gate 4 (Performance & Responsive UX).
+  - Authored the official Phase 5 Release Sign-Off Report: [`QA&VAPT/QA/docs/phase5_release_signoff_report.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase5_release_signoff_report.md).
+
+#### Why It Was Done:
+- To conclude the Master Quality Assurance Roadmap with mathematical and architectural certainty.
+- To verify that no defect leakage or regressions were introduced across earlier modules during the hardening of later modules.
+- To establish zero open P0/P1 defects and formally sign off on the platform's release readiness.
+
+#### For What:
+- Certifies that all 14 personas, 12 feature modules, administrative shell, and standalone Teacher Portal meet enterprise production standards.
+- Serves as the official greenlight milestone before transitioning into the adversarial VAPT (Vulnerability Assessment & Penetration Testing) phase.
+
+---
+
 48. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase4_non_functional_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase4_non_functional_test.dart):
     Automated Flutter test suite verifying responsive layout, Riverpod/Provider coexistence, network resiliency, and double-tap concurrency (4/4 tests passed).
 49. [**`QA&VAPT/QA/tests/test_phase4_non_functional.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase4_non_functional.py):
     Python architectural contract test suite verifying responsive breakpoint contracts, Riverpod isolation scopes, and error boundary patterns (4/4 tests passed).
 50. [**`QA&VAPT/QA/docs/phase4_non_functional_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase4_non_functional_report.md):
     Detailed QA report documenting Phase 4 test execution results and findings.
+51. [**`QA&VAPT/QA/docs/phase5_release_signoff_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase5_release_signoff_report.md):
+    Official Phase 5 Full Regression Suite & Final Release UAT Sign-Off Report certifying 139/139 passed tests and zero P0/P1 defects across all 14 roles and 12 modules.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
