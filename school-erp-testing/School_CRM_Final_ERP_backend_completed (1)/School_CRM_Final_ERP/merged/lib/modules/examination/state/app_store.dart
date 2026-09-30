@@ -14,10 +14,18 @@ import '../services/security_services.dart';
 import 'seed_data.dart';
 
 class AppStore extends ChangeNotifier {
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _clientInstance;
+  SupabaseClient get _client {
+    if (_clientInstance != null) return _clientInstance!;
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      throw StateError('Supabase client is not initialized.');
+    }
+  }
   bool examsLoading = false;
   String? institutionId;
-  final AuditService audit = AuditService();
+  final AuditService audit;
   AppUser? currentUser;
 
   // ---- collections (in-memory "database") ----
@@ -46,7 +54,9 @@ class AppStore extends ChangeNotifier {
   static const double moderationThresholdPercent =
       10; // config: flag if 2 evaluators differ >10%
 
-  AppStore() {
+  AppStore({SupabaseClient? client, AuditService? auditService})
+      : _clientInstance = client,
+        audit = auditService ?? AuditService(client: client) {
     final seed = SeedData.generate();
     demoUsers = seed.users;
     sessions = seed.sessions;
@@ -108,40 +118,6 @@ class AppStore extends ChangeNotifier {
             ),
           )
           .toList();
-      // -------------------------------------------------------------------
-      // Load real Courses (as "classes") + Sections from Supabase
-      // -------------------------------------------------------------------
-      // -------------------------------------------------------------------
-      // Load real Courses (as "classes") + Sections from Supabase
-      // -------------------------------------------------------------------
-      Future<void> loadCoursesFromSupabase() async {
-        try {
-          final courseRows = await _client.from('courses').select();
-          final sectionRows = await _client.from('sections').select();
-
-          final loadedClasses = <SchoolClass>[];
-          for (final row in courseRows as List) {
-            final sectionNames = (sectionRows as List)
-                .where((s) => s['course_id'] == row['id'])
-                .map((s) => s['name'].toString())
-                .toList();
-
-            loadedClasses.add(
-              SchoolClass(
-                id: row['id'],
-                name: row['name'] ?? '',
-                sections: sectionNames.isEmpty ? ['A'] : sectionNames,
-              ),
-            );
-          }
-
-          classes = loadedClasses;
-          notifyListeners();
-        } catch (err) {
-          // ignore: avoid_print
-          print('❌ Courses load error: $err');
-        }
-      }
 
       loadedExams.add(
         Examination(
@@ -836,23 +812,26 @@ class AppStore extends ChangeNotifier {
     );
    
     paperSets.add(paper);
-    _client
-        .from('question_papers')
-        .insert({
-          // ← NAYA
-          'id': paper.id, // ← NAYA
-          'institution_id': institutionId, // ← NAYA
-          'exam_id': examId, // ← NAYA
-          'subject_id': subjectId, // ← NAYA
-          'set_label': setLabel, // ← NAYA
-          'total_marks': paper.totalMarks, // ← NAYA
-          'status': paper.status.name, // ← NAYA
-          'submitted_by': _client.auth.currentUser?.id, // ← NAYA
-                    'question_ids': chosen.map((q) => q.id).toList(), // ← NAYA
-        })
-        .catchError(
-          (e) => debugPrint('Supabase paper insert failed: $e'),
-        ); // ← NAYA
+    try {
+      _client
+          .from('question_papers')
+          .insert({
+            'id': paper.id,
+            'institution_id': institutionId,
+            'exam_id': examId,
+            'subject_id': subjectId,
+            'set_label': setLabel,
+            'total_marks': paper.totalMarks,
+            'status': paper.status.name,
+            'submitted_by': _client.auth.currentUser?.id,
+            'question_ids': chosen.map((q) => q.id).toList(),
+          })
+          .catchError(
+            (e) => debugPrint('Supabase paper insert failed: $e'),
+          );
+    } catch (e) {
+      debugPrint('Supabase paper insert error: $e');
+    }
     audit.log(
       actor: currentUser!,
       action: 'Generated Question Paper',
@@ -870,19 +849,23 @@ class AppStore extends ChangeNotifier {
     final p = paperSets.firstWhere((p) => p.id == paperId);
     final old = p.status;
     p.status = status;
-    _client
-        .from('question_papers')
-        .update({
-          'status': status.name,
-          if (status == PaperStatus.approved)
-            'resolved_by': _client.auth.currentUser?.id,
-          if (status == PaperStatus.approved)
-            'resolved_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', paperId)
-        .catchError(
-          (e) => debugPrint('Supabase paper status update failed: $e'),
-        );
+    try {
+      _client
+          .from('question_papers')
+          .update({
+            'status': status.name,
+            if (status == PaperStatus.approved)
+              'resolved_by': _client.auth.currentUser?.id,
+            if (status == PaperStatus.approved)
+              'resolved_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', paperId)
+          .catchError(
+            (e) => debugPrint('Supabase paper status update failed: $e'),
+          );
+    } catch (e) {
+      debugPrint('Supabase paper status error: $e');
+    }
     audit.log(
       actor: currentUser!,
       action: 'Paper status changed',
@@ -930,15 +913,19 @@ class AppStore extends ChangeNotifier {
    void _transition(AnonymousBook b, BookStatus status, String note) {
     b.status = status;
     b.history.add(CustodyEvent(toStatus: status, actorUserId: currentUser!.name, note: note));
-    _client.from('exam_answer_books').update({
-      'status': status.name,
-      if (status == BookStatus.identityRevealed) 'identity_revealed': true,
-      if (b.studentId != null) 'student_id': b.studentId,
-      if (b.examinerId != null) 'examiner_id': b.examinerId,
-    }).eq('id', b.id).catchError((e) => print('❌ Book status update error: $e'));
-    _client.from('exam_book_custody_events').insert({
-      'book_id': b.id, 'to_status': status.name, 'actor_user_id': currentUser!.id, 'note': note,
-    }).catchError((e) => print('❌ Custody event error: $e'));
+    try {
+      _client.from('exam_answer_books').update({
+        'status': status.name,
+        if (status == BookStatus.identityRevealed) 'identity_revealed': true,
+        if (b.studentId != null) 'student_id': b.studentId,
+        if (b.examinerId != null) 'examiner_id': b.examinerId,
+      }).eq('id', b.id).catchError((e) => print('❌ Book status update error: $e'));
+      _client.from('exam_book_custody_events').insert({
+        'book_id': b.id, 'to_status': status.name, 'actor_user_id': currentUser!.id, 'note': note,
+      }).catchError((e) => print('❌ Custody event error: $e'));
+    } catch (e) {
+      debugPrint('❌ Transition db error: $e');
+    }
     audit.log(actor: currentUser!, action: 'Book ${b.anonId} -> ${status.label}', module: 'Answer Book Chain of Custody', referenceId: b.anonId, newValue: status.name);
     notifyListeners();
   }
@@ -1046,6 +1033,7 @@ class AppStore extends ChangeNotifier {
     rec.submitted = true;
     rec.locked = true;
     rec.submittedAt = DateTime.now();
+    if (!evaluations.any((e) => e.id == rec.id)) evaluations.add(rec);
     final b = books.firstWhere((b) => b.id == rec.bookId);
     _transition(b, BookStatus.evaluated, 'Marks submitted and locked by examiner');
     try {

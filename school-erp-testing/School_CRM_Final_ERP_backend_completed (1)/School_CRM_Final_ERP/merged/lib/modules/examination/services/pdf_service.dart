@@ -86,7 +86,7 @@ class PdfService {
     await Printing.layoutPdf(onLayout: (format) => doc.save(), name: 'code-preview.pdf');
   }
 
-  static Future<void> printAdmitCard(Student student, Examination exam, List<Subject> subjects) async {
+  static pw.Document buildAdmitCardDoc(Student student, Examination exam, List<Subject> subjects) {
     final doc = pw.Document();
     doc.addPage(pw.Page(
       pageFormat: PdfPageFormat.a5,
@@ -110,19 +110,23 @@ class PdfService {
         ],
       ),
     ));
+    return doc;
+  }
+
+  static Future<void> printAdmitCard(Student student, Examination exam, List<Subject> subjects) async {
+    final doc = buildAdmitCardDoc(student, exam, subjects);
     await Printing.layoutPdf(onLayout: (format) => doc.save(), name: 'admit-card-${student.rollNo}.pdf');
   }
-    /// Generates a certificate/marksheet PDF for a published result.
-  /// [verificationId] should be the same ID that gets persisted in
-  /// exam_certificates so the printed QR can be looked up later.
-  static Future<void> printCertificate(
+
+  /// Generates a certificate/marksheet PDF Document for a published result.
+  static pw.Document buildCertificateDoc(
     Student student,
     Examination exam,
     ResultRecord result,
     List<Subject> subjects, {
     required String verificationId,
     String schoolName = 'Sunrise Public School',
-  }) async {
+  }) {
     final doc = pw.Document();
     doc.addPage(
       pw.Page(
@@ -195,6 +199,28 @@ class PdfService {
           ],
         ),
       ),
+    );
+    return doc;
+  }
+
+  /// Generates a certificate/marksheet PDF for a published result.
+  /// [verificationId] should be the same ID that gets persisted in
+  /// exam_certificates so the printed QR can be looked up later.
+  static Future<void> printCertificate(
+    Student student,
+    Examination exam,
+    ResultRecord result,
+    List<Subject> subjects, {
+    required String verificationId,
+    String schoolName = 'Sunrise Public School',
+  }) async {
+    final doc = buildCertificateDoc(
+      student,
+      exam,
+      result,
+      subjects,
+      verificationId: verificationId,
+      schoolName: schoolName,
     );
     await Printing.layoutPdf(
       onLayout: (format) => doc.save(),

@@ -140,8 +140,18 @@ class AnonymousIdService {
 /// history (actor, role, action, module, before/after, timestamp).
 class AuditService {
   final List<AuditLogEntry> _entries = [];
-  final _client = Supabase.instance.client;
+  final SupabaseClient? _clientInstance;
+  SupabaseClient get _client {
+    if (_clientInstance != null) return _clientInstance!;
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      throw StateError('Supabase client is not initialized.');
+    }
+  }
   String? institutionId;
+
+  AuditService({SupabaseClient? client}) : _clientInstance = client;
 
   List<AuditLogEntry> get entries => List.unmodifiable(_entries.reversed);
 
@@ -163,26 +173,32 @@ class AuditService {
       newValue: newValue,
     );
     _entries.add(entry);
-    _client.from('exam_audit_log').insert({
-      'id': entry.id,
-      'institution_id': institutionId,
-      'actor_user_id': entry.actorUserId,
-      'actor_role': entry.actorRole,
-      'action': entry.action,
-      'module': entry.module,
-      'reference_id': entry.referenceId,
-      'previous_value': entry.previousValue,
-      'new_value': entry.newValue,
-      'session_info': entry.sessionInfo,
-      'created_at': entry.timestamp.toIso8601String(),
-    }).catchError((e) => debugPrint('❌ Audit log insert error: $e'));
+    try {
+      _client.from('exam_audit_log').insert({
+        'id': entry.id,
+        'institution_id': institutionId,
+        'actor_user_id': entry.actorUserId,
+        'actor_role': entry.actorRole,
+        'action': entry.action,
+        'module': entry.module,
+        'reference_id': entry.referenceId,
+        'previous_value': entry.previousValue,
+        'new_value': entry.newValue,
+        'session_info': entry.sessionInfo,
+        'created_at': entry.timestamp.toIso8601String(),
+      }).catchError((e) => debugPrint('❌ Audit log insert error: $e'));
+    } catch (e) {
+      debugPrint('❌ Audit log client error: $e');
+    }
   }
 
   /// Loads persisted audit history from Supabase so the trail survives
   /// app restarts / refreshes instead of living only in memory.
   Future<void> loadFromSupabase() async {
+    final client = _client;
+    if (client == null) return;
     try {
-      final rows = await _client.from('exam_audit_log').select();
+      final rows = await client.from('exam_audit_log').select();
       _entries
         ..clear()
         ..addAll((rows as List).map((r) => AuditLogEntry(

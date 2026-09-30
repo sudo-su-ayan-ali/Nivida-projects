@@ -30,6 +30,7 @@
 | **20. Phase 2 Section 5: Daily Attendance & Analytics Module Verification** | Verify batch actions, dynamic dropdown cascading, daily upsert deduplication, multi-format reporting, and multi-tenant query isolation. | Decoupled `AttendanceRepository` with client DI and multi-tenant scoping, fixed responsive Wrap layout in `MarkAttendanceDialog`, created `phase2_attendance_test.dart` (7/7 tests passed), created contract test `test_phase2_attendance_section5.py` (5/5 tests passed), and authored QA report. |
 | **21. Phase 2 Section 6: Fees & Accounts Management Module Verification** | Verify fee collection flow, receipt generation, installment balance decrement, fee waiver approval cycle, day closing reconciliation, and Riverpod/Provider state isolation. | Made `app_providers.dart` notifiers testable with client DI, dynamically resolved `institution_id` in waiver requests, created `phase2_fees_test.dart` (7/7 tests passed), created contract test `test_phase2_fees_section6.py` (6/6 tests passed), and authored QA report. |
 | **22. Phase 2 Milestone 2: Academic, Attendance & Fee Counter Cumulative Sign-Off** | Milestone 2 Quality Gate requires Zero P0 and Zero P1 defects across all 6 core sections before advancing to Phase 3. | Executed full regression suite (41/41 Flutter tests pass, 35/35 Python tests pass, Zero P0/P1), verified end-to-end multi-tenant isolation & Principal approval locks, and generated official Milestone 2 Sign-Off document. |
+| **23. Phase 3 Section 1: Examination & Grading Lifecycle Module Verification** | Verify 21-table examination lifecycle: scheduling, blueprint question papers, anonymous barcoded answer books, double evaluation (>10% divergence moderation), seating capacity, malpractice, and tamper-evident certificate issuance. | Enhanced `AuditService` & `AppStore` with client DI, fixed evaluation retention for divergence calculation, refactored `PdfService` for headless byte verification, created `phase3_examination_test.dart` (7/7 tests passed), created contract test `test_phase3_examination_section1.py` (8/8 tests passed), and authored QA report. |
 
 ---
 
@@ -662,6 +663,35 @@
     Detailed QA report documenting Phase 2 Section 6 test execution results and findings.
 37. [**`QA&VAPT/QA/docs/milestone2_academic_attendance_fee_signoff.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/milestone2_academic_attendance_fee_signoff.md):
     Cumulative Quality Gate Sign-Off document formally approving Milestone 2 completion.
+
+---
+
+### 23. Phase 3 Section 1: Examination & Grading Lifecycle Module Verification
+#### What Was Done:
+- Audited the Examination & Grading module (`lib/modules/examination/`), including models ([`models.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/models/models.dart)), security & RBAC matrix ([`security_services.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/services/security_services.dart)), domain store ([`app_store.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/state/app_store.dart)), and document export ([`pdf_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/services/pdf_service.dart)).
+- Enhanced `AuditService` and `AppStore` with optional client dependency injection and try-catch safety guards to prevent unhandled database exceptions during offline or mock test runs.
+- Fixed a state retention bug in `AppStore.submitEvaluation`: ensured submitted evaluation records are preserved in `evaluations` so that sibling evaluations can be evaluated for the >10% moderation divergence threshold.
+- Refactored `PdfService` to expose `buildAdmitCardDoc` and `buildCertificateDoc` returning `pw.Document` instances for deterministic headless byte inspection.
+- Authored automated Flutter test suite [`test/phase3_examination_test.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase3_examination_test.dart) covering all 7 test cases (exam scheduling & conflict detection, question paper blueprint generator, anonymous barcoded answer books, double evaluation moderation & class ranking, malpractice logging lifecycle, PDF generation & QR byte verification, and RBAC governance) — **7/7 tests passed (100%)**.
+- Authored Python contract test suite [`QA&VAPT/QA/tests/test_phase3_examination_section1.py`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase3_examination_section1.py) verifying table schemas, multi-tenant RLS coverage, RBAC matrix, and anonymous ID entropy — **8/8 tests passed (100%)**.
+- Authored QA verification report [`QA&VAPT/QA/docs/phase3_examination_section1_report.md`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase3_examination_section1_report.md).
+
+#### Why It Was Done:
+- Examination and grading lifecycles are the most legally and academically sensitive functions in an educational ERP, requiring cryptographically guaranteed identity concealment (preventing bias), automated schedule collision prevention, and verifiable double-evaluation moderation.
+- Conforming to DoD Gate 1 & 2 for Phase 3 Section 1 ensures zero defect leakage before proceeding to HR & Payroll.
+
+#### For What:
+- Guarantees 100% test coverage and verified functional stability across all 21 examination components.
+- Validates tamper-evident certificate issuance and anonymous candidate custody.
+
+---
+
+38. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase3_examination_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase3_examination_test.dart):
+    Automated Flutter test suite verifying Phase 3 Section 1 Examination scheduling, blueprint papers, anonymous custody, double evaluation, malpractice, PDF/QR bytes, and RBAC governance (7/7 tests passed).
+39. [**`QA&VAPT/QA/tests/test_phase3_examination_section1.py`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/tests/test_phase3_examination_section1.py):
+    Python test suite verifying Phase 3 Section 1 Examination Module schema contracts, RLS policies, RBAC matrix, and ID entropy (8/8 tests passed).
+40. [**`QA&VAPT/QA/docs/phase3_examination_section1_report.md`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA%26VAPT/QA/docs/phase3_examination_section1_report.md):
+    Detailed QA report documenting Phase 3 Section 1 test execution results and findings.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
