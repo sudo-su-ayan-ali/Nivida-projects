@@ -37,6 +37,7 @@
 | **27. Phase 4: Cross-Cutting Non-Functional Testing Verification** | Verify responsive layouts (<1100px vs >=1100px), Provider + Riverpod state coexistence, network resiliency & offline fallback, and rapid double-tap concurrency guards. | Created `phase4_non_functional_test.dart` (4/4 tests passed), created architectural contract test `test_phase4_non_functional.py` (4/4 tests passed), verified zero RenderFlex overflows and zero state collisions, and authored QA report. |
 | **28. Phase 5: Full Regression Suite & Final Release UAT Sign-Off** | Milestone 5 release sign-off requires complete regression verification across all 14 personas, 12 modules, and 104 DB tables with 100% pass rate. | Executed full test regression (75/75 Flutter client tests passed, 64/64 Python contract tests passed = 139/139 total tests, 100% pass rate, Zero P0/P1 defects), verified DoD Quality Gates 1-4, authored official Phase 5 Release Sign-Off Report, and certified system ready for release / VAPT penetration testing. |
 | **29. Fix Dashboard Data Tool Export/Import Schema Cache Errors** | The Principal dashboard's Data Tool export encountered PGRST205 errors for non-existent legacy tables (`attendance`, `fee_payments`, `installments`), causing failure logs. | Removed legacy table references from `ErpBackupTables.all`, corrected `payFee` to use `payments` with `student_fee_id` & `institution_id`, updated `_buildErrorReport` to accurately indicate "exported" vs "imported", verified 98/98 tables clean export without errors. |
+| **30. Fix Teachers Dashboard PostgREST 42703 & Scrollbar Exceptions** | Principal navigating to Teachers -> Dashboard failed to load with `PostgrestException: column tc_requests.institution_id does not exist` and `column teachers.institution_id does not exist`, plus a Chrome web `Scrollbar` assertion. | Implemented resilient 42703 PostgrestException fallback queries in `TeachersDashboardScreen` and `StudentRepository`, added explicit `ScrollController` binding and lifecycle disposal to `SingleChildScrollView`, and verified all 13 Phase 2 tests and 60 Python contract tests pass. |
 
 ---
 
@@ -833,7 +834,44 @@
     Enhanced error reporting to correctly reflect import vs export operation labels.
 
 ---
+
+### 30. Fix Teachers Dashboard PostgREST 42703 & Web Scrollbar Exceptions
+#### What Was Done:
+- Investigated and diagnosed two root causes preventing the Teachers dashboard from loading when logged in as Principal:
+  1. `PostgrestException (42703: column does not exist)`:
+     - In live Supabase database, `public.tc_requests`, `public.teachers`, and `public.hostel_blocks` do not have an `institution_id` column.
+     - `student_repository.dart` (`StudentRepository.load()`) queried `tc_requests`, `attendance_records`, and `hostel_blocks` with `.eq('institution_id', institutionId)`. When this threw uncaught code `42703`, the async chain broke.
+     - `teachers_dashboard_screen.dart` (`_loadTeachers()`) queried `teachers` with `.eq('institution_id', institutionId)` which failed with code `42703`. Furthermore, because `_isLoading = false` was only inside the happy path, any exception left the screen perpetually stuck on the loading spinner.
+  2. `The Scrollbar's ScrollController has no ScrollPosition attached`:
+     - On Flutter web (Chrome), `SingleChildScrollView` inside `TeachersDashboardScreen` lacked an explicit `ScrollController`, causing Flutter web's built-in `Scrollbar` mechanism to throw an assertion error upon rendering.
+- Implemented resilient query fallback pattern:
+  - In [`teachers_dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teachers/screens/teachers_dashboard_screen.dart):
+    - Added `ScrollController _scrollController = ScrollController();` bound to `SingleChildScrollView(controller: _scrollController)` and disposed in `dispose()`.
+    - Wrapped the `teachers` query in a `try on PostgrestException catch (e)` block that falls back to querying without the missing `institution_id` column if code `42703` is returned.
+    - Placed `_isLoading = false;` inside a `finally` block to guarantee the UI resolves from loading state regardless of outcome.
+  - In [`student_repository.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/students/data/student_repository.dart):
+    - Wrapped `tcQuery`, `presentQuery`, and `hostelQuery` in resilient `on PostgrestException catch (e)` fallback handlers for code `42703`.
+- Tested and verified:
+  - 13/13 Phase 2 unit & widget tests passed (`test/phase2_teachers_test.dart`, `test/phase2_students_test.dart`).
+  - 60/60 Python contract tests passed (`python3 -m unittest discover -s QA/tests -p "test_*.py"`).
+
+#### Why It Was Done:
+- Schema differences between development environments or table evolutions where secondary tables lack `institution_id` must not hard-crash the dashboard or leave the UI in an infinite loading state.
+- Web-specific scrollbar assertions must be prevented by correctly associating controllers to scrollables.
+
+#### For What:
+- The Principal can now navigate smoothly to Main Menu -> Teachers -> Dashboard without infinite spinners, uncaught PostgREST exceptions, or scrollbar assertion errors.
+
+---
+
+55. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/modules/teachers/screens/teachers_dashboard_screen.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/teachers/screens/teachers_dashboard_screen.dart):
+    Added explicit `_scrollController`, resilient `42703` exception fallback for `teachers`, and ensured `_isLoading = false` in `finally`.
+56. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/modules/students/data/student_repository.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/students/data/student_repository.dart):
+    Added resilient `42703` exception fallback when querying `tc_requests`, `attendance_records`, and `hostel_blocks`.
+
+---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+
 
 
 

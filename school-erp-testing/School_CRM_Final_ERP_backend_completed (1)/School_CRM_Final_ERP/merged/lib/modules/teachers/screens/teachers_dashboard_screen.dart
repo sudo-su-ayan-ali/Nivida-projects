@@ -41,6 +41,7 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
   int _page = 1;
   static const int _pageSize = 5;
 
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
 
   @override
@@ -48,6 +49,12 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
     super.initState();
     _teachers = [];
     _loadTeachers();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTeachers() async {
@@ -65,17 +72,37 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
       }
     } catch (_) {}
 
-    var query = client.from('teachers').select();
-    if (institutionId != null) {
-      query = query.eq('institution_id', institutionId);
+    try {
+      dynamic data;
+      try {
+        var query = client.from('teachers').select();
+        if (institutionId != null) {
+          query = query.eq('institution_id', institutionId);
+        }
+        data = await query.order('created_at');
+      } on PostgrestException catch (e) {
+        if (e.code == '42703' || e.message.contains('institution_id')) {
+          data = await client.from('teachers').select().order('created_at');
+        } else {
+          rethrow;
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _teachers = (data as List)
+              .map((row) => Teacher.fromMap(row as Map<String, dynamic>))
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading teachers: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-    final data = await query.order('created_at');
-    setState(() {
-      _teachers = (data as List)
-          .map((row) => Teacher.fromMap(row as Map<String, dynamic>))
-          .toList();
-      _isLoading = false;
-    });
   }
 
   List<StatTile> get _summaryTiles {
@@ -265,6 +292,7 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
+              controller: _scrollController,
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

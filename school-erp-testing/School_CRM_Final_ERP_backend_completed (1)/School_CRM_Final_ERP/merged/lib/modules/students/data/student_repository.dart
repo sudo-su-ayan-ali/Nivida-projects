@@ -50,30 +50,61 @@ class StudentRepository extends ChangeNotifier {
         (data as List).map((row) => Student.fromMap(row as Map<String, dynamic>)),
       );
 
-    var tcQuery = _client.from('tc_requests').select().eq('status', 'pending');
-    if (institutionId != null) {
-      tcQuery = tcQuery.eq('institution_id', institutionId);
+    dynamic tcRows;
+    try {
+      var tcQuery = _client.from('tc_requests').select().eq('status', 'pending');
+      if (institutionId != null) {
+        tcQuery = tcQuery.eq('institution_id', institutionId);
+      }
+      tcRows = await tcQuery;
+    } on PostgrestException catch (e) {
+      if (e.code == '42703' || e.message.contains('institution_id')) {
+        tcRows = await _client.from('tc_requests').select().eq('status', 'pending');
+      } else {
+        rethrow;
+      }
     }
-    final tcRows = await tcQuery;
     pendingTcRequests = (tcRows as List).length;
 
     final todayStr = DateTime.now().toIso8601String().split('T').first;
-    var presentQuery = _client
-        .from('attendance_records')
-        .select('id')
-        .eq('session_date', todayStr)
-        .eq('status', 'present');
-    if (institutionId != null) {
-      presentQuery = presentQuery.eq('institution_id', institutionId);
+    dynamic presentRows;
+    try {
+      var presentQuery = _client
+          .from('attendance_records')
+          .select('id')
+          .eq('session_date', todayStr)
+          .eq('status', 'present');
+      if (institutionId != null) {
+        presentQuery = presentQuery.eq('institution_id', institutionId);
+      }
+      presentRows = await presentQuery;
+    } on PostgrestException catch (e) {
+      if (e.code == '42703' || e.message.contains('institution_id')) {
+        presentRows = await _client
+            .from('attendance_records')
+            .select('id')
+            .eq('session_date', todayStr)
+            .eq('status', 'present');
+      } else {
+        rethrow;
+      }
     }
-    final presentRows = await presentQuery;
     presentTodayCount = (presentRows as List).length;
 
-    var hostelQuery = _client.from('hostel_blocks').select('id');
-    if (institutionId != null) {
-      hostelQuery = hostelQuery.eq('institution_id', institutionId);
+    dynamic hostelBlockRows;
+    try {
+      var hostelQuery = _client.from('hostel_blocks').select('id');
+      if (institutionId != null) {
+        hostelQuery = hostelQuery.eq('institution_id', institutionId);
+      }
+      hostelBlockRows = await hostelQuery;
+    } on PostgrestException catch (e) {
+      if (e.code == '42703' || e.message.contains('institution_id')) {
+        hostelBlockRows = await _client.from('hostel_blocks').select('id');
+      } else {
+        rethrow;
+      }
     }
-    final hostelBlockRows = await hostelQuery;
     activeHostelBlocksCount = (hostelBlockRows as List).length;
 
     isLoading = false;
