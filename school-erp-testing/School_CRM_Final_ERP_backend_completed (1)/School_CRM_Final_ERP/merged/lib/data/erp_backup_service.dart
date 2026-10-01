@@ -207,10 +207,10 @@ class ErpBackupService {
 
           // Tables jisme 'id' GENERATED ALWAYS AS IDENTITY hai (jaise 'teachers'),
           // unme se 'id' column hatana zaroori hai warna Postgres SQLState 428C9 throw
-          // karta hai.
+          // karta hai. Case-insensitive aur whitespace-insensitive check lagao.
           if (ErpBackupTables.tablesWithGeneratedIdentity.contains(table)) {
             for (final r in parsedRows) {
-              r.remove('id');
+              r.removeWhere((k, _) => k.trim().toLowerCase() == 'id');
             }
           }
 
@@ -240,7 +240,7 @@ class ErpBackupService {
   List<Map<String, dynamic>> _sheetToMaps(xls.Sheet sheet) {
     if (sheet.maxRows < 2) return [];
     final headerRow = sheet.row(0);
-    final headers = headerRow.map((c) => c?.value?.toString() ?? '').toList();
+    final headers = headerRow.map((c) => c?.value?.toString().trim() ?? '').toList();
     if (headers.length == 1 &&
         (headers.first == '(no data)' ||
             headers.first.startsWith('EXPORT FAILED'))) {
