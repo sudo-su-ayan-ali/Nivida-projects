@@ -84,15 +84,38 @@ int totalAdmissionsThisSession = 0;
         employeesQuery = employeesQuery.eq('institution_id', institutionId);
       }
       final employeesData = await employeesQuery;
-      totalTeachers = (employeesData as List).where((row) {
+      int employeeTeachers = (employeesData as List).where((row) {
         final designation = (row['designation'] as String?)?.toLowerCase();
         if (designation == null) return false;
         return _teachingDesignationKeywords.any(
           (keyword) => designation.contains(keyword),
         );
       }).length;
+
+      // Also check teachers table (which the Teachers module and backup import use)
+      int directTeachers = 0;
+      try {
+        var teachersQuery = _client.from('teachers').select('id');
+        if (institutionId != null) {
+          teachersQuery = teachersQuery.eq('institution_id', institutionId);
+        }
+        final teachersData = await teachersQuery;
+        directTeachers = (teachersData as List).length;
+      } on PostgrestException catch (e) {
+        if (e.code == '42703' || e.message.contains('institution_id')) {
+          final teachersData = await _client.from('teachers').select('id');
+          directTeachers = (teachersData as List).length;
+        } else {
+          debugPrint('DASHBOARD DEBUG: teachers query fallback failed: $e');
+        }
+      } catch (e) {
+        debugPrint('DASHBOARD DEBUG: direct teachers query failed: $e');
+      }
+
+      totalTeachers = directTeachers > 0 ? directTeachers : employeeTeachers;
+      debugPrint('DASHBOARD DEBUG: totalTeachers = $totalTeachers (direct=$directTeachers, employeeTeachers=$employeeTeachers)');
     } catch (e) {
-      debugPrint('DASHBOARD DEBUG: employees query failed: $e');
+      debugPrint('DASHBOARD DEBUG: employees/teachers query failed: $e');
     }
 
     try {

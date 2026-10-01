@@ -146,7 +146,7 @@ class StatCardsRow extends StatelessWidget {
         children: [
           for (final data in _liveCards)
             SizedBox(width: cardWidth, child: _StatCard(data: data)),
-          SizedBox(width: cardWidth, child: const _ExportImportCard()),
+          SizedBox(width: cardWidth, child: _ExportImportCard(repo: repo)),
         ],
       );
     });
@@ -268,7 +268,8 @@ class _StatCardState extends State<_StatCard> {
 }
 
 class _ExportImportCard extends StatelessWidget {
-  const _ExportImportCard();
+  final DashboardRepository? repo;
+  const _ExportImportCard({this.repo});
 
   Future<void> _handleExport(BuildContext context) async {
     _showProgressDialog(context, 'Exporting... please wait');
@@ -324,12 +325,15 @@ class _ExportImportCard extends StatelessWidget {
     if (!context.mounted) return;
     _showProgressDialog(context, 'Importing... please wait');
     try {
-   final result = await ErpBackupService().importFromExcelBytes(
-  picked.files.single.bytes!,
-  onProgress: (table, done, total) {
-    _ImportExportProgress.label.value = 'Importing $table ($done/$total)';
-  },
-);
+      final result = await ErpBackupService().importFromExcelBytes(
+        picked.files.single.bytes!,
+        onProgress: (table, done, total) {
+          _ImportExportProgress.label.value = 'Importing $table ($done/$total)';
+        },
+      );
+      if (repo != null) {
+        await repo!.load();
+      }
       if (!context.mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       _showResultDialog(context, 'Import complete', result, isImport: true);
@@ -488,7 +492,7 @@ class _ExportImportCard extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(dialogCtx);
-              if (isImport && failed.isEmpty) {
+              if (isImport && (failed.isEmpty || result.totalRows > 0)) {
                 RestartWidget.restartApp(context);
               }
             },

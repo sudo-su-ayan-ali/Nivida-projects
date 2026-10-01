@@ -37,7 +37,8 @@
 | **27. Phase 4: Cross-Cutting Non-Functional Testing Verification** | Verify responsive layouts (<1100px vs >=1100px), Provider + Riverpod state coexistence, network resiliency & offline fallback, and rapid double-tap concurrency guards. | Created `phase4_non_functional_test.dart` (4/4 tests passed), created architectural contract test `test_phase4_non_functional.py` (4/4 tests passed), verified zero RenderFlex overflows and zero state collisions, and authored QA report. |
 | **28. Phase 5: Full Regression Suite & Final Release UAT Sign-Off** | Milestone 5 release sign-off requires complete regression verification across all 14 personas, 12 modules, and 104 DB tables with 100% pass rate. | Executed full test regression (75/75 Flutter client tests passed, 64/64 Python contract tests passed = 139/139 total tests, 100% pass rate, Zero P0/P1 defects), verified DoD Quality Gates 1-4, authored official Phase 5 Release Sign-Off Report, and certified system ready for release / VAPT penetration testing. |
 | **29. Fix Dashboard Data Tool Export/Import Schema Cache Errors** | The Principal dashboard's Data Tool export encountered PGRST205 errors for non-existent legacy tables (`attendance`, `fee_payments`, `installments`), causing failure logs. | Removed legacy table references from `ErpBackupTables.all`, corrected `payFee` to use `payments` with `student_fee_id` & `institution_id`, updated `_buildErrorReport` to accurately indicate "exported" vs "imported", verified 98/98 tables clean export without errors. |
-| **30. Fix Teachers Dashboard PostgREST 42703 & Scrollbar Exceptions** | Principal navigating to Teachers -> Dashboard failed to load with `PostgrestException: column tc_requests.institution_id does not exist` and `column teachers.institution_id does not exist`, plus a Chrome web `Scrollbar` assertion. | Implemented resilient 42703 PostgrestException fallback queries in `TeachersDashboardScreen` and `StudentRepository`, added explicit `ScrollController` binding and lifecycle disposal to `SingleChildScrollView`, and verified all 13 Phase 2 tests and 60 Python contract tests pass. |
+| **31. Fix Admin Data Tool Import 428C9 & 42P10 Constraint Errors on Teachers Table** | PostgreSQL raised 428C9 (cannot insert non-DEFAULT into identity column) and 42P10 (no matching unique constraint on emp_id) when importing teachers from Excel. | Stripped generated identity column `id` from batch rows and resolved conflict key to `id`, enabling clean upsert of teacher data. |
+| **32. Fix Data Persistence & Immediate UI Synchronization After Excel Import** | Users reported imported data not appearing / persisting in the ERP UI because (1) `RestartWidget.restartApp` was gated behind `failed.isEmpty`, (2) `DashboardRepository.totalTeachers` queried `employees` rather than `teachers`, and (3) `DashboardRepository.load()` was not re-invoked upon import completion. | Connected `DashboardRepository` to `_ExportImportCard`, reloaded repository immediately after import completes, enabled app restart on dialog dismissal whenever rows are imported, and updated `DashboardRepository.totalTeachers` to check both `teachers` and `employees` tables. |
 
 ---
 
@@ -906,6 +907,40 @@
     Added automatic stripping of `id` for tables marked in `tablesWithGeneratedIdentity` during Excel import.
 59. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/test/phase2_teachers_test.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/test/phase2_teachers_test.dart):
     Added unit test validating conflict key resolution and identity column stripping.
+
+### 32. Fix Data Persistence & Immediate UI Synchronization After Excel Import
+#### What Was Done:
+- Investigated user report: *"data is not persisting in the project after importing the data"* following an Excel backup import via the Dashboard Data Tool.
+- Performed end-to-end diagnostic across Supabase database, data layer, and presentation widgets:
+  1. **Database Persistence Verification:**
+     - Authenticated live as Principal (`PRC001`) and verified that imported rows **were successfully persisted** in Supabase (`public.teachers` contains 518 rows, `public.students` contains 39 rows).
+  2. **Root Causes of Non-Persistence Perception in UI:**
+     - **Defect A: Gated App Restart in Result Dialog:** In `lib/widgets/stat_cards_row.dart`, `RestartWidget.restartApp(context)` was only invoked if `failed.isEmpty`. If even a single non-critical table or optional table had a skip or warning during the 94-table import, `failed.isNotEmpty` was true, preventing the app from reloading. The user was left viewing the stale in-memory state.
+     - **Defect B: Missing Repository Reload Post-Import:** In `_ExportImportCard._handleImport()`, `ErpBackupService().importFromExcelBytes()` was invoked without calling `repo.load()`, leaving `DashboardRepository` in its pre-import state until manually forced.
+     - **Defect C: Schema Disconnect in KPI Metric (`totalTeachers`):** In `lib/data/dashboard_repository.dart`, `totalTeachers` was computed exclusively from `public.employees` (matching keywords like 'professor', 'teacher', 'hod'). When users imported data into the `teachers` sheet/table, `teachers` table had 518 records while `employees` only had 4 records, leaving the "Total Teachers" stat card static and creating the perception of non-persistence.
+- **Implemented Targeted Fixes:**
+  - In [`dashboard_repository.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/data/dashboard_repository.dart):
+    - Updated `load()` to check the `teachers` table count directly alongside `employees` (with resilient fallback for schema variations lacking `institution_id`). If `directTeachers > 0`, it accurately reflects the 500+ imported teachers on the dashboard.
+  - In [`stat_cards_row.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart):
+    - Passed `DashboardRepository` into `_ExportImportCard(repo: repo)`.
+    - Added `await repo!.load()` immediately following `importFromExcelBytes` completion.
+    - Updated `_showResultDialog` OK action to trigger `RestartWidget.restartApp(context)` whenever `isImport && (failed.isEmpty || result.totalRows > 0)`, ensuring all views, charts, and rosters refresh with the persisted data upon dismissing the dialog.
+- **Tested and Verified:**
+  - 14/14 Phase 2 unit & widget tests passed (`test/phase2_teachers_test.dart`, `test/phase2_dashboard_test.dart`).
+  - 60/60 QA test suite passed (`python3 -m unittest discover -s "QA&VAPT/QA/tests" -p "test_*.py"`).
+
+#### Why It Was Done:
+- When administrators import backups or bulk datasets, every screen and KPI card must immediately reflect the updated database state without requiring browser refreshes or remaining stuck on stale in-memory cached data.
+
+#### For What:
+- Guarantees immediate UI synchronization and visible persistence across all dashboard KPI cards and modules upon completing an Excel import.
+
+---
+
+60. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/data/dashboard_repository.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/data/dashboard_repository.dart):
+    Enabled `totalTeachers` calculation to reflect both `teachers` and `employees` tables with fallback resilience.
+61. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart):
+    Passed `DashboardRepository` to `_ExportImportCard`, reloaded repository immediately after import, and permitted `RestartWidget.restartApp` whenever `result.totalRows > 0`.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
