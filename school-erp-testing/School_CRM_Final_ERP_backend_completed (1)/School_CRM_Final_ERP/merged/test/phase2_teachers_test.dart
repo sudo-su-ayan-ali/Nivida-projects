@@ -244,9 +244,10 @@ void main() {
     });
 
     test('7. Teachers table conflict key and generated identity configuration', () {
-      // Teachers primary key in Supabase is an identity column (GENERATED ALWAYS AS IDENTITY).
-      // On Excel import, the conflict key must be emp_id, and teachers must be in tablesWithGeneratedIdentity.
-      expect(ErpBackupTables.conflictKeyFor('teachers'), equals('emp_id'));
+      // Teachers primary key in Supabase is the 'id' column (GENERATED ALWAYS AS IDENTITY).
+      // Because emp_id lacks a UNIQUE constraint in the DB, conflictKeyFor must use 'id'.
+      // Stripping 'id' prior to batch upsert prevents 428C9 and lets PostgreSQL assign IDs via sequence.
+      expect(ErpBackupTables.conflictKeyFor('teachers'), equals('id'));
       expect(ErpBackupTables.tablesWithGeneratedIdentity.contains('teachers'), isTrue);
 
       // Verify that stripping 'id' simulates correctly without mutating other keys
