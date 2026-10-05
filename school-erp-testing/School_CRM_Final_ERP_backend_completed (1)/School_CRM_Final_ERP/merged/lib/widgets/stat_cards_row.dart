@@ -125,13 +125,13 @@ class StatCardsRow extends StatelessWidget {
         ),
       ];
 
-  List<StatCardData> get _liveCards => _buildLiveCards();
+  List<StatCardData> get liveCards => _buildLiveCards();
 
   @override
   Widget build(BuildContext context) {
     void Function(int)? nav = onNavigate;
     if (nav == null) {
-      final dashboardState = context.findAncestorStateOfType<dynamic>();
+      final dashboardState = context.findAncestorStateOfType<State<StatefulWidget>>();
       if (dashboardState != null) {
         try {
           nav = (int idx) => (dashboardState as dynamic).navigateToSection(idx);
