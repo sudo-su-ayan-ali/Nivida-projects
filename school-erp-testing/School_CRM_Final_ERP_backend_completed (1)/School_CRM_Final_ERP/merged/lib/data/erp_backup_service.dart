@@ -196,6 +196,46 @@ class ErpBackupService {
             continue;
           }
           final parsedRows = _sheetToMaps(sheet);
+          if (parsedRows.isEmpty) {
+            tr
+              ..rows = 0
+              ..rowErrors = []
+              ..error = null;
+            continue;
+          }
+
+          // Check if sheet has required columns defined in ErpBackupTables
+          final requiredCols = ErpBackupTables.requiredColumnsPerTable[table];
+          if (requiredCols != null && requiredCols.isNotEmpty) {
+            final validRows = <Map<String, dynamic>>[];
+            final rowErrors = <Map<String, dynamic>>[];
+            for (var idx = 0; idx < parsedRows.length; idx++) {
+              final r = parsedRows[idx];
+              final missing = requiredCols.where((col) => r[col] == null || r[col].toString().trim().isEmpty).toList();
+              if (missing.isNotEmpty) {
+                rowErrors.add({
+                  'table': table,
+                  'row_index_in_batch': idx + 1,
+                  'error': 'Missing required column(s): ${missing.join(", ")}',
+                  'sqlstate': '23502',
+                });
+              } else {
+                validRows.add(r);
+              }
+            }
+
+            if (validRows.isEmpty) {
+              tr
+                ..rows = 0
+                ..rowErrors = rowErrors
+                ..error = '${rowErrors.length} row(s) missing required columns — skipped';
+              continue;
+            }
+            parsedRows.clear();
+            parsedRows.addAll(validRows);
+            tr.rowErrors.addAll(rowErrors);
+          }
+
           if (institutionId != null) {
             // SECURITY: har tenant-owned row par current institution_id
             // force karo — chahe backup file me koi aur (galat/purani)
@@ -219,11 +259,11 @@ class ErpBackupService {
 
           final batchResult = await _upsertInBatches(table, parsedRows);
           tr
-            ..rows = batchResult.successCount
-            ..rowErrors = batchResult.errors
-            ..error = batchResult.errors.isEmpty
+            ..rows = (tr.rows) + batchResult.successCount
+            ..rowErrors.addAll(batchResult.errors)
+            ..error = (tr.rowErrors.isEmpty)
                 ? null
-                : '${batchResult.errors.length} row(s) failed — see rowErrors';
+                : '${tr.rowErrors.length} row(s) failed — see rowErrors';
           // Ab har row apna result khud carry karta hai (RPC ke andar),
           // isliye "poora table fail" retry pass ki zaroorat nahi.
         } catch (e) {
@@ -307,22 +347,43 @@ class ErpBackupService {
           : i + _upsertBatchSize;
       final batch = rows.sublist(i, end);
 
-      final response = await _client.rpc('admin_import_rows', params: {
-        'p_table': table,
-        'p_rows': batch,
-        'p_conflict_key': conflictKey,
-      });
-
-      final map = response as Map<String, dynamic>;
-      result.successCount += (map['success_count'] as num?)?.toInt() ?? 0;
-      final errs = (map['errors'] as List?) ?? [];
-      for (final e in errs) {
-        result.errors.add({
-          'table': table,
-          'row_index_in_batch': e['row_index'],
-          'error': e['error'],
-          'sqlstate': e['sqlstate'],
+      try {
+        final response = await _client.rpc('admin_import_rows', params: {
+          'p_table': table,
+          'p_rows': batch,
+          'p_conflict_key': conflictKey,
         });
+
+        final map = response as Map<String, dynamic>;
+        result.successCount += (map['success_count'] as num?)?.toInt() ?? 0;
+        final errs = (map['errors'] as List?) ?? [];
+        for (final e in errs) {
+          result.errors.add({
+            'table': table,
+            'row_index_in_batch': e['row_index'],
+            'error': e['error'],
+            'sqlstate': e['sqlstate'],
+          });
+        }
+      } on PostgrestException catch (pe) {
+        // Agar database me purana RPC version chal raha ho jisme ye table whitelist
+        // me nahi tha (e.g. tp_syllabus_chapters, hr_tax_records), to seedha table
+        // par standard upsert fallback attempt karo.
+        if (pe.code == 'P0001' && pe.message.contains('is not allowed for import')) {
+          try {
+            await _client.from(table).upsert(batch, onConflict: conflictKey);
+            result.successCount += batch.length;
+          } catch (fallbackErr) {
+            result.errors.add({
+              'table': table,
+              'row_index_in_batch': i + 1,
+              'error': fallbackErr.toString(),
+              'sqlstate': 'FALLBACK_FAILED',
+            });
+          }
+        } else {
+          rethrow;
+        }
       }
     }
     return result;

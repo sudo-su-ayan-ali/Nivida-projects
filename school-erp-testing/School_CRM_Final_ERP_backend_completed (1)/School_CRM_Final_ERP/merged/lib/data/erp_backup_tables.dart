@@ -82,6 +82,19 @@ class ErpBackupTables {
     'hr_salary_structures': 'employee_id',
   };
 
+  /// Har table ke minimum required (NOT NULL without default) columns.
+  /// Agar Excel sheet me ye column missing ya corrupted ho, to invalid
+  /// rows database me bhej kar NOT NULL violation hone se pehle hi gracefully
+  /// skip/flag kar li jati hain.
+  static const Map<String, List<String>> requiredColumnsPerTable = {
+    'hr_departments': ['name'],
+    'hr_designations': ['name'],
+    'courses': ['name'],
+    'sections': ['name'],
+    'subjects': ['name'],
+    'students': ['full_name'],
+  };
+
   /// Tables jinka 'id' column GENERATED ALWAYS AS IDENTITY hai.
   /// Import ke dauran inka 'id' column strip karna zaroori hai
   /// taaki Postgres SQLState 428C9 throw na kare (sequence se auto-generate hoga).
