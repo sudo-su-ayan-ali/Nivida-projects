@@ -9,7 +9,7 @@ class ErpBackupTables {
   static const List<String> all = [
     // ---- institution-independent masters (no FK deps) ----
     'hr_departments', 'hr_designations', 'hr_shifts', 'inventory_items',
-    'library_books', 'question_bank_items', 'routes', 'vehicles', 'drivers',
+    'question_bank_items', 'routes', 'vehicles', 'drivers',
     'rooms', 'exam_rooms', 'hostel_blocks',
 
     // ---- academic core (departments/courses BEFORE sections/subjects) ----
@@ -20,9 +20,9 @@ class ErpBackupTables {
     'academic_sessions', 'school_settings', 'departments', 'courses', 'sections',
     'subjects', 'class_timetable', 'timetable_slots',
 
-    // ---- identity / people ----
+    // ---- identity / people (admissions BEFORE students) ----
     'profiles', 'employees', 'hr_employees', 'teachers', 'hostel_staff',
-    'students', 'hostel_students', 'parent_student_links', 'admissions',
+    'admissions', 'students', 'library_books', 'hostel_students', 'parent_student_links',
 
     // ---- transport ----
     'student_transport', 'transport_attendance', 'transport_fee_payments',
@@ -45,7 +45,7 @@ class ErpBackupTables {
     'exam_marks_corrections', 'exam_revaluation_requests', 'exam_results',
     'exam_result_subjects', 'exam_certificates',
     'exam_malpractice_incidents', 'exam_audit_log', 'exam_notifications',
-    'question_papers', 'assessment_records', 'results', 'tc_requests',
+    'question_papers', 'assessment_records', 'tc_requests',
 
     // ---- HR ----
     'hr_candidates', 'hr_jobs', 'hr_interviews', 'hr_offers',

@@ -201,7 +201,11 @@ class AppStateProvider extends ChangeNotifier {
 
         final results = await Future.wait<dynamic>([
           _client.from('attendance_records').select().eq('student_id', studentId),
-          _client.from('results').select().eq('student_id', studentId),
+          _client
+              .from('exam_results')
+              .select()
+              .eq('student_id', studentId)
+              .catchError((_) async => <Map<String, dynamic>>[]),
           _fetchFees(studentId),
         ]);
 
