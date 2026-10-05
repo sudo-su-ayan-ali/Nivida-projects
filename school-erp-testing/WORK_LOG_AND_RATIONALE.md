@@ -1031,8 +1031,32 @@
 #### Why It Was Done:
 - To eliminate runtime type errors and null check failures when parsing diverse Excel workbooks with empty rows, missing sheets, or sparse cell matrices.
 
-#### For What:
-- Guarantees crash-free Excel file ingestion across both Flutter Web and desktop platforms during data restore operations.
+70. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart):
+    Enhanced progress dialog lifecycle management with context capturing and non-blocking background repository refresh to resolve stuck loading dialogs upon import completion.
 
 ---
+
+### 36. Fix Infinite Loading State After Excel Import Completion in Principal Dashboard
+
+#### What Was Done:
+- **Root Cause Identification:**
+  - Audited `_handleImport()` in [`stat_cards_row.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart).
+  - Previously, `_showProgressDialog()` launched an `AlertDialog` route without retaining the dialog route's specific `BuildContext`.
+  - Upon completing `importFromExcelBytes()`, `await repo!.load()` was called synchronously before dismissing the progress dialog.
+  - Calling `await repo!.load()` triggered `notifyListeners()`, which rebuilt the parent `Consumer<DashboardRepository>` tree and caused `StatCardsRow` / `_ExportImportCard` widget context changes.
+  - When subsequent `Navigator.of(context, rootNavigator: true).pop()` attempted to dismiss the modal, context detachment or route stack race conditions prevented the progress dialog from closing, leaving the UI permanently stuck displaying "Importing... please wait" even though the database import succeeded.
+- **Implementation & Remediation:**
+  1. Updated `_showProgressDialog()` to accept an `onContextCreated` callback that captures the exact `dialogCtx` of the modal dialog route.
+  2. In `_handleImport()`, immediately dismissed the progress dialog using the captured `progressCtx` as soon as `importFromExcelBytes()` returned.
+  3. Dispatched `repo!.load().ignore()` in the background without blocking UI transition to the result summary dialog.
+  4. Applied the identical safe dismissal pattern to `_handleExport()`.
+
+#### Why It Was Done:
+- To eliminate UI freeze / stuck loading indicators when completing data imports, ensuring that the Principal is promptly shown the completion dialog and detailed table outcome report.
+
+#### For What:
+- Guarantees seamless UX lifecycle transitions from import progress -> dialog dismissal -> result summary display without requiring a manual page refresh.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*

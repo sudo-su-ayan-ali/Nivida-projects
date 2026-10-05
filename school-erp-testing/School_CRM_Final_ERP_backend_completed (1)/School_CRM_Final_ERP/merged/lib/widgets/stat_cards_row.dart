@@ -272,19 +272,32 @@ class _ExportImportCard extends StatelessWidget {
   const _ExportImportCard({this.repo});
 
   Future<void> _handleExport(BuildContext context) async {
-    _showProgressDialog(context, 'Exporting... please wait');
+    BuildContext? progressCtx;
+    _showProgressDialog(
+      context,
+      'Exporting... please wait',
+      onContextCreated: (ctx) => progressCtx = ctx,
+    );
     try {
       final result = await ErpBackupService().exportAllToExcel(
-  onProgress: (table, done, total) {
-    _ImportExportProgress.label.value = 'Exporting $table ($done/$total)';
-  },
-);
+        onProgress: (table, done, total) {
+          _ImportExportProgress.label.value = 'Exporting $table ($done/$total)';
+        },
+      );
+      if (progressCtx != null && progressCtx!.mounted) {
+        Navigator.of(progressCtx!).pop();
+      } else if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (!context.mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
       _showResultDialog(context, 'Export complete', result, isImport: false);
     } catch (e) {
+      if (progressCtx != null && progressCtx!.mounted) {
+        Navigator.of(progressCtx!).pop();
+      } else if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (!context.mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Export failed: $e')));
     }
@@ -332,7 +345,13 @@ class _ExportImportCard extends StatelessWidget {
     if (confirmed != true) return;
 
     if (!context.mounted) return;
-    _showProgressDialog(context, 'Importing... please wait');
+    BuildContext? progressCtx;
+    _showProgressDialog(
+      context,
+      'Importing... please wait',
+      onContextCreated: (ctx) => progressCtx = ctx,
+    );
+
     try {
       final result = await ErpBackupService().importFromExcelBytes(
         fileBytes,
@@ -340,15 +359,28 @@ class _ExportImportCard extends StatelessWidget {
           _ImportExportProgress.label.value = 'Importing $table ($done/$total)';
         },
       );
-      if (repo != null) {
-        await repo!.load();
+
+      // Dismiss the progress dialog immediately so the UI doesn't remain stuck
+      if (progressCtx != null && progressCtx!.mounted) {
+        Navigator.of(progressCtx!).pop();
+      } else if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
       }
+
+      // Reload dashboard in background
+      if (repo != null) {
+        repo!.load().ignore();
+      }
+
       if (!context.mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
       _showResultDialog(context, 'Import complete', result, isImport: true);
     } catch (e) {
+      if (progressCtx != null && progressCtx!.mounted) {
+        Navigator.of(progressCtx!).pop();
+      } else if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (!context.mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
       showDialog(
         context: context,
         builder: (diagCtx) => AlertDialog(
@@ -382,29 +414,38 @@ class _ExportImportCard extends StatelessWidget {
     }
   }
 
-   void _showProgressDialog(BuildContext context, String label) {
+  void _showProgressDialog(
+    BuildContext context,
+    String label, {
+    void Function(BuildContext)? onContextCreated,
+  }) {
     _ImportExportProgress.label.value = label;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ValueListenableBuilder<String>(
-                valueListenable: _ImportExportProgress.label,
-                builder: (_, value, __) => Text(value),
+      builder: (dialogCtx) {
+        if (onContextCreated != null) {
+          onContextCreated(dialogCtx);
+        }
+        return AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
               ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ValueListenableBuilder<String>(
+                  valueListenable: _ImportExportProgress.label,
+                  builder: (_, value, __) => Text(value),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
