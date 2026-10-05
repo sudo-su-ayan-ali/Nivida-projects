@@ -296,7 +296,16 @@ class _ExportImportCard extends StatelessWidget {
       allowedExtensions: ['xlsx'],
       withData: true,
     );
-    if (picked == null || picked.files.single.bytes == null) return;
+    if (picked == null || picked.files.isEmpty) return;
+    final pickedFile = picked.files.first;
+    Uint8List? fileBytes = pickedFile.bytes;
+    if (fileBytes == null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File content nahi padh paye. Please try again.')),
+      );
+      return;
+    }
 
     if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
@@ -326,7 +335,7 @@ class _ExportImportCard extends StatelessWidget {
     _showProgressDialog(context, 'Importing... please wait');
     try {
       final result = await ErpBackupService().importFromExcelBytes(
-        picked.files.single.bytes!,
+        fileBytes,
         onProgress: (table, done, total) {
           _ImportExportProgress.label.value = 'Importing $table ($done/$total)';
         },

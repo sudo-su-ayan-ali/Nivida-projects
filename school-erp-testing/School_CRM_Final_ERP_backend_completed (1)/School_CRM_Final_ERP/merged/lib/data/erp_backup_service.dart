@@ -191,7 +191,10 @@ class ErpBackupService {
         );
 
         try {
-          final sheet = workbook.sheets[table]!;
+          final sheet = workbook.sheets[table] ?? (workbook.tables.containsKey(table) ? workbook.tables[table] : null);
+          if (sheet == null) {
+            continue;
+          }
           final parsedRows = _sheetToMaps(sheet);
           if (institutionId != null) {
             // SECURITY: har tenant-owned row par current institution_id
@@ -223,7 +226,7 @@ class ErpBackupService {
                 : '${batchResult.errors.length} row(s) failed — see rowErrors';
           // Ab har row apna result khud carry karta hai (RPC ke andar),
           // isliye "poora table fail" retry pass ki zaroorat nahi.
-              } catch (e) {
+        } catch (e) {
           tr.error = e.toString();
           stillFailing.add(table);
         }
@@ -238,9 +241,12 @@ class ErpBackupService {
   }
 
   List<Map<String, dynamic>> _sheetToMaps(xls.Sheet sheet) {
-    if (sheet.maxRows < 2) return [];
-    final headerRow = sheet.row(0);
-    final headers = headerRow.map((c) => c?.value?.toString().trim() ?? '').toList();
+    final allRows = sheet.rows;
+    if (allRows.length < 2) return [];
+    final headerRow = allRows[0];
+    final headers = headerRow
+        .map((c) => c?.value?.toString().trim() ?? '')
+        .toList();
     if (headers.length == 1 &&
         (headers.first == '(no data)' ||
             headers.first.startsWith('EXPORT FAILED'))) {
@@ -248,8 +254,8 @@ class ErpBackupService {
     }
 
     final result = <Map<String, dynamic>>[];
-    for (var r = 1; r < sheet.maxRows; r++) {
-      final row = sheet.row(r);
+    for (var r = 1; r < allRows.length; r++) {
+      final row = allRows[r];
       final map = <String, dynamic>{};
       for (var c = 0; c < headers.length; c++) {
         if (headers[c].isEmpty) continue;

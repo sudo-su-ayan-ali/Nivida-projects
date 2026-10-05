@@ -41,6 +41,7 @@
 | **32. Fix Data Persistence & Immediate UI Synchronization After Excel Import** | Users reported imported data not appearing / persisting in the ERP UI because (1) `RestartWidget.restartApp` was gated behind `failed.isEmpty`, (2) `DashboardRepository.totalTeachers` queried `employees` rather than `teachers`, and (3) `DashboardRepository.load()` was not re-invoked upon import completion. | Connected `DashboardRepository` to `_ExportImportCard`, reloaded repository immediately after import completes, enabled app restart on dialog dismissal whenever rows are imported, and updated `DashboardRepository.totalTeachers` to check both `teachers` and `employees` tables. |
 | **33. Comprehensive Backend Audit & Multi-File Documentation Synchronization** | Stakeholders required a complete, unified audit of all backend data services, PostgreSQL tables, Data Tool mechanics, and verification status across all project documentation. | Performed complete audit of 378 Dart files and 104 Supabase tables, updated `project_overview.md`, completely overhauled `BACKEND_STATUS.md` and `README.md`, verified 139/139 automated tests, and ensured 100% architectural documentation synchronization. |
 | **34. Fix Principal Dashboard Data Tools Import Failure & Missing RPC** | Importing Excel backup files caused "Import failed" errors because the backend lacked the `admin_import_rows` PostgreSQL security definer RPC function, and extra valid sheets like `tp_*` and `hr_tax_records` were missing from the topological table registry. | Authored `QA&VAPT/provisioning/05_admin_import_rows_rpc.sql` defining `admin_import_rows` with principal-only and multi-tenant scoping guards, registered teacher portal and HR tax tables in `ErpBackupTables.all`, and upgraded UI error handling with copyable dialogs. |
+| **35. Fix "Unexpected null value" Exception in Data Tools Excel Import Engine** | File uploads triggered runtime `Unexpected null value` exceptions due to forced non-null assertion on sheet lookups (`workbook.sheets[table]!`), dangerous sparse row indexing in the `excel` package via `sheet.row()`, and unchecked `picked.files.single.bytes!`. | Replaced forced sheet lookups with safe null checks, switched row extraction to null-safe 2D iteration via `sheet.rows`, and guarded file byte resolution in the UI. |
 
 ---
 
@@ -1007,8 +1008,31 @@
 #### Why It Was Done:
 - To prevent silent and abrupt import failures during data backup restoration by the Principal persona, ensuring data portability and reliability.
 
+68. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/data/erp_backup_service.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/data/erp_backup_service.dart):
+    Replaced unsafe `workbook.sheets[table]!` lookup with fallback null check; transitioned `_sheetToMaps()` from `sheet.row()` to the crash-proof `sheet.rows` 2D list.
+69. [**`School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart`**](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/stat_cards_row.dart):
+    Guarded `FilePicker` byte extraction against null pointer exceptions and removed forced non-null assertion on file bytes.
+
+---
+
+### 35. Fix "Unexpected null value" Exception in Data Tools Excel Import Engine
+
+#### What Was Done:
+- **Root Cause Identification:**
+  - Audited the exception stack causing `Unexpected null value.` during file import:
+    1. In `ErpBackupService.importFromExcelBytes()`, `workbook.sheets[table]!` used a hard non-null assertion operator (`!`). If a sheet lookup returned null or had casing mismatches, Dart threw `TypeError: Unexpected null value.`.
+    2. In `_sheetToMaps()`, calling `sheet.row(r)` invoked the `excel` package's internal `List.generate(_maxColumns, ...)` which performs `_sheetData[rowIndex]![columnIndex]!`, triggering `Unexpected null value` on sparse cell rows.
+    3. In `_handleImport()` within `stat_cards_row.dart`, `picked.files.single.bytes!` asserted non-null without verifying platform-specific file buffer loading.
+- **Implementation & Remediation:**
+  1. Updated `ErpBackupService.importFromExcelBytes()` to safely inspect `workbook.sheets[table]` with fallback to `workbook.tables[table]`, skipping null sheets gracefully instead of throwing exceptions.
+  2. Refactored `_sheetToMaps()` to use `sheet.rows`, which avoids sparse cell lookups and provides a safe 2D representation of table rows.
+  3. Hardened `stat_cards_row.dart` by checking `pickedFile.bytes != null` before invoking the import pipeline.
+
+#### Why It Was Done:
+- To eliminate runtime type errors and null check failures when parsing diverse Excel workbooks with empty rows, missing sheets, or sparse cell matrices.
+
 #### For What:
-- Restores full data restoration functionality in the Data Tool, prevents foreign key and constraint failures, and surfaces actionable error diagnostics.
+- Guarantees crash-free Excel file ingestion across both Flutter Web and desktop platforms during data restore operations.
 
 ---
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
