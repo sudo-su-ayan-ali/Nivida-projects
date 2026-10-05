@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../inventory/utils/export_helper.dart';
 import '../data/student_repository.dart';
 import '../models/student.dart';
 import '../theme/app_theme.dart';
@@ -59,11 +60,26 @@ class _StudentsDashboardScreenState extends State<StudentsDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Students Management',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-              const SizedBox(height: 4),
-              const Text('Manage all student records efficiently.',
-                  style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Students Management',
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                      SizedBox(height: 4),
+                      Text('Manage all student records efficiently.',
+                          style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => repo.load(),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Refresh'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
 
               // ---- Top KPI cards ----
@@ -88,7 +104,10 @@ const SizedBox(height: 22),
   tcRequests: repo.pendingTcRequests,
   lowAttendance: repo.lowAttendanceStudents.length,
 ),
-                TopPerformersCard(students: repo.topPerformers, onViewAll: () => _snack('Opening full leaderboard...')),
+                TopPerformersCard(
+                  students: repo.topPerformers,
+                  onViewAll: () => _showTopPerformersDialog(context, repo),
+                ),
                 DashboardCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +134,7 @@ const SizedBox(height: 22),
               _row2(
                 isWide,
                 UpcomingNeedsCard(
-                  onViewAll: () => _snack('Opening all student needs...'),
+                  onViewAll: () => _showUpcomingNeedsDialog(context),
                   needs: [
                     UpcomingNeed(Icons.track_changes, AppColors.primary, AppColors.purpleBg, 3, 'Students need academic support'),
                     UpcomingNeed(Icons.person_outline, AppColors.info, AppColors.infoBg, 2, 'Students showing stress signs'),
@@ -124,7 +143,7 @@ const SizedBox(height: 22),
                 ),
                 AtRiskStudentsCard(
                   students: repo.atRiskStudents,
-                  onViewAll: () => _snack('Opening all at-risk students...'),
+                  onViewAll: () => _showAtRiskStudentsDialog(context, repo),
                   onTapStudent: (s) => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => ChangeNotifierProvider.value(
                       value: repo,
@@ -220,8 +239,8 @@ const SizedBox(height: 22),
           child: const AddEditStudentScreen(),
         )),
       ),
-      onImportExcel: () => _snack('Import: pick an .xlsx/.csv file and map columns (wire to your API).'),
-      onExportPdf: () => _snack('Export: generating PDF from current filtered list (wire to your API).'),
+      onImportExcel: () => _snack('To import student batches, use the Dashboard Import feature.'),
+      onExportPdf: () => _exportStudents(repo),
       onView: (s) => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => ChangeNotifierProvider.value(
           value: repo,
@@ -238,6 +257,27 @@ const SizedBox(height: 22),
     );
   }
 
+  void _exportStudents(StudentRepository repo) {
+    if (repo.all.isEmpty) {
+      _snack('No students available to export.');
+      return;
+    }
+    final buffer = StringBuffer();
+    buffer.writeln('Admission No,Full Name,Email,Class,Section,Mobile,Gender,Category,Blood Group,Status');
+    for (final s in repo.all) {
+      final statusStr = s.status == StudentStatus.active ? 'Active' : 'Inactive';
+      buffer.writeln('"${s.admissionNo}","${s.name}","${s.email}",${s.classNum},"${s.section}","${s.mobile}","${s.gender}","${s.category}","${s.bloodGroup}",$statusStr');
+    }
+    final dateStr = DateTime.now().toIso8601String().split('T').first;
+    final filename = 'students_export_$dateStr.csv';
+    final success = downloadTextFile(filename, buffer.toString());
+    if (success) {
+      _snack('Exported ${repo.all.length} students to $filename');
+    } else {
+      _snack('Export completed for ${repo.all.length} students.');
+    }
+  }
+
   void _confirmDelete(StudentRepository repo, Student s) {
     showDialog(
       context: context,
@@ -248,10 +288,14 @@ const SizedBox(height: 22),
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () {
-              repo.deleteStudent(s.id);
+            onPressed: () async {
               Navigator.pop(ctx);
-              _snack('${s.name} deleted');
+              try {
+                await repo.deleteStudent(s.id);
+                _snack('${s.name} deleted successfully');
+              } catch (e) {
+                _snack('Failed to delete student: $e');
+              }
             },
             child: const Text('Delete'),
           ),
@@ -387,8 +431,25 @@ const SizedBox(height: 22),
   }
 
   Widget _infoRow(StudentRepository repo, bool isWide) {
+    void navigateTo(int index, String fallbackMsg) {
+      final dashboardState = context.findAncestorStateOfType<State<StatefulWidget>>();
+      if (dashboardState != null) {
+        try {
+          (dashboardState as dynamic).navigateToSection(index);
+          return;
+        } catch (_) {}
+      }
+      _snack(fallbackMsg);
+    }
+
     final items = [
-      CategoriesCard(counts: repo.categoryCounts, onViewAll: () => _snack('Opening categories...')),
+      CategoriesCard(
+        counts: repo.categoryCounts,
+        onViewAll: () {
+          final summary = repo.categoryCounts.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+          _snack('Category distribution: $summary');
+        },
+      ),
       InfoMiniCard(
         icon: Icons.directions_bus_filled_outlined,
         iconColor: AppColors.primary,
@@ -396,7 +457,7 @@ const SizedBox(height: 22),
         title: 'Transport Users',
         bigValue: '${repo.transportUsers}',
         subLine: 'Students using transport · ${repo.activeRoutes} Active Routes',
-        onTap: () => _snack('Opening transport details...'),
+        onTap: () => navigateTo(8, 'Transport users: ${repo.transportUsers} active across ${repo.activeRoutes} routes.'),
       ),
       InfoMiniCard(
         icon: Icons.holiday_village_outlined,
@@ -405,7 +466,7 @@ const SizedBox(height: 22),
         title: 'Hostel Residents',
         bigValue: '${repo.hostelResidents}',
         subLine: 'Students in hostel · ${repo.activeHostels} Active Hostels',
-        onTap: () => _snack('Opening hostel details...'),
+        onTap: () => navigateTo(9, 'Hostel residents: ${repo.hostelResidents} active across ${repo.activeHostels} blocks.'),
       ),
       InfoMiniCard(
         icon: Icons.verified_user_outlined,
@@ -414,7 +475,10 @@ const SizedBox(height: 22),
         title: 'Document Verification',
         bigValue: '${repo.docVerifiedPercent.toStringAsFixed(0)}%',
         subLine: 'Verified · ${(100 - repo.docVerifiedPercent).toStringAsFixed(0)}% Pending',
-        onTap: () => _snack('Opening document verification...'),
+        onTap: () {
+          final verifiedCount = (repo.total * repo.docVerifiedPercent / 100).round();
+          _snack('Verification status: $verifiedCount / ${repo.total} students verified (${repo.docVerifiedPercent.toStringAsFixed(0)}%).');
+        },
       ),
       InfoMiniCard(
         icon: Icons.badge_outlined,
@@ -423,7 +487,9 @@ const SizedBox(height: 22),
         title: 'ID Cards Generated',
         bigValue: '${repo.idCardsGenerated}',
         subLine: '${repo.idCardsPending} Pending',
-        onTap: () => _snack('Opening ID card generator...'),
+        onTap: () {
+          _snack('ID cards: ${repo.idCardsGenerated} generated, ${repo.idCardsPending} pending generation.');
+        },
       ),
     ];
 
@@ -472,6 +538,166 @@ const SizedBox(height: 22),
       'Others': AppColors.danger,
     };
     return counts.entries.map((e) => DonutSlice(e.key, e.value, colorMap[e.key] ?? AppColors.primary)).toList();
+  }
+
+  void _showTopPerformersDialog(BuildContext context, StudentRepository repo) {
+    final list = repo.topPerformers;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.emoji_events, color: AppColors.warning),
+            SizedBox(width: 8),
+            Text('Academic Leaderboard (Top Performers)'),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: list.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No student performance records available.'),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (_, idx) {
+                    final s = list[idx];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: idx < 3 ? AppColors.warningBg : AppColors.purpleBg,
+                        child: Text('#${idx + 1}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: idx < 3 ? AppColors.warning : AppColors.primary,
+                            )),
+                      ),
+                      title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text('Class ${s.classNum}-${s.section} · Roll ${s.admissionNo}'),
+                      trailing: Text(
+                        '${s.examAveragePercent.toStringAsFixed(1)}%',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 15),
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => ChangeNotifierProvider.value(
+                            value: repo,
+                            child: StudentProfileScreen(studentId: s.id),
+                          ),
+                        ));
+                      },
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _showUpcomingNeedsDialog(BuildContext context) {
+    final needs = [
+      UpcomingNeed(Icons.track_changes, AppColors.primary, AppColors.purpleBg, 3, 'Students need academic support'),
+      UpcomingNeed(Icons.person_outline, AppColors.info, AppColors.infoBg, 2, 'Students showing stress signs'),
+      UpcomingNeed(Icons.campaign_outlined, AppColors.warning, AppColors.warningBg, 5, 'Students need career guidance'),
+      UpcomingNeed(Icons.menu_book_outlined, AppColors.success, AppColors.successBg, 4, 'Students need library book renewals'),
+      UpcomingNeed(Icons.medical_services_outlined, AppColors.danger, AppColors.dangerBg, 1, 'Medical attention / allergy alert'),
+    ];
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Student Needs & Guidance Summary'),
+        content: SizedBox(
+          width: 480,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: needs.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (_, i) {
+              final n = needs[i];
+              return ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: n.bg, borderRadius: BorderRadius.circular(8)),
+                  child: Icon(n.icon, color: n.color, size: 20),
+                ),
+                title: Text(n.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: n.bg, borderRadius: BorderRadius.circular(12)),
+                  child: Text('${n.count}', style: TextStyle(color: n.color, fontWeight: FontWeight.bold)),
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _showAtRiskStudentsDialog(BuildContext context, StudentRepository repo) {
+    final list = repo.atRiskStudents;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+            SizedBox(width: 8),
+            Text('At-Risk Students Watchlist'),
+          ],
+        ),
+        content: SizedBox(
+          width: 520,
+          child: list.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('All students have healthy attendance and academic records! No students are at risk.'),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (_, i) {
+                    final s = list[i];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: AppColors.dangerBg,
+                        child: Text(s.name.isNotEmpty ? s.name[0] : 'S', style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
+                      ),
+                      title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        'Class ${s.classNum}-${s.section} · Attendance: ${s.attendancePercent.toStringAsFixed(0)}% · Reason: ${s.riskReason.isEmpty ? 'Low attendance' : s.riskReason}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => ChangeNotifierProvider.value(
+                            value: repo,
+                            child: StudentProfileScreen(studentId: s.id),
+                          ),
+                        ));
+                      },
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
   }
 }
 

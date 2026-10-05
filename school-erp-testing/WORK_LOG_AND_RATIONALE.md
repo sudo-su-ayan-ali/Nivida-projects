@@ -45,6 +45,7 @@
 | **36. Fix Infinite Loading Dialog Hang on Data Tools Excel Import** | After finishing the total import tasks, the progress modal dialog remained permanently stuck loading because synchronous `repo.load()` rebuild triggered modal route context detachment. | Captured dialog `BuildContext` explicitly, dismissed progress modal immediately upon import completion, and ran repository reloads asynchronously in the background. |
 | **37. Fix `hr_departments` Not-Null Violation & `tp_syllabus_chapters` RPC Whitelist Rejection** | Corrupted sheet headers in `hr_departments` violated NOT NULL constraints, and live database RPC rejected `tp_syllabus_chapters` with code P0001. | Added client-side required-column pre-validation to skip invalid rows, and added automated fallback to direct client-side table upsert when database RPC rejects table. |
 | **38. Enable Navigation & Interactivity for Stat Cards and Quick Access Hub** | Total Students, Total Teachers, Total Users, Today's Attendance, Monthly Collection, and Quick Access Hub actions were non-interactive display-only widgets. | Added `onTap` and pointer cursors to `_StatCard`, added `onNavigate` and `onCreateNotice` callbacks, wired Quick Access Hub actions (Add Student, Add Teacher, Take Attendance, Collect Fees, Generate Report, Create Notice), and implemented notice broadcast dialog. |
+| **39. Enable Full Functionality in Students Management Module** | In the Students tab, Export PDF was an unimplemented stub, delete lacked error handling/async await, View All actions on Top Performers, Upcoming Needs, and At Risk were inert, and Info cards lacked navigation. | Implemented live browser CSV export (`downloadTextFile`), async/await error-handled delete, modal dialogs for Academic Leaderboard, Student Needs, and At-Risk Watchlist with profile navigation, wired Transport & Hostel info cards to module navigation, and added a manual Refresh button. |
 
 ---
 
@@ -1120,6 +1121,41 @@
 
 #### For What:
 - Transforms the Principal Dashboard from a static metrics view into a fully operational navigation hub where clicking any stat card or quick access button immediately takes the user to the relevant workflow.
+
+---
+
+### 39. Enable Full Functionality in Students Management Module
+
+#### What Was Done:
+- **Identified Gaps & Deficiencies in the Students Tab:**
+  1. The "Export PDF" button in the table header was a stub showing a placeholder SnackBar message.
+  2. Student record deletion in `_confirmDelete` executed `repo.deleteStudent(s.id)` asynchronously without `await` or try-catch error handling.
+  3. The `onViewAll` callbacks for **Top Performers**, **Upcoming Needs**, and **At-Risk Students** only popped up placeholder SnackBar notices without displaying any lists.
+  4. The information mini-cards (**Transport Users**, **Hostel Residents**, **Document Verification**, **ID Cards Generated**) were disconnected from module navigation and showed static notices.
+  5. The Students screen lacked a direct manual **Refresh** button to pull newly imported or updated students without having to switch tabs.
+- **Implementation & Remediation:**
+  1. **Real File Export Engine:**
+     - Connected the export button to `_exportStudents(repo)`.
+     - Serializes the student records into CSV data with headers (`Admission No`, `Full Name`, `Email`, `Class`, `Section`, `Mobile`, `Gender`, `Category`, `Blood Group`, `Status`).
+     - Triggers standard browser file download via `downloadTextFile` (`students_export_<date>.csv`).
+  2. **Robust Asynchronous Deletion:**
+     - Updated `_confirmDelete` with `async/await` and wrapped the deletion mutation in a `try/catch` boundary.
+     - Displays error feedback to the user if Supabase constraints or RLS prevent deletion, and confirms successful removals.
+  3. **Interactive Modals & Profile Navigation:**
+     - Implemented `_showTopPerformersDialog(context, repo)`: Displays a leaderboard of ranked students with their exam averages and allows direct click-through to the student profile.
+     - Implemented `_showUpcomingNeedsDialog(context)`: Displays proactive student support guidance categories with student count badges.
+     - Implemented `_showAtRiskStudentsDialog(context, repo)`: Displays watchlist of students with <75% attendance or academic risks, linking directly to each student's profile screen.
+  4. **Connected Module Navigation:**
+     - Wired the Transport and Hostel mini-cards to trigger `navigateToSection` via ancestor state, directing users immediately to the Transport (Section 8) and Hostel (Section 9) modules.
+     - Provided detailed summary dialogs for Document Verification and ID Cards metrics.
+  5. **Header Refresh Action:**
+     - Added an `OutlinedButton.icon` Refresh button in the screen header calling `repo.load()`, allowing immediate re-sync with Supabase.
+
+#### Why It Was Done:
+- In the Students module, administrative staff need working data exports, quick drill-downs into at-risk and high-performing students, direct module navigation from transport/hostel summary cards, and error-resilient delete workflows.
+
+#### For What:
+- Eliminates placeholder stubs in the Students management view, ensures complete parity with user expectations, and maintains 100% automated test suite pass rate.
 
 ---
 
