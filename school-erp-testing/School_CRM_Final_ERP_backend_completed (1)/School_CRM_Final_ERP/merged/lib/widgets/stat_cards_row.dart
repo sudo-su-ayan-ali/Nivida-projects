@@ -340,8 +340,36 @@ class _ExportImportCard extends StatelessWidget {
     } catch (e) {
       if (!context.mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      showDialog(
+        context: context,
+        builder: (diagCtx) => AlertDialog(
+          title: const Text('Import Failed ❌'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                e.toString(),
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: e.toString()));
+                ScaffoldMessenger.of(diagCtx).showSnackBar(
+                  const SnackBar(content: Text('Error copied to clipboard')),
+                );
+              },
+              child: const Text('Copy Error'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(diagCtx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     }
   }
 

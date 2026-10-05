@@ -60,6 +60,17 @@ class ErpBackupTables {
 
     // ---- misc ----
     'stock_movements',
+
+    // ---- teacher portal (tp_* tables — standalone mini-app tables) ----
+    // Note: tp_* tables are used exclusively by the Teacher Portal mini-app
+    // (app_state.dart). They are not institution-filtered at import time
+    // because they may not carry an institution_id column; the RPC handles
+    // this gracefully via the has_institution_id guard.
+    'tp_exams', 'tp_lesson_plans', 'tp_notifications', 'tp_ptm_slots',
+    'tp_resources', 'tp_syllabus_chapters', 'tp_todos',
+
+    // ---- HR tax records (added via sql/hr_tax_records_migration.sql) ----
+    'hr_tax_records',
   ];
 
   /// Zyada tar tables ka primary key 'id' hota hai, isliye default
