@@ -7,20 +7,58 @@ class _QuickAction {
   final IconData icon;
   final String label;
   final Color color;
-  const _QuickAction(this.icon, this.label, this.color);
+  final VoidCallback? onTap;
+  const _QuickAction(this.icon, this.label, this.color, {this.onTap});
 }
 
-const _actions = [
-  _QuickAction(Icons.person_add_alt_1_rounded, 'Add Student', Color(0xFF7B61FF)),
-  _QuickAction(Icons.badge_rounded, 'Add Teacher', Color(0xFF4A7BF7)),
-  _QuickAction(Icons.event_available_rounded, 'Take Attendance', Color(0xFF14B8A6)),
-  _QuickAction(Icons.payments_rounded, 'Collect Fees', Color(0xFFFB923C)),
-  _QuickAction(Icons.description_rounded, 'Generate Report', Color(0xFF4A7BF7)),
-  _QuickAction(Icons.campaign_rounded, 'Create Notice', Color(0xFFEF4476)),
-];
-
 class QuickAccessHubCard extends StatelessWidget {
-  const QuickAccessHubCard({super.key});
+  final void Function(int sectionIndex)? onNavigate;
+  final VoidCallback? onCreateNotice;
+
+  const QuickAccessHubCard({
+    super.key,
+    this.onNavigate,
+    this.onCreateNotice,
+  });
+
+  List<_QuickAction> get _actions => [
+        _QuickAction(
+          Icons.person_add_alt_1_rounded,
+          'Add Student',
+          const Color(0xFF7B61FF),
+          onTap: () => onNavigate?.call(1),
+        ),
+        _QuickAction(
+          Icons.badge_rounded,
+          'Add Teacher',
+          const Color(0xFF4A7BF7),
+          onTap: () => onNavigate?.call(2),
+        ),
+        _QuickAction(
+          Icons.event_available_rounded,
+          'Take Attendance',
+          const Color(0xFF14B8A6),
+          onTap: () => onNavigate?.call(4),
+        ),
+        _QuickAction(
+          Icons.payments_rounded,
+          'Collect Fees',
+          const Color(0xFFFB923C),
+          onTap: () => onNavigate?.call(5),
+        ),
+        _QuickAction(
+          Icons.description_rounded,
+          'Generate Report',
+          const Color(0xFF4A7BF7),
+          onTap: () => onNavigate?.call(6),
+        ),
+        _QuickAction(
+          Icons.campaign_rounded,
+          'Create Notice',
+          const Color(0xFFEF4476),
+          onTap: onCreateNotice,
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -82,32 +120,36 @@ class _ActionButtonState extends State<_ActionButton> {
   Widget build(BuildContext context) {
     final a = widget.action;
     return MouseRegion(
+      cursor: a.onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) => setState(() => hover = true),
       onExit: (_) => setState(() => hover = false),
-      child: AnimatedScale(
-        scale: hover ? 1.06 : 1.0,
-        duration: const Duration(milliseconds: 150),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: a.color.withOpacity(0.12),
-                shape: BoxShape.circle,
+      child: GestureDetector(
+        onTap: a.onTap,
+        child: AnimatedScale(
+          scale: hover ? 1.06 : 1.0,
+          duration: const Duration(milliseconds: 150),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: a.color.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(a.icon, color: a.color, size: 20),
               ),
-              child: Icon(a.icon, color: a.color, size: 20),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              a.label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.caption.copyWith(fontSize: 10.5),
-            ),
-          ],
+              const SizedBox(height: 6),
+              Text(
+                a.label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.caption.copyWith(fontSize: 10.5),
+              ),
+            ],
+          ),
         ),
       ),
     );

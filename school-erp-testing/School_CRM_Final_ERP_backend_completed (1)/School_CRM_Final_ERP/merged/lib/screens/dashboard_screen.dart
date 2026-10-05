@@ -1,6 +1,7 @@
 import '../data/approvals_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 // `hide ChangeNotifierProvider` avoids an ambiguous-import clash with the
 // ChangeNotifierProvider widget already used here from package:provider —
 // only ProviderScope (for the Fees module) is needed from Riverpod.
@@ -148,6 +149,156 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void navigateToSection(int realIndex) => _navigateToSection(realIndex);
+
+  void _navigateToSection(int realIndex) {
+    final visibleIdx = _allowedSections.indexOf(realIndex);
+    if (visibleIdx != -1) {
+      setState(() => selectedIndex = visibleIdx);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('${kSidebarItems[realIndex].label} module is not accessible for this role.'),
+        ),
+      );
+    }
+  }
+
+  void _handleCreateNotice() {
+    final titleCtrl = TextEditingController();
+    final bodyCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final audiences = ['All Classes', 'Class 10-A', 'Class 9-B', 'Class 8-A', 'Class 7-C', 'Parents'];
+    String selectedAudience = audiences.first;
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.campaign_rounded, color: Color(0xFFEF4476)),
+              SizedBox(width: 8),
+              Text('Create Notice'),
+            ],
+          ),
+          content: SizedBox(
+            width: 480,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Title *',
+                        hintText: 'e.g. Annual Sports Meet 2026',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Title is required' : null,
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedAudience,
+                      decoration: const InputDecoration(
+                        labelText: 'Audience',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: audiences
+                          .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setDlgState(() => selectedAudience = v);
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: bodyCtrl,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Notice Message *',
+                        hintText: 'Type your announcement message here...',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Notice message is required' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4476),
+              ),
+              icon: isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.send_rounded, size: 18),
+              label: Text(isSubmitting ? 'Posting...' : 'Broadcast Notice'),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDlgState(() => isSubmitting = true);
+                      try {
+                        final client = Supabase.instance.client;
+                        await client.from('notices').insert({
+                          'title': titleCtrl.text.trim(),
+                          'body': bodyCtrl.text.trim(),
+                          'audience': selectedAudience,
+                          'pinned': false,
+                        });
+                        if (ctx.mounted) {
+                          Navigator.of(ctx).pop();
+                        }
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: AppColors.success,
+                              content: Text('Notice broadcasted to $selectedAudience'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDlgState(() => isSubmitting = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: AppColors.danger,
+                              content: Text('Failed to post notice: $e'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Routes the sidebar selection to the right module — realIndex matches
   /// kSidebarItems exactly: 0 Dashboard, 1 Students, 2 Teachers,
   /// 3 Parents, 4 Attendance, 5 Fees, 6 Examinations, 7 Transport,
@@ -237,10 +388,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           overdue: repo.feeOverdue,
         ),
       ),
-                     Consumer<DashboardRepository>(
-             builder: (context, repo, _) => AdmissionChartCard(repo: repo),
-           ),
-      const QuickAccessHubCard(),
+      Consumer<DashboardRepository>(
+        builder: (context, repo, _) => AdmissionChartCard(repo: repo),
+      ),
+      QuickAccessHubCard(
+        onNavigate: _navigateToSection,
+        onCreateNotice: _handleCreateNotice,
+      ),
       const UpcomingEventsCard(),
     ],
     flexes: const [28, 24, 22, 26],

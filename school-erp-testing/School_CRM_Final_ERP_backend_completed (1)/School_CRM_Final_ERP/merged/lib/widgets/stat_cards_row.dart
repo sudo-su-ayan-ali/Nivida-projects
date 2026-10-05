@@ -17,6 +17,7 @@ class StatCardData {
   final String growth;
   final bool positive;
   final List<Color> gradient;
+  final VoidCallback? onTap;
   const StatCardData({
     required this.icon,
     required this.title,
@@ -24,6 +25,7 @@ class StatCardData {
     required this.growth,
     required this.positive,
     required this.gradient,
+    this.onTap,
   });
 }
 
@@ -72,12 +74,10 @@ final List<StatCardData> kStatCards = [
 
 class StatCardsRow extends StatelessWidget {
   final DashboardRepository repo;
-  const StatCardsRow({super.key, required this.repo});
+  final void Function(int sectionIndex)? onNavigate;
+  const StatCardsRow({super.key, required this.repo, this.onNavigate});
 
-  /// Builds the same 5 cards as before, but with real numbers coming
-  /// from Supabase (via DashboardRepository) instead of the hardcoded
-  /// kStatCards list above.
-  List<StatCardData> get _liveCards => [
+  List<StatCardData> _buildLiveCards([void Function(int)? nav]) => [
         StatCardData(
           icon: Icons.groups_2_rounded,
           title: 'Total Students',
@@ -85,6 +85,7 @@ class StatCardsRow extends StatelessWidget {
           growth: '',
           positive: true,
           gradient: AppColors.statGradients[0],
+          onTap: () => (nav ?? onNavigate)?.call(1),
         ),
         StatCardData(
           icon: Icons.co_present_rounded,
@@ -93,6 +94,7 @@ class StatCardsRow extends StatelessWidget {
           growth: '',
           positive: true,
           gradient: AppColors.statGradients[1],
+          onTap: () => (nav ?? onNavigate)?.call(2),
         ),
         StatCardData(
           icon: Icons.family_restroom_rounded,
@@ -101,6 +103,7 @@ class StatCardsRow extends StatelessWidget {
           growth: '',
           positive: true,
           gradient: AppColors.statGradients[2],
+          onTap: () => (nav ?? onNavigate)?.call(3),
         ),
         StatCardData(
           icon: Icons.event_available_rounded,
@@ -109,6 +112,7 @@ class StatCardsRow extends StatelessWidget {
           growth: '',
           positive: true,
           gradient: AppColors.statGradients[3],
+          onTap: () => (nav ?? onNavigate)?.call(4),
         ),
         StatCardData(
           icon: Icons.currency_rupee_rounded,
@@ -117,11 +121,24 @@ class StatCardsRow extends StatelessWidget {
           growth: '',
           positive: true,
           gradient: AppColors.statGradients[4],
+          onTap: () => (nav ?? onNavigate)?.call(5),
         ),
       ];
 
+  List<StatCardData> get _liveCards => _buildLiveCards();
+
   @override
   Widget build(BuildContext context) {
+    void Function(int)? nav = onNavigate;
+    if (nav == null) {
+      final dashboardState = context.findAncestorStateOfType<dynamic>();
+      if (dashboardState != null) {
+        try {
+          nav = (int idx) => (dashboardState as dynamic).navigateToSection(idx);
+        } catch (_) {}
+      }
+    }
+    final cards = _buildLiveCards(nav);
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth;
       // Determine how many cards fit per row based on width.
@@ -144,7 +161,7 @@ class StatCardsRow extends StatelessWidget {
         spacing: 16,
         runSpacing: 16,
         children: [
-          for (final data in _liveCards)
+          for (final data in cards)
             SizedBox(width: cardWidth, child: _StatCard(data: data)),
           SizedBox(width: cardWidth, child: _ExportImportCard(repo: repo)),
         ],
@@ -168,9 +185,12 @@ class _StatCardState extends State<_StatCard> {
   Widget build(BuildContext context) {
     final d = widget.data;
     return MouseRegion(
+      cursor: d.onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) => setState(() => hover = true),
       onExit: (_) => setState(() => hover = false),
-      child: AnimatedContainer(
+      child: GestureDetector(
+        onTap: d.onTap,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         transform: Matrix4.translationValues(0, hover ? -4 : 0, 0),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
@@ -261,6 +281,7 @@ class _StatCardState extends State<_StatCard> {
               ],
             ),
           ],
+          ),
         ),
       ),
     );
