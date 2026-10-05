@@ -49,11 +49,12 @@ class _DashCardState extends State<DashCard> {
 /// One of the five top summary tiles ("Total Teachers", "Departments"...).
 class SummaryStatCard extends StatelessWidget {
   final StatTile tile;
-  const SummaryStatCard({super.key, required this.tile});
+  final VoidCallback? onTap;
+  const SummaryStatCard({super.key, required this.tile, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return DashCard(
+    final content = DashCard(
       padding: const EdgeInsets.all(18),
       child: Row(
         children: [
@@ -80,6 +81,12 @@ class SummaryStatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (onTap == null) return content;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: content,
     );
   }
 }

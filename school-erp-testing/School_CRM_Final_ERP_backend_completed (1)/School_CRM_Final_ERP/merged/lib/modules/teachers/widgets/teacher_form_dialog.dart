@@ -80,6 +80,21 @@ class _TeacherFormDialogState extends State<TeacherFormDialog> {
         // avatar seed/birthday are cosmetic placeholders used elsewhere
         // in the dashboard's birthday-card widget.
         final now = DateTime.now();
+        String instId = _kInstitutionId;
+        try {
+          final userId = _client.auth.currentUser?.id;
+          if (userId != null) {
+            final profile = await _client
+                .from('profiles')
+                .select('institution_id')
+                .eq('id', userId)
+                .maybeSingle();
+            if (profile?['institution_id'] != null) {
+              instId = profile!['institution_id'] as String;
+            }
+          }
+        } catch (_) {}
+
         final row = {
           'emp_id': 'TCH${now.millisecondsSinceEpoch}',
           'name': _name.text.trim(),
@@ -91,7 +106,7 @@ class _TeacherFormDialogState extends State<TeacherFormDialog> {
           'avatar_seed': _name.text.trim(),
           'birth_day': 1 + (now.millisecond % 28),
           'birth_month': 'JUN',
-          'institution_id': _kInstitutionId,
+          'institution_id': instId,
         };
         final inserted =
             await _client.from('teachers').insert(row).select().single();

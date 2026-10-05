@@ -1,11 +1,6 @@
 // Basic smoke test for the merged EduSmart School ERP app.
 //
-// It just confirms the app boots to the Dashboard with the sidebar and
-// header visible. The individual modules (Students/Teachers/Parents/
-// Attendance) each still have their own logic covered by their own specs,
-// if/when those are copied over.
-
-import 'package:flutter/material.dart';
+// Confirms that the app boots into its entry login screen correctly.
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:edusmart_school_erp_flutter/main.dart';
@@ -13,10 +8,12 @@ import 'package:edusmart_school_erp_flutter/main.dart';
 void main() {
   testWidgets('App boots and shows the Dashboard shell', (WidgetTester tester) async {
     await tester.pumpWidget(const EduSmartApp());
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    // Sidebar brand + default Dashboard module should be visible on launch.
-    expect(find.text('EduSmart'), findsOneWidget);
-    expect(find.text('School ERP'), findsOneWidget);
+    // Initially the app boots to the login screen with 'Welcome Back' / 'Sign In'
+    expect(find.text('Sign In'), findsOneWidget);
+    expect(find.text('User ID'), findsOneWidget);
   });
 }
+

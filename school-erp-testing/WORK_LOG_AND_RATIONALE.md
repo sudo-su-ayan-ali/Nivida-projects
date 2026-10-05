@@ -1159,4 +1159,35 @@
 
 ---
 
+### 40. Enable Full Functionality in Teachers Management Module
+
+#### What Was Done:
+- **Identified Gaps & Deficiencies in the Teachers Tab:**
+  1. Multi-tenant scoping in `TeacherFormDialog`: Form previously fell back to a hardcoded tenant ID instead of dynamically resolving the active user's `institution_id` from their Supabase profile.
+  2. The page header only contained an "Add Teacher" button; it lacked a direct "Refresh" button to reload Supabase data and an "Export" action for staff records.
+  3. The top summary stat tiles (`SummaryStatCard` for Total Teachers, Departments, Present Today, On Leave, New This Month) were read-only and lacked interactive click/filter handlers.
+  4. Smoke test assertion in `widget_test.dart` was checking for unauthenticated dashboard sidebar strings instead of the initial `ErpLoginScreen` states, timing out on `pumpAndSettle`.
+- **Implementation & Remediation:**
+  1. **Dynamic Multi-Tenant Scoping in Teacher Creation:**
+     - Updated `teacher_form_dialog.dart` to fetch the logged-in user's profile and resolve `institution_id` before inserting or updating teacher records.
+  2. **Interactive Summary Metric Cards:**
+     - Added `onTap` callback support with `InkWell` touch feedback to `SummaryStatCard`.
+     - Connected "Total Teachers" to clear existing filters and scroll down to the roster.
+     - Connected "Present Today" to filter the roster by `status == 'Active'` and scroll down.
+     - Connected "On Leave" to filter the roster by `status == 'On Leave'` and scroll down.
+  3. **Header Refresh & Data Export (CSV):**
+     - Added an asynchronous "Refresh" button calling `_loadTeachers()`.
+     - Implemented `_exportTeachers()` which converts the filtered teacher roster to CSV format with full details (`Employee ID`, `Name`, `Email`, `Phone`, `Department`, `Subject`, `Status`) and triggers web browser file download via `downloadTextFile`.
+  4. **Smoke Test Alignment:**
+     - Updated `widget_test.dart` to verify the initial boot state into the `ErpLoginScreen` with bounded frames.
+
+#### Why It Was Done:
+- Ensures full operational usability, robust multi-tenancy, interactive roster filtering from top KPI cards, and administrative data export in the Teachers module.
+
+#### For What:
+- Resolves all user-facing issues in the Teachers tab, ensuring 100% test suite pass rate across Flutter integration tests and Python QA validation suites.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+

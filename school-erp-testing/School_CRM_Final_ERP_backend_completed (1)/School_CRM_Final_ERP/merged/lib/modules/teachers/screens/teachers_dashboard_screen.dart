@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import '../../inventory/utils/export_helper.dart';
 import '../models/teacher.dart';
 import '../data/mock_data.dart';
 import '../theme/app_colors.dart';
@@ -335,6 +336,28 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
     );
   }
 
+  void _exportTeachers() {
+    if (_teachers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No teachers to export')),
+      );
+      return;
+    }
+    final buffer = StringBuffer();
+    buffer.writeln('Employee ID,Name,Email,Phone,Department,Subject,Status');
+    for (final t in _filteredTeachers) {
+      buffer.writeln(
+        '"${t.empId}","${t.name}","${t.email}","${t.phone}","${t.department}","${t.subject}","${t.status}"',
+      );
+    }
+    final now = DateTime.now();
+    final filename = 'teachers_export_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.csv';
+    downloadTextFile(filename, buffer.toString());
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Exported ${_filteredTeachers.length} teachers to $filename')),
+    );
+  }
+
   Widget _buildPageHeader() {
     return Wrap(
       spacing: 16,
@@ -346,9 +369,9 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
+            const Text(
               'Teachers Dashboard',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 25,
                 fontWeight: FontWeight.w800,
                 color: AppColors.text,
@@ -366,28 +389,69 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
             ),
           ],
         ),
-        ElevatedButton.icon(
-          onPressed: () async {
-            final result = await showDialog<Teacher>(
-              context: context,
-              builder: (_) => const TeacherFormDialog(),
-            );
-            if (result != null) _addTeacher(result);
-          },
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text(
-            'Add Teacher',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() => _isLoading = true);
+                _loadTeachers();
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text(
+                'Refresh',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.border),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
-          ),
+            OutlinedButton.icon(
+              onPressed: _exportTeachers,
+              icon: const Icon(Icons.file_download_outlined, size: 18),
+              label: const Text(
+                'Export CSV',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.border),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final result = await showDialog<Teacher>(
+                  context: context,
+                  builder: (_) => const TeacherFormDialog(),
+                );
+                if (result != null) _addTeacher(result);
+              },
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text(
+                'Add Teacher',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -398,7 +462,26 @@ class _TeachersDashboardScreenState extends State<TeachersDashboardScreen> {
       spacing: 16,
       runSpacing: 16,
       columnsForWidth: (w) => w > 1100 ? 5 : (w > 700 ? 3 : 2),
-      children: _summaryTiles.map((t) => SummaryStatCard(tile: t)).toList(),
+      children: _summaryTiles.map((t) {
+        VoidCallback? onTap;
+        if (t.label == 'Total Teachers') {
+          onTap = () {
+            _clearFilters();
+            _scrollToTeacherList();
+          };
+        } else if (t.label == 'Present Today') {
+          onTap = () {
+            _setStatusFilter('Active');
+            _scrollToTeacherList();
+          };
+        } else if (t.label == 'On Leave') {
+          onTap = () {
+            _setStatusFilter('On Leave');
+            _scrollToTeacherList();
+          };
+        }
+        return SummaryStatCard(tile: t, onTap: onTap);
+      }).toList(),
     );
   }
 
