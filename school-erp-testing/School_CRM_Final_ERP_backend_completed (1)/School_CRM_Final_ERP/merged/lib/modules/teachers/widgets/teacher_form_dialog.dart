@@ -95,7 +95,7 @@ class _TeacherFormDialogState extends State<TeacherFormDialog> {
           }
         } catch (_) {}
 
-        final row = {
+        final row = <String, dynamic>{
           'emp_id': 'TCH${now.millisecondsSinceEpoch}',
           'name': _name.text.trim(),
           'email': _email.text.trim(),
@@ -106,11 +106,23 @@ class _TeacherFormDialogState extends State<TeacherFormDialog> {
           'avatar_seed': _name.text.trim(),
           'birth_day': 1 + (now.millisecond % 28),
           'birth_month': 'JUN',
-          'institution_id': instId,
         };
-        final inserted =
-            await _client.from('teachers').insert(row).select().single();
-        result = Teacher.fromMap(inserted);
+        dynamic inserted;
+        try {
+          final rowWithTenant = Map<String, dynamic>.from(row)
+            ..['institution_id'] = instId;
+          inserted = await _client.from('teachers').insert(rowWithTenant).select().single();
+        } on PostgrestException catch (e) {
+          if (e.code == 'PGRST204' ||
+              e.code == '42703' ||
+              e.message.contains('institution_id') ||
+              e.message.contains('instruction_id')) {
+            inserted = await _client.from('teachers').insert(row).select().single();
+          } else {
+            rethrow;
+          }
+        }
+        result = Teacher.fromMap(inserted as Map<String, dynamic>);
       }
       if (mounted) Navigator.pop(context, result);
     } catch (e) {
