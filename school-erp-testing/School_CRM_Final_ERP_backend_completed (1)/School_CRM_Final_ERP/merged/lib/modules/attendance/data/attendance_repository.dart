@@ -47,7 +47,7 @@ class AttendanceRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> markAttendance(String studentId, String className, DateTime date, String status) async {
+  Future<void> markAttendance(String studentId, String className, DateTime date, String status, {String? remarks}) async {
     final userId = _client.auth.currentUser?.id;
     final institutionId = await _resolveInstitutionId();
     final payload = <String, dynamic>{
@@ -56,6 +56,9 @@ class AttendanceRepository extends ChangeNotifier {
       'status': status,
       'marked_by': userId,
     };
+    if (remarks != null && remarks.isNotEmpty) {
+      payload['remarks'] = remarks;
+    }
     if (institutionId != null) {
       payload['institution_id'] = institutionId;
     }

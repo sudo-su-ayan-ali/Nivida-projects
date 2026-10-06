@@ -47,6 +47,7 @@
 | **38. Enable Navigation & Interactivity for Stat Cards and Quick Access Hub** | Total Students, Total Teachers, Total Users, Today's Attendance, Monthly Collection, and Quick Access Hub actions were non-interactive display-only widgets. | Added `onTap` and pointer cursors to `_StatCard`, added `onNavigate` and `onCreateNotice` callbacks, wired Quick Access Hub actions (Add Student, Add Teacher, Take Attendance, Collect Fees, Generate Report, Create Notice), and implemented notice broadcast dialog. |
 | **40. Enable Full Functionality in Teachers Management Module** | Teachers tab lacked multi-tenant institution resolution in registration dialog, lacked CSV export & refresh, and summary stat cards were non-interactive. | Added dynamic tenant resolution, live CSV export, filter-linked KPI cards, and schema-resilient teacher registration. |
 | **41. Enable Full Functionality in Parents & Student Portal Module** | In the Parents & Student tab, accounts with empty parent links saw an inert empty screen with no action buttons or navigation back; child linking failed due to schema mismatch (`enrollment_no` vs `admission_no`); attendance screen had duplicate navigation controls; and dashboard grid overflowed on narrow screens. | Added interactive empty state with "Add / Link Child" dialog, expanded child linking to query `enrollment_no` & `admission_no` scoped by tenant, added fallback child loading for portal preview, made navigation menu responsive, and removed duplicate navigation buttons. |
+| **42. Enable Full Functionality in Attendance Management Module** | In the Attendance tab, selecting a different date in the filter bar did not load attendance records from Supabase; bulk status updates only modified local state without saving to the database; CSV export only showed a toast without downloading a file; and table pagination was disconnected. Schema differences between `enrollment_no` vs `admission_no` and `name` vs `full_name` also caused empty roll numbers/names. | Wired dynamic date reload in `_applyFilters()`, added persistent bulk database update loop in `_bulkUpdateStatus()`, implemented live CSV file download in `_openExport()`, connected pagination with `_Pagination` footer in `attendance_table.dart`, and expanded `AttendanceRecord.fromMap()` to parse `full_name` and `enrollment_no` with remarks persistence in `AttendanceRepository.markAttendance()`. |
 
 ---
 
@@ -1223,6 +1224,44 @@
   - `phase3_remaining_modules_test.dart` (5/5 passed).
   - `test_phase3_remaining_section3.py` (6/6 passed).
   - Flutter analyze clean of errors and unused warnings.
+
+---
+
+### 42. Enable Full Functionality in Attendance Management Module
+
+#### What Was Done:
+- **Identified Gaps & Issues in Attendance Module:**
+  1. **Date Picker Ineffective:** When selecting a date in the filter bar, `_applyFilters(FilterBarState s)` updated `_filters.date` locally, but never invoked `_repo.loadForDate(s.date)`. Consequently, attendance records for previously marked days were not loaded from Supabase.
+  2. **Bulk Mark Ineffective in DB:** When teachers/admins selected multiple student records and changed their status in bulk (e.g., Mark Present, Absent, Late), `_bulkUpdateStatus()` only modified the in-memory `_records` list with `.copyWith()`. No Supabase upsert was executed, meaning changes were lost immediately upon screen refresh.
+  3. **Export Was a Dummy Toast:** The "Export" button in the filter bar (`_openExport()`) merely popped a SnackBar saying "Export initiated..." without generating or downloading any file.
+  4. **Schema Join Field Mismatch:** In `AttendanceRecord.fromMap()`, student name and roll number were only read from `student['name']` and `student['admission_no']`. In the provisioned schema (`01_tenant_alpha_beta_provisioning.sql`), students have `full_name` and `enrollment_no`, causing attendance rows to display fallback strings or blank identifiers. Status parsing also threw an exception if an unexpected or lowercase status string was received.
+  5. **Pagination Was Broken/Unused:** `AttendanceTable` declared `_pageItems` and `_Pagination`, but `_TableBody` was rendered directly with the full unfiltered/non-paginated list, leaving `_totalPages` and `_Pagination` as dead/unused code.
+  6. **Remarks Not Saved to Repository:** `AttendanceRepository.markAttendance()` accepted student ID, status, and date, but omitted `remarks`, discarding optional teacher notes.
+
+- **Implementation & Remediation:**
+  1. **Dynamic Date Attendance Loading:**
+     - In `AttendanceDashboardScreen._applyFilters()`, added a date change check (`if (dateChanged) { ... }`). When the date filter changes, it triggers `_repo.loadForDate(s.date)` and re-populates `_records` from Supabase while displaying an asynchronous loading indicator.
+  2. **Persistent Bulk Status Updates:**
+     - Refactored `_bulkUpdateStatus(AttendanceStatus s)` in `AttendanceDashboardScreen` to iterate over all checked student records and execute `_repo.markAttendance(rec.studentId, s, date: _filters.date, remarks: rec.remarks)`.
+     - Displays error feedback if any update fails, and displays a success notification upon completion.
+  3. **Live CSV Export Implementation:**
+     - Connected `downloadTextFile` from `lib/shared/utils/export_helper.dart` in `_openExport()`.
+     - Formatted attendance rows into standard CSV headers (`Student Name`, `Roll Number`, `Class`, `Section`, `Date`, `Status`, `Remarks`) and triggered instant browser/client file download.
+  4. **Schema-Resilient Record Parsing & Remarks Persistence:**
+     - Updated `AttendanceRecord.fromMap()` to read `full_name ?? name` and `enrollment_no ?? admission_no`, correctly parse `remarks`, and safely fall back on `AttendanceStatus.present` via `orElse: () => AttendanceStatus.present`.
+     - Updated `AttendanceRepository.markAttendance()` to accept and persist optional `String? remarks` in `attendance_records.remarks`.
+  5. **Table Pagination Activated:**
+     - In `attendance_table.dart`, passed `pageItems` to `_TableBody` and integrated the `_Pagination` component in the table footer with previous/next navigation buttons and page status indicators.
+
+#### Why It Was Done:
+- The daily attendance module is essential for routine school operations. If date filtering does not reload records, bulk actions do not persist to Supabase, CSV exports do not download files, or student names appear blank due to schema column differences, teachers and administrators cannot manage attendance reliably.
+
+#### For What:
+- Restores 100% operational functionality to the Attendance tab.
+- Verified with zero regressions:
+  - `phase2_attendance_test.dart` (7/7 passed).
+  - `test_phase2_attendance_section5.py` (5/5 passed).
+  - `flutter analyze lib/modules/attendance` (0 errors, 0 warnings).
 
 ---
 

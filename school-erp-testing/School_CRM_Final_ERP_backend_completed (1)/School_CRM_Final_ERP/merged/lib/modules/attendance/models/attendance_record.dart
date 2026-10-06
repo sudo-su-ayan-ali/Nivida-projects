@@ -56,17 +56,22 @@ class AttendanceRecord {
       
   factory AttendanceRecord.fromMap(Map<String, dynamic> row) {
     final student = row['students'] ?? {};
+    final statusStr = (row['status'] ?? 'present').toString().toLowerCase();
+    final status = AttendanceStatus.values.firstWhere(
+      (s) => s.name == statusStr,
+      orElse: () => AttendanceStatus.present,
+    );
     return AttendanceRecord(
-      id: row['id'],
-      studentName: student['name'] ?? '',
-      rollNo: student['admission_no'] ?? '',
+      id: row['id']?.toString() ?? '',
+      studentName: (student['full_name'] ?? student['name'] ?? '').toString(),
+      rollNo: (student['enrollment_no'] ?? student['admission_no'] ?? '').toString(),
       studentClass: student['class_num']?.toString() ?? '',
-      section: student['section'] ?? '',
-      status: AttendanceStatus.values.firstWhere((s) => s.name == row['status']),
-      checkIn: '',
-      checkOut: '',
-      remarks: '',
-      avatarSeed: row['student_id'],
+      section: student['section']?.toString() ?? '',
+      status: status,
+      checkIn: row['check_in']?.toString() ?? '',
+      checkOut: row['check_out']?.toString() ?? '',
+      remarks: row['remarks']?.toString() ?? '',
+      avatarSeed: row['student_id']?.toString() ?? '',
     );
   }
 }

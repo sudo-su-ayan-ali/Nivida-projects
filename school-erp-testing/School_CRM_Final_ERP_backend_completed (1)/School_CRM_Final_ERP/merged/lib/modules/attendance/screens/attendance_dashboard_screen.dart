@@ -12,6 +12,7 @@ import '../widgets/attendance_table.dart';
 import '../widgets/mark_attendance_dialog.dart';
 import '../widgets/import_dialog.dart';
 import '../widgets/export_dialog.dart';
+import '../../inventory/utils/export_helper.dart';
 
 class AttendanceDashboardScreen extends StatefulWidget {
   const AttendanceDashboardScreen({super.key});
@@ -157,12 +158,27 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
     return ((current - previous) / previous) * 100;
   }
 
-  void _applyFilters(FilterBarState s) {
+  void _applyFilters(FilterBarState s) async {
     // Capture "previous" before the filter changes the scoped data, so the
     // KPI cards still show a meaningful before/after instead of freezing.
     _previousCounts = _statusCounts;
     _previousRate = _attendanceRate;
+    final dateChanged = s.date.year != _filters.date.year ||
+        s.date.month != _filters.date.month ||
+        s.date.day != _filters.date.day;
+
     setState(() => _filters = s);
+
+    if (dateChanged) {
+      setState(() => _loading = true);
+      await _repo.loadForDate(s.date);
+      if (!mounted) return;
+      setState(() {
+        _records = _repo.records;
+        _loading = false;
+        _lastUpdated = DateTime.now();
+      });
+    }
     _pushHistory();
   }
 
@@ -375,6 +391,14 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
     List<AttendanceRecord> records,
     AttendanceStatus newStatus,
   ) {
+    for (final record in records) {
+      _repo.markAttendance(
+        record.avatarSeed,
+        record.studentClass,
+        _filters.date,
+        newStatus.name,
+      );
+    }
     final ids = records.map((r) => r.id).toSet();
     setState(() {
       _records = _records
@@ -429,8 +453,21 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
           _filters.selectedClass != 'All Classes' ||
           _filters.selectedSection != 'All Sections',
       onExported: (format, filtered) {
+        final recordsToExport = filtered ? _scopedRecords : _records;
+        final dateStr = DateFormat('yyyy-MM-dd').format(_filters.date);
+        final buffer = StringBuffer();
+        buffer.writeln('Roll No,Student Name,Class,Section,Date,Status,Remarks');
+        for (final r in recordsToExport) {
+          final cleanName = r.studentName.replaceAll('"', '""');
+          final cleanRemarks = r.remarks.replaceAll('"', '""');
+          buffer.writeln(
+            '"${r.rollNo}","$cleanName","${r.studentClass}","${r.section}","$dateStr","${r.status.label}","$cleanRemarks"',
+          );
+        }
+        final filename = 'attendance_report_$dateStr${filtered ? '_filtered' : ''}.csv';
+        downloadTextFile(filename, buffer.toString());
         _toast(
-          'Report exported as ${format.label}${filtered ? ' (filtered)' : ''}',
+          'Exported ${recordsToExport.length} records as $filename',
         );
       },
     );

@@ -261,7 +261,7 @@ class _AttendanceTableState extends State<AttendanceTable> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.vertical,
                 child: _TableBody(
-                  records: filtered,
+                  records: pageItems,
                   sortField: _sortField,
                   sortAsc: _sortAsc,
                   onSort: _toggleSort,
@@ -276,19 +276,25 @@ class _AttendanceTableState extends State<AttendanceTable> {
                       _selectedIds.add(id);
                     }
                   }),
-                  allSelected: filtered.isNotEmpty && filtered.every((r) => _selectedIds.contains(r.id)),
+                  allSelected: pageItems.isNotEmpty && pageItems.every((r) => _selectedIds.contains(r.id)),
                   onToggleSelectAll: (checked) => setState(() {
                     if (checked) {
-                      _selectedIds.addAll(filtered.map((r) => r.id));
+                      _selectedIds.addAll(pageItems.map((r) => r.id));
                     } else {
-                      _selectedIds.removeAll(filtered.map((r) => r.id));
+                      _selectedIds.removeAll(pageItems.map((r) => r.id));
                     }
                   }),
                 ),
               ),
             ),
-          const SizedBox(height: 12),
-          Text('Showing all ${filtered.length} entries', style: AppText.cardLabel),
+          const SizedBox(height: 16),
+          _Pagination(
+            total: filtered.length,
+            page: _page,
+            pageSize: _pageSize,
+            totalPages: _totalPages,
+            onPageChanged: (p) => setState(() => _page = p),
+          ),
         ],
       ),
     );
