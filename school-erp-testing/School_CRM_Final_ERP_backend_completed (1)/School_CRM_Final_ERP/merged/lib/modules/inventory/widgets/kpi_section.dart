@@ -64,7 +64,33 @@ class KpiSection extends StatelessWidget {
           spacing: spacing,
           runSpacing: spacing,
           children: kpis
-              .map((k) => SizedBox(width: columns == 1 ? constraints.maxWidth : width, child: KpiCard(data: k)))
+              .map((k) => SizedBox(
+                    width: columns == 1 ? constraints.maxWidth : width,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (k.title == 'Low Stock Items') {
+                            appState.setStatusFilter('Low Stock');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Filtered table by Low Stock items')),
+                            );
+                          } else if (k.title == 'Out of Stock') {
+                            appState.setStatusFilter('Out of Stock');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Filtered table by Out of Stock items')),
+                            );
+                          } else if (k.title == 'Total Items') {
+                            appState.clearFilters();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Reset all filters — showing all items')),
+                            );
+                          }
+                        },
+                        child: KpiCard(data: k),
+                      ),
+                    ),
+                  ))
               .toList(),
         );
       },

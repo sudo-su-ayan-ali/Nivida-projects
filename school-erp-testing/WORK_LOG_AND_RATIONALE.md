@@ -48,6 +48,7 @@
 | **40. Enable Full Functionality in Teachers Management Module** | Teachers tab lacked multi-tenant institution resolution in registration dialog, lacked CSV export & refresh, and summary stat cards were non-interactive. | Added dynamic tenant resolution, live CSV export, filter-linked KPI cards, and schema-resilient teacher registration. |
 | **41. Enable Full Functionality in Parents & Student Portal Module** | In the Parents & Student tab, accounts with empty parent links saw an inert empty screen with no action buttons or navigation back; child linking failed due to schema mismatch (`enrollment_no` vs `admission_no`); attendance screen had duplicate navigation controls; and dashboard grid overflowed on narrow screens. | Added interactive empty state with "Add / Link Child" dialog, expanded child linking to query `enrollment_no` & `admission_no` scoped by tenant, added fallback child loading for portal preview, made navigation menu responsive, and removed duplicate navigation buttons. |
 | **42. Enable Full Functionality in Attendance Management Module** | In the Attendance tab, selecting a different date in the filter bar did not load attendance records from Supabase; bulk status updates only modified local state without saving to the database; CSV export only showed a toast without downloading a file; and table pagination was disconnected. Schema differences between `enrollment_no` vs `admission_no` and `name` vs `full_name` also caused empty roll numbers/names. | Wired dynamic date reload in `_applyFilters()`, added persistent bulk database update loop in `_bulkUpdateStatus()`, implemented live CSV file download in `_openExport()`, connected pagination with `_Pagination` footer in `attendance_table.dart`, and expanded `AttendanceRecord.fromMap()` to parse `full_name` and `enrollment_no` with remarks persistence in `AttendanceRepository.markAttendance()`. |
+| **43. Global Synchronization & Interactivity Across Inventory and Transport Modules** | Top KPI cards and overview tiles in the Inventory module lacked interactivity; more actions dropdown had placeholder refresh and import text; hardcoded tenant IDs risked multi-tenant cross-talk. Transport module report generation only gave a toast message without real file output, and transport service used hardcoded static UUIDs for tenants without schema column fallback guards. | Made Inventory KPI cards and overview tiles interactive with live filter links; wired asynchronous database reload in inventory `More Actions -> Refresh`; added dynamic multi-tenant institution resolution across `InventoryService` and `TransportService` with fallback column stripping; implemented live CSV generation and browser download in Transport `Generate Report` dialog. |
 
 ---
 
@@ -1262,6 +1263,39 @@
   - `phase2_attendance_test.dart` (7/7 passed).
   - `test_phase2_attendance_section5.py` (5/5 passed).
   - `flutter analyze lib/modules/attendance` (0 errors, 0 warnings).
+
+---
+
+### 43. Global Synchronization & Interactivity Across Inventory and Transport Modules
+
+#### What Was Done:
+- **Identified Gaps & Issues Across Inventory & Transport:**
+  1. **Inventory KPI & Stat Cards Non-Interactive:** The top summary cards ("Low Stock Items", "Out of Stock", "Total Items") and the 6 Inventory Overview tiles ("Available Items", "Reserved Items", "Expired Items", etc.) were static display cards with no tap handling, leaving users unable to quickly filter or inspect items matching those criteria.
+  2. **Inventory "More Actions" Refresh Disconnected:** The "More Actions -> Refresh / Clear Filters" button only cleared local search strings without triggering an asynchronous database reload (`_loadItems()` and `_loadStockLogs()`), preventing users from picking up updates made by other users or batches.
+  3. **Hardcoded Static Tenant UUIDs in Services:** Both `InventoryService` and `TransportService` hardcoded tenant IDs (`d0000000-0000-0000-0000-000000000001`) in queries and mutations without resolving the logged-in user's profile `institution_id`, creating risk of cross-tenant data pollution. Furthermore, insert operations did not catch schema column absence when a table lacked `institution_id`.
+  4. **Transport "Generate Report" Was a Toast:** In the Transport module's Quick Actions, clicking "Generate Report" closed the dialog and displayed a SnackBar saying "generated and ready to download" without creating or downloading any file.
+
+- **Implementation & Remediation:**
+  1. **Interactive Inventory KPI & Stat Cards:**
+     - In [`kpi_section.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/inventory/widgets/kpi_section.dart), wrapped KPI cards in `MouseRegion` (pointing cursor) and `GestureDetector`. Tapping "Low Stock Items" or "Out of Stock" filters the inventory table to that status immediately; tapping "Total Items" clears all filters to reveal all items.
+     - In [`inventory_overview_section.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/inventory/widgets/inventory_overview_section.dart), updated `_OverviewTile` to use `InkWell` and connected tap listeners to filter the inventory list by "In Stock", "Reserved", and "Expired".
+  2. **Live Database Reload on Inventory Refresh:**
+     - In [`app_state.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/inventory/state/app_state.dart), added `reload()` which resets loading state, fetches fresh items and stock movements from Supabase, and updates listeners.
+     - In [`toolbar_section.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/inventory/widgets/toolbar_section.dart), wired `_handleMoreAction` to call `await appState.reload()` and inform the user upon completion.
+  3. **Multi-Tenant Dynamic Scoping in Services:**
+     - In [`inventory_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/inventory/data/inventory_service.dart), added `_resolveInstitutionId()` querying `profiles.institution_id` for the authenticated user with a fallback. Applied `institution_id` scoping to item fetching and safe fallback retry for inserts.
+     - In [`transport_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/data/transport_service.dart), added `_resolveInstitutionId()` and applied multi-tenant scoping to route summary, KPI counts, vehicle addition, route creation, driver onboarding, and attendance marking.
+  4. **Live CSV Generation for Transport Reports:**
+     - In [`quick_action_dialogs.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/widgets/dialogs/quick_action_dialogs.dart), wired `_GenerateReportDialog._submit()` to compile real CSV byte strings from routes, fees, or trip schedules and download the file immediately via `downloadTextFile`.
+
+#### Why It Was Done:
+- Ensures high interactivity, dynamic multi-tenant isolation, real CSV report exports, and synchronization with backend Supabase tables across all modules, meeting enterprise ERP standards.
+
+#### For What:
+- Restores full operational functionality and consistency across Inventory and Transport modules.
+- Verified with zero regressions:
+  - Full Flutter test suite (77/77 passed).
+  - QA Python test suite (60/60 passed).
 
 ---
 

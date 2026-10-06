@@ -153,23 +153,26 @@ class _ToolbarSectionState extends State<ToolbarSection> {
     );
   }
 
-  void _handleMoreAction(BuildContext context, AppState appState, String action) {
+  void _handleMoreAction(BuildContext context, AppState appState, String action) async {
     String message;
     switch (action) {
       case 'refresh':
         appState.clearFilters();
-        message = 'Filters cleared';
+        await appState.reload();
+        message = 'Filters cleared and inventory refreshed from database';
         break;
       case 'print':
         message = 'Print is only available on Flutter Web in this demo';
         break;
       case 'import':
-        message = 'Import is a demo action — no backend is connected';
+        message = 'To import inventory batches, use the Dashboard Import feature';
         break;
       default:
         message = 'Done';
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 }
 

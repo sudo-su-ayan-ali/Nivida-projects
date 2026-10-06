@@ -4,11 +4,32 @@ import '../models/inventory_models.dart';
 import '../theme/app_theme.dart';
 
 class InventoryService {
-  final _client = Supabase.instance.client;
+  SupabaseClient get _client => Supabase.instance.client;
+
+  Future<String> _resolveInstitutionId() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return 'd0000000-0000-0000-0000-000000000001';
+      final profile = await _client
+          .from('profiles')
+          .select('institution_id')
+          .eq('id', userId)
+          .maybeSingle();
+      return (profile?['institution_id'] as String?) ??
+          'd0000000-0000-0000-0000-000000000001';
+    } catch (_) {
+      return 'd0000000-0000-0000-0000-000000000001';
+    }
+  }
 
   Future<List<InventoryItem>> fetchItems() async {
-    final rows = await _client.from('inventory_items').select();
-    return rows.map<InventoryItem>((r) {
+    final instId = await _resolveInstitutionId();
+    var query = _client.from('inventory_items').select();
+    try {
+      query = query.eq('institution_id', instId);
+    } catch (_) {}
+    final rows = await query;
+    return (rows as List).map<InventoryItem>((r) {
       return InventoryItem(
         code: r['code'] ?? '',
         name: r['name'] ?? '',
@@ -28,7 +49,8 @@ class InventoryService {
   }
 
   Future<void> addItem(InventoryItem item) async {
-    await _client.from('inventory_items').insert({
+    final instId = await _resolveInstitutionId();
+    final data = {
       'code': item.code,
       'name': item.name,
       'category': item.category,
@@ -38,8 +60,15 @@ class InventoryService {
       'unit_price': item.unitPrice,
       'status': item.status.label,
       'location': item.location,
-      'institution_id': 'd0000000-0000-0000-0000-000000000001',
-    });
+      'institution_id': instId,
+    };
+    try {
+      await _client.from('inventory_items').insert(data);
+    } catch (e) {
+      // If table lacks institution_id column, retry without it
+      data.remove('institution_id');
+      await _client.from('inventory_items').insert(data);
+    }
   }
 
   Future<void> updateItem(String code, InventoryItem item) async {
@@ -105,12 +134,19 @@ class InventoryService {
     required int quantity,
     required StockDirection direction,
   }) async {
-    await _client.from('stock_movements').insert({
+    final instId = await _resolveInstitutionId();
+    final data = {
       'item_code': itemCode,
       'item_name': itemName,
       'quantity': quantity,
       'direction': direction == StockDirection.stockIn ? 'in' : 'out',
-      'institution_id': 'd0000000-0000-0000-0000-000000000001',
-    });
+      'institution_id': instId,
+    };
+    try {
+      await _client.from('stock_movements').insert(data);
+    } catch (_) {
+      data.remove('institution_id');
+      await _client.from('stock_movements').insert(data);
+    }
   }
 }

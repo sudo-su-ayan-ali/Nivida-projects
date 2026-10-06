@@ -3,10 +3,31 @@ import 'package:flutter/material.dart';
 import '../models/dashboard_models.dart';
 import '../theme/app_theme.dart';
 class TransportService {
-  final _client = Supabase.instance.client;
+  SupabaseClient get _client => Supabase.instance.client;
+
+  Future<String> _resolveInstitutionId() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return 'd0000000-0000-0000-0000-000000000001';
+      final profile = await _client
+          .from('profiles')
+          .select('institution_id')
+          .eq('id', userId)
+          .maybeSingle();
+      return (profile?['institution_id'] as String?) ??
+          'd0000000-0000-0000-0000-000000000001';
+    } catch (_) {
+      return 'd0000000-0000-0000-0000-000000000001';
+    }
+  }
 
   Future<List<RouteSummaryRow>> fetchRouteSummary() async {
-    final routes = await _client.from('routes').select('id, route_name, status');
+    final instId = await _resolveInstitutionId();
+    var query = _client.from('routes').select('id, route_name, status');
+    try {
+      query = query.eq('institution_id', instId);
+    } catch (_) {}
+    final routes = await query;
     final result = <RouteSummaryRow>[];
     for (final r in routes) {
       final vehicles = await _client
@@ -33,10 +54,19 @@ class TransportService {
   }
 
   Future<Map<String, int>> fetchKpiCounts() async {
-    final routes = await _client.from('routes').select('id');
-    final vehicles = await _client.from('vehicles').select('id, status');
+    final instId = await _resolveInstitutionId();
+    var routesQ = _client.from('routes').select('id');
+    var vehiclesQ = _client.from('vehicles').select('id, status');
+    var studentsQ = _client.from('student_transport').select('id');
+    try {
+      routesQ = routesQ.eq('institution_id', instId);
+      vehiclesQ = vehiclesQ.eq('institution_id', instId);
+      studentsQ = studentsQ.eq('institution_id', instId);
+    } catch (_) {}
+    final routes = await routesQ;
+    final vehicles = await vehiclesQ;
     final activeVehicles = vehicles.where((v) => v['status'] == 'Active').length;
-    final students = await _client.from('student_transport').select('id');
+    final students = await studentsQ;
 
     return {
       'activeRoutes': routes.length,
@@ -56,12 +86,20 @@ Future<List<Map<String, dynamic>>> fetchVehicles() async {
 }
 
 Future<String> addRoute(String routeName) async {
-  final result = await _client.from('routes').insert({
+  final instId = await _resolveInstitutionId();
+  final data = {
     'route_name': routeName,
     'status': 'Active',
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
-  }).select('id').single();
-  return result['id'] as String;
+    'institution_id': instId,
+  };
+  try {
+    final result = await _client.from('routes').insert(data).select('id').single();
+    return result['id'] as String;
+  } catch (_) {
+    data.remove('institution_id');
+    final result = await _client.from('routes').insert(data).select('id').single();
+    return result['id'] as String;
+  }
 }
 
 Future<void> assignVehicleToRoute(String vehicleId, String routeId, String driverName) async {
@@ -71,67 +109,110 @@ Future<void> assignVehicleToRoute(String vehicleId, String routeId, String drive
   }).eq('id', vehicleId);
 }
 Future<void> addVehicle(String number, String type, int capacity) async {
-  await _client.from('vehicles').insert({
+  final instId = await _resolveInstitutionId();
+  final data = {
     'vehicle_number': number,
     'vehicle_type': type,
     'seating_capacity': capacity,
     'status': 'Active',
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
-  });
+    'institution_id': instId,
+  };
+  try {
+    await _client.from('vehicles').insert(data);
+  } catch (_) {
+    data.remove('institution_id');
+    await _client.from('vehicles').insert(data);
+  }
 }
 Future<void> addDriver(String name, String phone, String license, String? routeName) async {
-  await _client.from('drivers').insert({
+  final instId = await _resolveInstitutionId();
+  final data = {
     'full_name': name,
     'phone': phone,
     'license_number': license,
     'route_name': routeName,
     'status': 'Active',
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
-  });
+    'institution_id': instId,
+  };
+  try {
+    await _client.from('drivers').insert(data);
+  } catch (_) {
+    data.remove('institution_id');
+    await _client.from('drivers').insert(data);
+  }
 }
 Future<void> markAttendance(String routeName, Map<String, bool> attendance) async {
+  final instId = await _resolveInstitutionId();
   final rows = attendance.entries.map((e) => {
     'route_name': routeName,
     'student_name': e.key,
     'present': e.value,
     'attendance_date': DateTime.now().toIso8601String().split('T')[0],
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
+    'institution_id': instId,
   }).toList();
-  await _client.from('transport_attendance').insert(rows);
+  try {
+    await _client.from('transport_attendance').insert(rows);
+  } catch (_) {
+    for (final r in rows) {
+      r.remove('institution_id');
+    }
+    await _client.from('transport_attendance').insert(rows);
+  }
 }
 
 Future<void> sendNotification(String title, String body, String audience) async {
-  await _client.from('notifications').insert({
+  final instId = await _resolveInstitutionId();
+  final data = {
     'title': title,
     'body': body,
     'channel': 'sms',
     'delivery_status': 'sent',
     'target_role': 'super_admin',
     'sent_at': DateTime.now().toIso8601String(),
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
-  });
+    'institution_id': instId,
+  };
+  try {
+    await _client.from('notifications').insert(data);
+  } catch (_) {
+    data.remove('institution_id');
+    await _client.from('notifications').insert(data);
+  }
 }
 
 Future<void> collectFee(String studentName, double amount, String mode) async {
-  await _client.from('transport_fee_payments').insert({
+  final instId = await _resolveInstitutionId();
+  final data = {
     'student_name': studentName,
     'amount': amount,
     'payment_mode': mode,
     'payment_date': DateTime.now().toIso8601String().split('T')[0],
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
-  });
+    'institution_id': instId,
+  };
+  try {
+    await _client.from('transport_fee_payments').insert(data);
+  } catch (_) {
+    data.remove('institution_id');
+    await _client.from('transport_fee_payments').insert(data);
+  }
 }
 
 Future<void> scheduleTrip(String route, String driver, String vehicle, String tripType, String time) async {
-  await _client.from('trips').insert({
+  final instId = await _resolveInstitutionId();
+  final data = {
     'route_name': route,
     'driver_name': driver,
     'vehicle_number': vehicle,
     'trip_type': tripType,
     'trip_time': time,
     'status': 'Scheduled',
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
-  });
+    'institution_id': instId,
+  };
+  try {
+    await _client.from('trips').insert(data);
+  } catch (_) {
+    data.remove('institution_id');
+    await _client.from('trips').insert(data);
+  }
 }
 Future<Map<String, dynamic>> fetchTransportSummary() async {
   try {

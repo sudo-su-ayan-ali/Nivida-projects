@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
 import '../../models/dashboard_models.dart';
 import '../../data/mock_data.dart';
+import '../../../inventory/utils/export_helper.dart';
 import 'app_dialog.dart';
 import 'form_controls.dart';
 
@@ -778,12 +779,42 @@ class _GenerateReportDialogState extends State<_GenerateReportDialog> {
     );
   }
 
-  void _submit() {
+  void _submit() async {
     Navigator.of(context).pop();
-    showAppSnackBar(
-      context,
-      '$_type ($_range) generated and ready to download',
-    );
+    final service = TransportService();
+    final buffer = StringBuffer();
+    final dateStr = DateTime.now().toIso8601String().split('T').first;
+
+    if (_type.contains('Route') || _type.contains('Fleet')) {
+      buffer.writeln('Route Name,Driver,Vehicle,Students,Status,Trips');
+      final routes = await service.fetchRouteSummary();
+      for (final r in routes) {
+        buffer.writeln('"${r.route}","${r.driver}","${r.vehicle}",${r.students},"${r.status}","${r.trips}"');
+      }
+    } else if (_type.contains('Fee')) {
+      buffer.writeln('Date,Amount,Transactions,Mode');
+      final fees = await service.fetchFeeCollection();
+      for (final f in fees) {
+        buffer.writeln('"${f.date}","${f.amount}",${f.transactions},"${f.mode}"');
+      }
+    } else {
+      buffer.writeln('Route,Driver,Vehicle,Trip Type,Time,Status');
+      final trips = await service.fetchTrips();
+      for (final t in trips) {
+        buffer.writeln('"${t.route}","${t.driver}","${t.vehicle}","${t.tripType}","${t.time}","${t.status}"');
+      }
+    }
+
+    final filename = 'transport_${_type.toLowerCase().replaceAll(' ', '_')}_$dateStr.csv';
+    final downloaded = downloadTextFile(filename, buffer.toString());
+    if (mounted) {
+      showAppSnackBar(
+        context,
+        downloaded
+            ? 'Report downloaded as $filename'
+            : '$_type ($_range) generated (${buffer.toString().split('\n').length - 1} records)',
+      );
+    }
   }
 }
 

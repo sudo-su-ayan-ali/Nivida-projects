@@ -67,7 +67,36 @@ class InventoryOverviewSection extends StatelessWidget {
           return Wrap(
             spacing: spacing,
             runSpacing: spacing,
-            children: stats.map((s) => SizedBox(width: width, child: _OverviewTile(stat: s))).toList(),
+            children: stats
+                .map((s) => SizedBox(
+                      width: width,
+                      child: _OverviewTile(
+                        stat: s,
+                        onTap: () {
+                          if (s.title == 'Available Items') {
+                            appState.setStatusFilter('In Stock');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Filtered table by In Stock items')),
+                            );
+                          } else if (s.title == 'Reserved Items') {
+                            appState.setStatusFilter('Reserved');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Filtered table by Reserved items')),
+                            );
+                          } else if (s.title == 'Expired Items') {
+                            appState.setStatusFilter('Expired');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Filtered table by Expired items')),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('${s.title}: ${s.value}')),
+                            );
+                          }
+                        },
+                      ),
+                    ))
+                .toList(),
           );
         },
       ),
@@ -77,44 +106,52 @@ class InventoryOverviewSection extends StatelessWidget {
 
 class _OverviewTile extends StatelessWidget {
   final OverviewStat stat;
-  const _OverviewTile({required this.stat});
+  final VoidCallback onTap;
+  const _OverviewTile({required this.stat, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.background,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            height: 40,
-            width: 40,
-            decoration: BoxDecoration(color: stat.iconBg, borderRadius: BorderRadius.circular(10)),
-            child: Icon(stat.icon, color: stat.iconColor, size: 20),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  stat.value,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+          child: Row(
+            children: [
+              Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(color: stat.iconBg, borderRadius: BorderRadius.circular(10)),
+                child: Icon(stat.icon, color: stat.iconColor, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      stat.value,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                    ),
+                    Text(
+                      stat.title,
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ],
                 ),
-                Text(
-                  stat.title,
-                  style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

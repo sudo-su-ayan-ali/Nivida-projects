@@ -29,6 +29,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> reload() async {
+    isLoading = true;
+    notifyListeners();
+    await _loadItems();
+    await _loadStockLogs();
+  }
+
   Future<void> addNewItem(InventoryItem item) async {
     await _service.addItem(item);
     await _loadItems();
