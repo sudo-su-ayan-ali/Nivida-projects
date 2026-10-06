@@ -564,33 +564,44 @@ class _TableBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final scale = constraints.maxWidth / _ColW.total;
+        final needsHorizontalScroll = constraints.maxWidth < _ColW.total;
+        final effectiveWidth = needsHorizontalScroll ? _ColW.total : constraints.maxWidth;
+        final scale = effectiveWidth / _ColW.total;
 
-        final table = Column(
-          children: [
-            _HeaderRow(
-              scale: scale,
-              sortField: sortField,
-              sortAsc: sortAsc,
-              onSort: onSort,
-              allSelected: allSelected,
-              onToggleSelectAll: onToggleSelectAll,
-            ),
-            const Divider(height: 1, color: AppColors.border),
-            for (final r in records)
-              _DataRow(
+        final table = SizedBox(
+          width: effectiveWidth,
+          child: Column(
+            children: [
+              _HeaderRow(
                 scale: scale,
-                record: r,
-                onView: () => onView(r),
-                onUpdateStatus: (s) => onUpdateStatus(r, s),
-                onNotifyParent: () => onNotifyParent(r),
-                selected: selectedIds.contains(r.id),
-                onToggleSelect: () => onToggleSelect(r.id),
+                sortField: sortField,
+                sortAsc: sortAsc,
+                onSort: onSort,
+                allSelected: allSelected,
+                onToggleSelectAll: onToggleSelectAll,
               ),
-          ],
+              const Divider(height: 1, color: AppColors.border),
+              for (final r in records)
+                _DataRow(
+                  scale: scale,
+                  record: r,
+                  onView: () => onView(r),
+                  onUpdateStatus: (s) => onUpdateStatus(r, s),
+                  onNotifyParent: () => onNotifyParent(r),
+                  selected: selectedIds.contains(r.id),
+                  onToggleSelect: () => onToggleSelect(r.id),
+                ),
+            ],
+          ),
         );
 
-        return table; // no horizontal scroll — table always shrinks/grows to fit width
+        if (needsHorizontalScroll) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: table,
+          );
+        }
+        return table;
       },
     );
   }

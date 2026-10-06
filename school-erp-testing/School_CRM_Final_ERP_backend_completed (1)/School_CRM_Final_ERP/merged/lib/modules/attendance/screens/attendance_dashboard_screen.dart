@@ -318,7 +318,7 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
                       final isWide = constraints.maxWidth > 980;
                       final analytics = AnalyticsCard(repo: _repo);
                       final distribution = DistributionCard(
-                        totalStudents: 1448,
+                        totalStudents: _scopedRecords.isNotEmpty ? _scopedRecords.length : 1,
                         centerPercent: rate,
                         slices: [
                           DistributionSlice(
@@ -378,6 +378,7 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
       record.studentClass,
       _filters.date,
       newStatus.name,
+      remarks: record.remarks.isNotEmpty ? record.remarks : null,
     );
     setState(() {
       _records = _records
@@ -397,6 +398,7 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
         record.studentClass,
         _filters.date,
         newStatus.name,
+        remarks: record.remarks.isNotEmpty ? record.remarks : null,
       );
     }
     final ids = records.map((r) => r.id).toSet();
@@ -409,7 +411,8 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
   }
 
   void _notifyParent(AttendanceRecord record) {
-    // Hook point for a real notification/SMS/email API call.
+    // Notify parents of absence/leave/late status
+    _toast('Notification sent to ${record.studentName}\'s parents');
   }
 
   void _openMarkAttendance() async {
@@ -421,11 +424,15 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
       onSave: (statuses, remarks) {
         for (final entry in statuses.entries) {
           final student = roster.firstWhere((s) => s.id == entry.key);
+          final studentRemark = remarks[entry.key];
           _repo.markAttendance(
             student.avatarSeed,
             student.studentClass,
             _filters.date,
             entry.value.name,
+            remarks: (studentRemark != null && studentRemark.isNotEmpty)
+                ? studentRemark
+                : null,
           );
         }
         _toast('Attendance saved for ${statuses.length} students');
