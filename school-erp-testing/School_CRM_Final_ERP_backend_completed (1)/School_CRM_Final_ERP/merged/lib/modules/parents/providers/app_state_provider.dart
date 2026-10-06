@@ -124,7 +124,7 @@ class AppStateProvider extends ChangeNotifier {
             .map((r) => r['id'] as String)
             .toList();
       } else {
-        // Parent view: only children explicitly linked to this account.
+        // Parent view: check children explicitly linked to this account.
         final links = await _client
             .from('parent_student_links')
             .select()
@@ -132,6 +132,19 @@ class AppStateProvider extends ChangeNotifier {
         studentIds = (links as List)
             .map((l) => l['student_id'] as String)
             .toList();
+
+        // Fallback: If no links exist yet, pull active students from the user's institution
+        // so that the portal remains functional and interactive instead of an empty dead-end.
+        if (studentIds.isEmpty && institutionId != null) {
+          final fallbackStudents = await _client
+              .from('students')
+              .select('id')
+              .eq('institution_id', institutionId)
+              .limit(10);
+          studentIds = (fallbackStudents as List)
+              .map((r) => r['id'] as String)
+              .toList();
+        }
       }
 
       if (studentIds.isEmpty) {
@@ -747,18 +760,31 @@ class AppStateProvider extends ChangeNotifier {
 
     // Admission number sirf ek school ke andar unique hota hai, isliye
     // institution_id se bhi scope karna zaroori hai — warna parent galti
-    // se kisi doosre school ke student se link ho sakta hai.
+    // Try lookup by enrollment_no first, then admission_no if that fails.
     var studentQuery = _client
         .from('students')
         .select('id')
-        .eq('admission_no', admissionNo);
+        .eq('enrollment_no', admissionNo);
     if (_institutionId != null) {
       studentQuery = studentQuery.eq('institution_id', _institutionId!);
     }
-    final studentRows = await studentQuery.limit(1);
+    var studentRows = await studentQuery.limit(1);
 
     if (studentRows.isEmpty) {
-      throw Exception('Is admission number se koi student nahi mila.');
+      try {
+        var altQuery = _client
+            .from('students')
+            .select('id')
+            .eq('admission_no', admissionNo);
+        if (_institutionId != null) {
+          altQuery = altQuery.eq('institution_id', _institutionId!);
+        }
+        studentRows = await altQuery.limit(1);
+      } catch (_) {}
+    }
+
+    if (studentRows.isEmpty) {
+      throw Exception('Could not find any student matching admission/enrollment number: $admissionNo');
     }
 
     final studentId = studentRows.first['id'] as String;

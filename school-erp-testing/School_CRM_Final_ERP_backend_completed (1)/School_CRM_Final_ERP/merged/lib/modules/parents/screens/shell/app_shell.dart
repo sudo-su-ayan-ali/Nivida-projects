@@ -16,6 +16,7 @@ import '../notices_screen.dart';
 import '../events_screen.dart';
 import '../teacher_communication_screen.dart';
 import '../settings_screen.dart';
+import '../add_child_dialog.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key});
@@ -60,10 +61,49 @@ class AppShell extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.children.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('No student linked to this account yet.'),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.family_restroom_rounded,
+                  size: 48,
+                  color: Color(0xFF6366F1),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'No Students Linked',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'There are no students linked to this account yet.\nLink a child using their enrollment / admission number.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => showAddChildDialog(context),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add / Link Child'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

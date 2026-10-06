@@ -1,7 +1,5 @@
 import 'dart:math' as math;
 import 'dart:ui';
-import '../widgets/particle_network_card.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -137,21 +135,37 @@ isWide
             ),
           ),
           const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 2.4,
-            children: List.generate(items.length, (i) {
-              final item = items[i];
-              return _ParentNavTile(
-                item: item,
-                index: i,
-                onTap: () => state.goTo(item.section),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              int cols = 4;
+              double ratio = 2.4;
+              if (constraints.maxWidth < 600) {
+                cols = 1;
+                ratio = 3.5;
+              } else if (constraints.maxWidth < 900) {
+                cols = 2;
+                ratio = 2.5;
+              } else if (constraints.maxWidth < 1200) {
+                cols = 3;
+                ratio = 2.4;
+              }
+              return GridView.count(
+                crossAxisCount: cols,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: ratio,
+                children: List.generate(items.length, (i) {
+                  final item = items[i];
+                  return _ParentNavTile(
+                    item: item,
+                    index: i,
+                    onTap: () => state.goTo(item.section),
+                  );
+                }),
               );
-            }),
+            },
           ),
         ],
       ),
@@ -450,26 +464,6 @@ isWide
   );
 }
 
-  Widget _termDropdown(BuildContext context, AppStateProvider state) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            state.selectedChild.academics.term.split(',').first,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.expand_more, size: 16),
-        ],
-      ),
-    );
-  }
 
   Widget _academicChildBlock(ChildRecord record) {
     return Container(

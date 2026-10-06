@@ -174,24 +174,6 @@ class _AppHeaderState extends State<AppHeader> {
     );
   }
 
-  Widget _iconWithBadge(IconData icon, int count, {required VoidCallback onTap}) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(icon: Icon(icon, size: 20), onPressed: onTap),
-        if (count > 0)
-          Positioned(
-            right: 2,
-            top: 2,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(8)),
-              child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700)),
-            ),
-          ),
-      ],
-    );
-  }
 
   String _sectionLabel(AppSection s) {
     switch (s) {

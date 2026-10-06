@@ -20,19 +20,9 @@ class AttendanceScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-       Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  children: [
-    const Text('Attendance', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-    OutlinedButton.icon(
-      onPressed: () => context.read<AppStateProvider>().goTo(AppSection.dashboard),
-      icon: const Icon(Icons.arrow_back, size: 16),
-      label: const Text('Back to Dashboard'),
-    ),
-  ],
-),
-const SizedBox(height: 6),
-Text("Track ${child.student.name}'s daily attendance record.", style: TextStyle(color: AppColors.muted)),
+        const Text('Attendance', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        Text("Track ${child.student.name}'s daily attendance record.", style: TextStyle(color: AppColors.muted)),
         const SizedBox(height: 16),
         const ChildSelector(),
         const SizedBox(height: 20),
