@@ -5,6 +5,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/kpi_card.dart';
+import '../../../inventory/utils/export_helper.dart';
 
 class DayClosingScreen extends ConsumerStatefulWidget {
   const DayClosingScreen({super.key});
@@ -75,7 +76,25 @@ class _DayClosingScreenState extends ConsumerState<DayClosingScreen> {
                   ref.read(auditLogProvider.notifier).log(ref.read(activeRoleProvider).label, 'Day Closed', 'Counter #1 closed with closing cash ${Fmt.inr(closingCash)}');
                 },
                 onReopen: () => ref.read(dayCounterProvider.notifier).reopen(),
-                onPrint: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Printing day summary…'), behavior: SnackBarBehavior.floating)),
+                onPrint: () {
+                  final buf = StringBuffer();
+                  buf.writeln('Day Closing Summary — Counter #1');
+                  buf.writeln('Session Date: ${Fmt.date(counter.sessionDate)}');
+                  buf.writeln('Opening Cash: ${Fmt.inr(counter.openingCash)}');
+                  buf.writeln('Cash Collected Today: ${Fmt.inr(cashCollected)}');
+                  buf.writeln('Online Collected Today: ${Fmt.inr(onlineCollected)}');
+                  buf.writeln('Expected Closing Cash: ${Fmt.inr(closingCash)}');
+                  buf.writeln('Status: ${counter.closed ? "Closed" : "Open"}');
+                  buf.writeln('\nTransactions (${todayTx.length}):');
+                  for (final t in todayTx) {
+                    buf.writeln('${t.receiptNo} | ${t.studentName} | ${t.mode.label} | ${Fmt.inr(t.totalAmount)}');
+                  }
+                  final filename = 'day_closing_${DateTime.now().toIso8601String().split('T').first}.txt';
+                  downloadTextFile(filename, buf.toString());
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Downloaded $filename'), behavior: SnackBarBehavior.floating),
+                  );
+                },
               );
               final right = _TxListCard(transactions: todayTx);
               if (!wide) return SingleChildScrollView(child: Column(children: [left, const SizedBox(height: 16), right]));

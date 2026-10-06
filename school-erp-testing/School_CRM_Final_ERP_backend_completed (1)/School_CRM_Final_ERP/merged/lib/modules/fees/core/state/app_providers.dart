@@ -65,13 +65,13 @@ class StudentsNotifier extends StateNotifier<List<Student>> {
       students.add(
         Student(
           id: row['id'],
-          admissionNo: row['admission_no'] ?? '',
-          rollNo: row['admission_no'] ?? '',
-          name: row['name'] ?? '',
+          admissionNo: row['admission_no'] ?? row['enrollment_no'] ?? '',
+          rollNo: row['roll_no'] ?? row['admission_no'] ?? row['enrollment_no'] ?? '',
+          name: row['name'] ?? row['full_name'] ?? '',
           className: row['class_num']?.toString() ?? '',
           section: row['section'] ?? '',
-          parentName: row['parent_name'] ?? '',
-          parentPhone: row['parent_mobile'] ?? '',
+          parentName: row['parent_name'] ?? row['guardian_name'] ?? '',
+          parentPhone: row['parent_mobile'] ?? row['contact_phone'] ?? '',
           parentEmail: row['email'] ?? '',
           transport: row['uses_transport'] ?? false,
           hostel: row['lives_in_hostel'] ?? false,

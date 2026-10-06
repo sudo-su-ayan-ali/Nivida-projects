@@ -54,26 +54,21 @@ class StudentProfileScreen extends ConsumerWidget {
                 icon: const Icon(Icons.point_of_sale_rounded, size: 18),
                 label: const Text('Collect Fee'),
               ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => _RequestWaiverDialog(
+                    studentId: student.id,
+                    studentName: student.name,
+                    balanceDue: student.totalDue,
+                  ),
+                ),
+                icon: const Icon(Icons.request_quote_rounded, size: 18),
+                label: const Text('Request Waiver'),
+              ),
             ],
           ),
-                        FilledButton.icon(
-                onPressed: () => context.go('/collect?student=${student.id}'),
-                icon: const Icon(Icons.point_of_sale_rounded, size: 18),
-                label: const Text('Collect Fee'),
-              ),
-              const SizedBox(width: 8),                    // ← NAYA
-              OutlinedButton.icon(                          // ← NAYA
-                onPressed: () => showDialog(                // ← NAYA
-                  context: context,                          // ← NAYA
-                  builder: (_) => _RequestWaiverDialog(       // ← NAYA
-                    studentId: student.id,                    // ← NAYA
-                    studentName: student.name,                // ← NAYA
-                    balanceDue: student.totalDue,              // ← NAYA
-                  ),                                          // ← NAYA
-                ),                                            // ← NAYA
-                icon: const Icon(Icons.request_quote_rounded, size: 18),  // ← NAYA
-                label: const Text('Request Waiver'),          // ← NAYA
-              ),                                              // ← NAYA
           const SizedBox(height: 20),
           LayoutBuilder(builder: (context, c) {
             final cols = c.maxWidth > 900 ? 4 : 2;

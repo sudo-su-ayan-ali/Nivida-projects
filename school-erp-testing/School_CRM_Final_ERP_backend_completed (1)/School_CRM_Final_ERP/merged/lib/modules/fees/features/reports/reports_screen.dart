@@ -7,6 +7,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/kpi_card.dart';
+import '../../../inventory/utils/export_helper.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -74,6 +75,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       for (final t in transactions.take(200)) {
         buffer.writeln('${t.receiptNo},${t.studentName},${Fmt.date(t.date)},${t.mode.label},${t.totalAmount.toStringAsFixed(0)},${t.discount.toStringAsFixed(0)},${t.lateFee.toStringAsFixed(0)}');
       }
+      final fileName = 'fees_transactions_${DateTime.now().toIso8601String().split('T').first}.csv';
+      downloadTextFile(fileName, buffer.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Downloaded $fileName'), behavior: SnackBarBehavior.floating),
+      );
+      return;
     } else {
       final collected = transactions.fold(0.0, (a, b) => a + b.totalAmount);
       final due = students.fold(0.0, (a, b) => a + b.totalDue);
