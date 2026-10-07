@@ -35,15 +35,20 @@ class _ToastHostState extends State<ToastHost> {
 
   void _show(String message, ToastType type) {
     _entry?.remove();
-    final overlay = Overlay.of(context);
+    _entry = null;
+    if (!mounted) return;
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
     final entry = OverlayEntry(
       builder: (context) => _ToastCard(message: message, type: type),
     );
     _entry = entry;
     overlay.insert(entry);
     Future.delayed(const Duration(milliseconds: 2600), () {
-      entry.remove();
-      if (_entry == entry) _entry = null;
+      if (_entry == entry) {
+        entry.remove();
+        _entry = null;
+      }
     });
   }
 
@@ -67,7 +72,11 @@ class _ToastCard extends StatelessWidget {
         break;
       case ToastType.warning:
         color = const Color(0xFFF59E0B);
-        icon = Icons.refresh_rounded;
+        icon = Icons.warning_rounded;
+        break;
+      case ToastType.error:
+        color = const Color(0xFFEF4444);
+        icon = Icons.error_outline_rounded;
         break;
       case ToastType.info:
         color = const Color(0xFF2F6FED);

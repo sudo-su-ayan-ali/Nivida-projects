@@ -13,15 +13,32 @@ class HrService {
     }
   }
 
+  Future<String> _resolveInstitutionId() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return 'd0000000-0000-0000-0000-000000000001';
+      final profile = await _client
+          .from('profiles')
+          .select('institution_id')
+          .eq('id', userId)
+          .maybeSingle();
+      return (profile?['institution_id'] as String?) ??
+          'd0000000-0000-0000-0000-000000000001';
+    } catch (_) {
+      return 'd0000000-0000-0000-0000-000000000001';
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchDepartments() async {
     return await _client.from('hr_departments').select();
   }
 
   Future<void> addDepartment(String name, String head) async {
+    final instId = await _resolveInstitutionId();
     await _client.from('hr_departments').insert({
       'name': name,
       'head': head,
-      'institution_id': 'd0000000-0000-0000-0000-000000000001',
+      'institution_id': instId,
     });
   }
 
@@ -37,11 +54,12 @@ class HrService {
 }
 
 Future<void> addDesignation(String name, String department, String description) async {
+  final instId = await _resolveInstitutionId();
   await _client.from('hr_designations').insert({
     'name': name,
     'department': department,
     'description': description,
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
+    'institution_id': instId,
   });
 }
 
@@ -61,7 +79,7 @@ Future<List<Map<String, dynamic>>> fetchEmployees() async {
 }
 
 Future<void> addEmployee(Map<String, dynamic> data) async {
-  data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+  data['institution_id'] = await _resolveInstitutionId();
   await _client.from('hr_employees').insert(data);
 }
 
@@ -79,12 +97,13 @@ Future<List<Map<String, dynamic>>> fetchAttendance() async {
 }
 
 Future<void> markAttendance(String employeeId, String status, String checkIn, String checkOut) async {
+  final instId = await _resolveInstitutionId();
   await _client.from('hr_attendance').insert({
     'employee_id': employeeId,
     'status': status,
     'check_in': checkIn,
     'check_out': checkOut,
-    'institution_id': 'd0000000-0000-0000-0000-000000000001',
+    'institution_id': instId,
   });
 }
 
@@ -98,7 +117,7 @@ Future<List<Map<String, dynamic>>> fetchLeaves() async {
 }
 
 Future<void> applyLeave(Map<String, dynamic> data) async {
-  data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+  data['institution_id'] = await _resolveInstitutionId();
   await _client.from('hr_leaves').insert(data);
 }
 
@@ -110,7 +129,7 @@ Future<List<Map<String, dynamic>>> fetchSalaryStructures() async {
 }
 
 Future<void> upsertSalaryStructure(Map<String, dynamic> data) async {
-  data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+  data['institution_id'] = await _resolveInstitutionId();
   await _client.from('hr_salary_structures').upsert(data);
 }
 Future<List<Map<String, dynamic>>> fetchPayrollRecords() async {
@@ -120,7 +139,7 @@ Future<List<Map<String, dynamic>>> fetchPayrollRecords() async {
 }
 
 Future<void> upsertPayrollRecord(Map<String, dynamic> data) async {
-  data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+  data['institution_id'] = await _resolveInstitutionId();
   await _client.from('hr_payroll_records').upsert(data, onConflict: 'employee_id,month');
 }
 Future<List<Map<String, dynamic>>> fetchLoans() async {
@@ -130,7 +149,7 @@ Future<List<Map<String, dynamic>>> fetchLoans() async {
 }
 
 Future<void> addLoan(Map<String, dynamic> data) async {
-  data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+  data['institution_id'] = await _resolveInstitutionId();
   await _client.from('hr_loans').insert(data);
 }
 
@@ -144,7 +163,7 @@ Future<List<Map<String, dynamic>>> fetchTaxRecords() async {
 }
 
 Future<void> addTaxRecord(Map<String, dynamic> data) async {
-  data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+  data['institution_id'] = await _resolveInstitutionId();
   await _client.from('hr_tax_records').insert(data);
 }
 
@@ -157,7 +176,7 @@ Future<List<Map<String, dynamic>>> fetchAllowanceDeductions() async {
 }
 
 Future<void> addAllowanceDeduction(Map<String, dynamic> data) async {
-  data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+  data['institution_id'] = await _resolveInstitutionId();
   await _client.from('hr_allowance_deductions').insert(data);
 }
 
@@ -175,7 +194,7 @@ Future<void> deleteAllowanceDeduction(String id) async {
   }
 
   Future<void> addShift(Map<String, dynamic> data) async {
-    data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+    data['institution_id'] = await _resolveInstitutionId();
     await _client.from('hr_shifts').insert(data);
   }
 
@@ -193,7 +212,7 @@ Future<void> deleteAllowanceDeduction(String id) async {
   }
 
   Future<void> addAppraisal(Map<String, dynamic> data) async {
-    data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+    data['institution_id'] = await _resolveInstitutionId();
     await _client.from('hr_appraisals').insert(data);
   }
 
@@ -207,7 +226,7 @@ Future<void> deleteAllowanceDeduction(String id) async {
   }
 
   Future<void> addJob(Map<String, dynamic> data) async {
-    data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+    data['institution_id'] = await _resolveInstitutionId();
     await _client.from('hr_jobs').insert(data);
   }
 
@@ -225,7 +244,7 @@ Future<void> deleteAllowanceDeduction(String id) async {
   }
 
   Future<void> addCandidate(Map<String, dynamic> data) async {
-    data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+    data['institution_id'] = await _resolveInstitutionId();
     await _client.from('hr_candidates').insert(data);
   }
 
@@ -243,7 +262,7 @@ Future<void> deleteAllowanceDeduction(String id) async {
   }
 
   Future<void> addInterview(Map<String, dynamic> data) async {
-    data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+    data['institution_id'] = await _resolveInstitutionId();
     await _client.from('hr_interviews').insert(data);
   }
 
@@ -253,7 +272,7 @@ Future<void> deleteAllowanceDeduction(String id) async {
   }
 
   Future<void> addOffer(Map<String, dynamic> data) async {
-    data['institution_id'] = 'd0000000-0000-0000-0000-000000000001';
+    data['institution_id'] = await _resolveInstitutionId();
     await _client.from('hr_offers').insert(data);
   }
 

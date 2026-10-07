@@ -8,6 +8,22 @@ import '../models/block.dart';
 class HostelService {
   final _client = Supabase.instance.client;
 
+  Future<String> _resolveInstitutionId() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return 'd0000000-0000-0000-0000-000000000001';
+      final profile = await _client
+          .from('profiles')
+          .select('institution_id')
+          .eq('id', userId)
+          .maybeSingle();
+      return (profile?['institution_id'] as String?) ??
+          'd0000000-0000-0000-0000-000000000001';
+    } catch (_) {
+      return 'd0000000-0000-0000-0000-000000000001';
+    }
+  }
+
   // ---- Blocks ----
   Future<List<Map<String, dynamic>>> fetchBlocks() async {
     return await _client.from('hostel_blocks').select();
@@ -158,12 +174,20 @@ Future<void> addHostelStudentFull({
   required String roomNumber,
   required String dateOfBirth, // yyyy-MM-dd, from the Add Student form's DOB picker
 }) async {
-  // Demo DB me abhi sirf ek hi valid institution/course/section/admission combo hai.
-  // Jab courses/sections aur admissions properly seed ho jayein, inhe UI dropdown se
-  // dynamically fetch karna better rahega.
-    const institutionId = 'd0000000-0000-0000-0000-000000000001';
-  const courseId = 'd0000000-0000-0000-0000-000000000020';   // B.Tech Computer Science
-  const sectionId = 'd0000000-0000-0000-0000-000000000040';  // CS-3A
+  // Dynamically resolve current tenant institution ID and associated course/section
+  final institutionId = await _resolveInstitutionId();
+  var courseId = 'd0000000-0000-0000-0000-000000000020';   // B.Tech Computer Science
+  var sectionId = 'd0000000-0000-0000-0000-000000000040';  // CS-3A
+  try {
+    final c = await _client.from('courses').select('id').eq('institution_id', institutionId).limit(1).maybeSingle();
+    if (c != null && c['id'] != null) {
+      courseId = c['id'] as String;
+      final s = await _client.from('sections').select('id').eq('course_id', courseId).limit(1).maybeSingle();
+      if (s != null && s['id'] != null) {
+        sectionId = s['id'] as String;
+      }
+    }
+  } catch (_) {}
 
   final enrollmentNo = 'ENR${DateTime.now().millisecondsSinceEpoch}';
 

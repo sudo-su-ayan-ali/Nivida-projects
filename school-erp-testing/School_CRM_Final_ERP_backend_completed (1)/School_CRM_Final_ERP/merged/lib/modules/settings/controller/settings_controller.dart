@@ -71,7 +71,7 @@ class GeneralSettingsData {
       );
 }
 
-enum ToastType { success, info, warning }
+enum ToastType { success, info, warning, error }
 
 class ToastEvent {
   final String message;
@@ -90,8 +90,10 @@ class SettingsController extends ChangeNotifier {
 
   GeneralSettingsData _saved = GeneralSettingsData.defaults();
   late GeneralSettingsData draft = _saved.copy();
-  final _service = SettingsService();
-String? _rowId;
+  final SettingsService _service;
+  String? _rowId;
+
+  SettingsController({SettingsService? service}) : _service = service ?? SettingsService();
 
   bool isDarkMode = false;
   String selectedCategory = 'System Settings';
@@ -200,32 +202,42 @@ String? _rowId;
   }
 
   Future<void> saveSettings() async {
-  _saved = draft.copy();
-  if (_rowId != null) {
-    await _service.saveSettings(
-      id: _rowId!,
-      generalFields: _saved.toJson().map((k, v) => MapEntry(_toSnakeCase(k), v)),
-      toggles: toggles,
-      isDarkMode: isDarkMode,
-    );
+    _saved = draft.copy();
+    try {
+      if (_rowId != null) {
+        await _service.saveSettings(
+          id: _rowId!,
+          generalFields: _saved.toJson().map((k, v) => MapEntry(_toSnakeCase(k), v)),
+          toggles: toggles,
+          isDarkMode: isDarkMode,
+        );
+      }
+      await _persistGeneral();
+      await _persistToggles();
+      notifyListeners();
+      _emitToast('Settings saved successfully', ToastType.success);
+    } catch (e) {
+      debugPrint('Error saving settings to backend: $e');
+      await _persistGeneral();
+      await _persistToggles();
+      notifyListeners();
+      _emitToast('Saved locally (network sync pending: $e)', ToastType.warning);
+    }
   }
-  notifyListeners();
-  _emitToast('Settings saved successfully', ToastType.success);
-}
 
-String _toSnakeCase(String field) {
-  const map = {
-    'orgName': 'org_name',
-    'academicYear': 'academic_year',
-    'timeZone': 'time_zone',
-    'dateFormat': 'date_format',
-    'language': 'language',
-    'currency': 'currency',
-    'theme': 'theme',
-    'itemsPerPage': 'items_per_page',
-  };
-  return map[field] ?? field;
-}
+  String _toSnakeCase(String field) {
+    const map = {
+      'orgName': 'org_name',
+      'academicYear': 'academic_year',
+      'timeZone': 'time_zone',
+      'dateFormat': 'date_format',
+      'language': 'language',
+      'currency': 'currency',
+      'theme': 'theme',
+      'itemsPerPage': 'items_per_page',
+    };
+    return map[field] ?? field;
+  }
 
   void discardChanges() {
     draft = _saved.copy();
@@ -238,25 +250,47 @@ String _toSnakeCase(String field) {
     _saved = GeneralSettingsData.defaults();
     draft = _saved.copy();
     formGeneration++;
-    await _persistGeneral();
-    notifyListeners();
-    _emitToast('Settings reset to default', ToastType.warning);
+    try {
+      await _persistGeneral();
+      if (_rowId != null) {
+        await _service.saveSettings(
+          id: _rowId!,
+          generalFields: _saved.toJson().map((k, v) => MapEntry(_toSnakeCase(k), v)),
+          toggles: toggles,
+          isDarkMode: isDarkMode,
+        );
+      }
+      notifyListeners();
+      _emitToast('Settings reset to default', ToastType.warning);
+    } catch (e) {
+      await _persistGeneral();
+      notifyListeners();
+      _emitToast('Reset to default locally', ToastType.warning);
+    }
   }
 
- Future<void> toggleSetting(String key) async {
-  toggles[key] = !(toggles[key] ?? false);
-  if (_rowId != null) {
-    await _service.saveSettings(
-      id: _rowId!,
-      generalFields: _saved.toJson().map((k, v) => MapEntry(_toSnakeCase(k), v)),
-      toggles: toggles,
-      isDarkMode: isDarkMode,
-    );
+  Future<void> toggleSetting(String key) async {
+    toggles[key] = !(toggles[key] ?? false);
+    final state = toggles[key]! ? 'enabled' : 'disabled';
+    try {
+      if (_rowId != null) {
+        await _service.saveSettings(
+          id: _rowId!,
+          generalFields: _saved.toJson().map((k, v) => MapEntry(_toSnakeCase(k), v)),
+          toggles: toggles,
+          isDarkMode: isDarkMode,
+        );
+      }
+      await _persistToggles();
+      notifyListeners();
+      _emitToast('$key $state', ToastType.info);
+    } catch (e) {
+      debugPrint('Toggle save error: $e');
+      await _persistToggles();
+      notifyListeners();
+      _emitToast('$key $state (saved locally)', ToastType.info);
+    }
   }
-  notifyListeners();
-  final state = toggles[key]! ? 'enabled' : 'disabled';
-  _emitToast('$key $state', ToastType.info);
-}
 
   Future<void> setDarkMode(bool value) async {
     isDarkMode = value;
