@@ -49,6 +49,7 @@
 | **41. Enable Full Functionality in Parents & Student Portal Module** | In the Parents & Student tab, accounts with empty parent links saw an inert empty screen with no action buttons or navigation back; child linking failed due to schema mismatch (`enrollment_no` vs `admission_no`); attendance screen had duplicate navigation controls; and dashboard grid overflowed on narrow screens. | Added interactive empty state with "Add / Link Child" dialog, expanded child linking to query `enrollment_no` & `admission_no` scoped by tenant, added fallback child loading for portal preview, made navigation menu responsive, and removed duplicate navigation buttons. |
 | **42. Enable Full Functionality in Attendance Management Module** | In the Attendance tab, selecting a different date in the filter bar did not load attendance records from Supabase; bulk status updates only modified local state without saving to the database; CSV export only showed a toast without downloading a file; and table pagination was disconnected. Schema differences between `enrollment_no` vs `admission_no` and `name` vs `full_name` also caused empty roll numbers/names. | Wired dynamic date reload in `_applyFilters()`, added persistent bulk database update loop in `_bulkUpdateStatus()`, implemented live CSV file download in `_openExport()`, connected pagination with `_Pagination` footer in `attendance_table.dart`, and expanded `AttendanceRecord.fromMap()` to parse `full_name` and `enrollment_no` with remarks persistence in `AttendanceRepository.markAttendance()`. |
 | **43. Global Synchronization & Interactivity Across Inventory and Transport Modules** | Top KPI cards and overview tiles in the Inventory module lacked interactivity; more actions dropdown had placeholder refresh and import text; hardcoded tenant IDs risked multi-tenant cross-talk. Transport module report generation only gave a toast message without real file output, and transport service used hardcoded static UUIDs for tenants without schema column fallback guards. | Made Inventory KPI cards and overview tiles interactive with live filter links; wired asynchronous database reload in inventory `More Actions -> Refresh`; added dynamic multi-tenant institution resolution across `InventoryService` and `TransportService` with fallback column stripping; implemented live CSV generation and browser download in Transport `Generate Report` dialog. |
+| **48. Backend Wiring Repair: Tenant UUID, Transport Schema & Live CRUD** | Wrong `d0000000…` institution fallbacks, missing transport operational tables, unscoped transport queries, hardcoded attendance students, and broken students/hostel inserts against provisioned schema. | Aligned fallbacks to Tenant Alpha UUID, added transport extras migration + provisioning/RLS, scoped TransportService, wired live route students, fixed students/hostel inserts, updated docs. |
 
 ---
 
@@ -1404,6 +1405,39 @@
   - Flutter test suite: **77/77 tests passed (100%)**.
   - Python QA/VAPT contract suite: **60/60 tests passed (100%)**.
   - Static analyzer: **0 errors**.
+
+---
+
+### 48. Backend Wiring Repair: Tenant UUID Alignment, Transport Schema Completion & Live CRUD Fixes
+
+#### What Was Done:
+1. **Wrong Tenant UUID Fallback (`d0000000…` → `00000000…`)**:
+   - Replaced invalid fallback institution ID `d0000000-0000-0000-0000-000000000001` with provisioned Tenant Alpha UUID `00000000-0000-0000-0000-000000000001` across Transport, Hostel, HR, Inventory, Teachers form, Fees waiver dialog, and teachers tests.
+2. **Missing Transport Operational Tables**:
+   - Added `sql/transport_extras_migration.sql` creating `trips`, `transport_attendance`, `transport_fee_payments`, `transport_messages`, and `notifications` with RLS.
+   - Updated `QA&VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql` and `02_multi_tenant_rls_policies.sql` to include the same tables.
+   - Seeded drivers, `student_transport` link for Alpha student Aarav Sharma, and a baseline trip.
+3. **Transport Service Full Tenant Scoping**:
+   - Rewrote `TransportService` so all reads/writes scope by `institution_id` (with unscoped fallback only when the column is absent).
+   - Added `fetchStudentsForRoute()` joining `student_transport` → `students`.
+4. **Mark Attendance Live Students**:
+   - Replaced hardcoded mock student names in `_MarkAttendanceDialog` with route-driven live allocation lists.
+5. **Students / Hostel Insert Schema Parity**:
+   - `StudentRepository.addStudent` now resolves real `courses`/`sections` for the tenant and no longer sends nonexistent `current_semester` or phantom course/section UUIDs.
+   - `HostelService.addHostelStudentFull` supplies required `class_num`/`section`, includes `institution_id` on `hostel_students`, and resolves course/section dynamically.
+6. **Documentation Sync**:
+   - Cleared the Transport dropdown gap in `BACKEND_STATUS.md` and `project_overview.md`.
+
+#### Why It Was Done:
+- Profile-resolve failures previously wrote/filtered against a nonexistent tenant UUID, producing empty dashboards and orphan inserts.
+- Transport Mark Attendance / Collect Fees / Trip Schedule / Notifications called tables that provisioning never created.
+- Student and hostel admissions failed against the real schema (`class_num`/`section` NOT NULL; no `current_semester`).
+
+#### For What:
+- Restores end-to-end backend wiring for Transport, Students, and Hostel against the provisioned multi-tenant Supabase schema.
+- Verified:
+  - `phase3_remaining_modules_test.dart` + `phase2_students_test.dart` + `phase2_teachers_test.dart`: **19/19 passed**.
+  - Analyzer: **0 errors** on changed files.
 
 ---
 

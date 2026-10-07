@@ -115,42 +115,64 @@ class StudentRepository extends ChangeNotifier {
   Future<void> addStudent(Student student) async {
     final currentInstId = await _resolveInstitutionId();
     final institutionId = currentInstId ?? '00000000-0000-0000-0000-000000000001';
-    const courseId = 'd0000000-0000-0000-0000-000000000020';
-    const sectionId = 'd0000000-0000-0000-0000-000000000040';
 
-  // Step A: pehle 'admissions' table mein entry banao — students.admission_id
-  // NOT NULL hai, aur har student ke liye alag admission record chahiye.
-  final admissionInsert = await _client.from('admissions').insert({
-    'institution_id': institutionId,
-    'course_id': courseId,
-    'applicant_name': student.name,
-    'contact_email': student.email.isNotEmpty ? student.email : null,
-    'contact_phone': student.mobile,
-    'date_of_birth': student.dob.toIso8601String().split('T').first,
-  }).select().single();
+    // Resolve a real course/section for this tenant (never invent phantom UUIDs).
+    String? courseId;
+    String? sectionId;
+    try {
+      final course = await _client
+          .from('courses')
+          .select('id')
+          .eq('institution_id', institutionId)
+          .limit(1)
+          .maybeSingle();
+      courseId = course?['id'] as String?;
+      if (courseId != null) {
+        final section = await _client
+            .from('sections')
+            .select('id')
+            .eq('course_id', courseId)
+            .limit(1)
+            .maybeSingle();
+        sectionId = section?['id'] as String?;
+      }
+    } catch (_) {}
 
-  final admissionId = admissionInsert['id'];
-
-  // Step B: ab students table mein insert karo — student.toMap() ke data
-  // ke saath institution/course/section/admission IDs bhi jodo.
-  final studentMap = student.toMap()
-    ..addAll({
+    // Step A: pehle 'admissions' table mein entry banao — students.admission_id
+    // NOT NULL hai, aur har student ke liye alag admission record chahiye.
+    final admissionPayload = <String, dynamic>{
       'institution_id': institutionId,
-      'admission_id': admissionId,
-      'course_id': courseId,
-      'section_id': sectionId,
-      'current_semester': 1,
-    });
+      'applicant_name': student.name,
+      'contact_email': student.email.isNotEmpty ? student.email : null,
+      'contact_phone': student.mobile,
+      'date_of_birth': student.dob.toIso8601String().split('T').first,
+    };
+    if (courseId != null) admissionPayload['course_id'] = courseId;
 
-  final inserted = await _client
-      .from('students')
-      .insert(studentMap)
-      .select()
-      .single();
+    final admissionInsert =
+        await _client.from('admissions').insert(admissionPayload).select().single();
 
-  _students.insert(0, Student.fromMap(inserted));
-  notifyListeners();
-}
+    final admissionId = admissionInsert['id'];
+
+    // Step B: students insert — class_num/section come from student.toMap().
+    // Do NOT send current_semester (column does not exist on provisioned schema).
+    final studentMap = student.toMap()
+      ..addAll({
+        'institution_id': institutionId,
+        'admission_id': admissionId,
+        if (courseId != null) 'course_id': courseId,
+        if (sectionId != null) 'section_id': sectionId,
+      });
+
+    final inserted = await _client
+        .from('students')
+        .insert(studentMap)
+        .select()
+        .single();
+
+    _students.insert(0, Student.fromMap(inserted));
+    notifyListeners();
+  }
 
   Future<void> updateStudent(Student updated) async {
     await _client.from('students').update(updated.toMap()).eq('id', updated.id);

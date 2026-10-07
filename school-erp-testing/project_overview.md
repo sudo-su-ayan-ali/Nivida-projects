@@ -624,8 +624,7 @@ Comprehensive audit across all 378 Dart files and 104 Supabase database tables c
 - **Multi-Tenant Testing**: 100% verified across 139 automated tests (75 Flutter client tests + 64 Python contract tests) spanning all 14 personas and both test institutions (Tenant Alpha and Beta).
 
 ### Documented Implementation Gap
-- **Transport Module Dropdowns**: In [`modules/transport/data/mock_data.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/data/mock_data.dart), selector dropdowns for `route names`, `driver names`, and `vehicle numbers` currently use static in-memory lists in the UI dialogs. The KPIs, trips, student allocations, driver records, and main data tables load from live Supabase tables (`routes`, `drivers`, `vehicles`, `trips`).
-  - *Recommendation*: Wire these dropdowns to load distinct values dynamically from the `routes`, `drivers`, and `vehicles` tables using the pattern in `attendance_repository.dart` (`fetchClassOptions()`).
+- **Resolved — Transport Module Dropdowns**: Route / driver / vehicle selectors and Mark Attendance student lists now load live tenant-scoped values from Supabase via `TransportService`. Enum-style static lists (`tripTypes`, `vehicleTypes`, `paymentModes`) remain intentionally in `mock_data.dart`. Apply `sql/transport_extras_migration.sql` if operational transport tables (`trips`, `transport_attendance`, `transport_fee_payments`, `transport_messages`, `notifications`) are missing on the target Supabase project.
 
 ---
 

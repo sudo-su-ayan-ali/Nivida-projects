@@ -147,7 +147,7 @@ class _RequestWaiverDialogState extends State<_RequestWaiverDialog> {
     try {
       final client = Supabase.instance.client;
       final userId = client.auth.currentUser?.id;
-      var institutionId = 'd0000000-0000-0000-0000-000000000001';
+      var institutionId = '00000000-0000-0000-0000-000000000001';
       if (userId != null) {
         final profile = await client.from('profiles').select('institution_id').eq('id', userId).maybeSingle();
         if (profile != null && profile['institution_id'] != null) {

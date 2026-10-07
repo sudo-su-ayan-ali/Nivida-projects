@@ -108,4 +108,5 @@ The administrative dashboard provides a complete Excel-based (`.xlsx`) and CSV b
 
 ## 6. Known Remaining UI Gap
 
-- **Transport Dropdowns**: In `modules/transport/data/mock_data.dart`, quick selector dropdowns (`route names`, `driver names`, `vehicle numbers`) use static option lists in dialog filters. The rest of the transport module (KPIs, active trips, boarding attendance, vehicle logs, and fee payments) is fully wired to live Supabase tables (`routes`, `drivers`, `vehicles`, `trips`).
+- **None (Transport Dropdowns Resolved)**: Route / driver / vehicle selectors now load live distinct values from Supabase via `TransportService.fetchRouteNames()`, `fetchDriverNames()`, and `fetchVehicleNumbers()` (tenant-scoped). Mark Attendance students load from `student_transport` via `fetchStudentsForRoute()`. Static `MockData` lists remain only for enum-style options (`tripTypes`, `vehicleTypes`, `paymentModes`, `reportTypes`).
+- **Schema Prerequisite**: Apply `sql/transport_extras_migration.sql` (or re-run updated `QA&VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql`) so `trips`, `transport_attendance`, `transport_fee_payments`, `transport_messages`, and `notifications` exist with RLS + seed drivers / student_transport links.

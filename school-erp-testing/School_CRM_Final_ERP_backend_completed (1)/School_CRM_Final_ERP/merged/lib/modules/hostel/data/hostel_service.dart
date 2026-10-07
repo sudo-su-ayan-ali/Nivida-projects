@@ -11,16 +11,16 @@ class HostelService {
   Future<String> _resolveInstitutionId() async {
     try {
       final userId = _client.auth.currentUser?.id;
-      if (userId == null) return 'd0000000-0000-0000-0000-000000000001';
+      if (userId == null) return '00000000-0000-0000-0000-000000000001';
       final profile = await _client
           .from('profiles')
           .select('institution_id')
           .eq('id', userId)
           .maybeSingle();
       return (profile?['institution_id'] as String?) ??
-          'd0000000-0000-0000-0000-000000000001';
+          '00000000-0000-0000-0000-000000000001';
     } catch (_) {
-      return 'd0000000-0000-0000-0000-000000000001';
+      return '00000000-0000-0000-0000-000000000001';
     }
   }
 
@@ -176,13 +176,23 @@ Future<void> addHostelStudentFull({
 }) async {
   // Dynamically resolve current tenant institution ID and associated course/section
   final institutionId = await _resolveInstitutionId();
-  var courseId = 'd0000000-0000-0000-0000-000000000020';   // B.Tech Computer Science
-  var sectionId = 'd0000000-0000-0000-0000-000000000040';  // CS-3A
+  String? courseId;
+  String? sectionId;
   try {
-    final c = await _client.from('courses').select('id').eq('institution_id', institutionId).limit(1).maybeSingle();
+    final c = await _client
+        .from('courses')
+        .select('id')
+        .eq('institution_id', institutionId)
+        .limit(1)
+        .maybeSingle();
     if (c != null && c['id'] != null) {
       courseId = c['id'] as String;
-      final s = await _client.from('sections').select('id').eq('course_id', courseId).limit(1).maybeSingle();
+      final s = await _client
+          .from('sections')
+          .select('id')
+          .eq('course_id', courseId)
+          .limit(1)
+          .maybeSingle();
       if (s != null && s['id'] != null) {
         sectionId = s['id'] as String;
       }
@@ -194,37 +204,50 @@ Future<void> addHostelStudentFull({
   // 0) Har naye student ke liye apna alag admissions record banao —
   // students.admission_id unique hai, isliye purana hardcoded admission_id
   // dobara use nahi ho sakta.
-  final admissionInsert = await _client.from('admissions').insert({
+  final admissionPayload = <String, dynamic>{
     'institution_id': institutionId,
-    'course_id': courseId,
     'applicant_name': name,
     'contact_email': email.isNotEmpty ? email : null,
     'contact_phone': phone,
     'date_of_birth': dateOfBirth,
-  }).select().single();
+  };
+  if (courseId != null) admissionPayload['course_id'] = courseId;
+
+  final admissionInsert =
+      await _client.from('admissions').insert(admissionPayload).select().single();
 
   final admissionId = admissionInsert['id'];
 
-  // 1) Core students table me insert (sirf wahi columns jo actually exist karte hain)
-  final studentInsert = await _client.from('students').insert({
+  // 1) Core students table — class_num/section are NOT NULL; current_semester does not exist.
+  final studentPayload = <String, dynamic>{
     'institution_id': institutionId,
     'admission_id': admissionId,
-    'course_id': courseId,
-    'section_id': sectionId,
     'enrollment_no': enrollmentNo,
-    'current_semester': 1,
     'status': 'active',
     'full_name': name,
     'contact_phone': phone,
     'guardian_name': guardianName,
-  }).select().single();
+    'class_num': 10,
+    'section': 'A',
+    'gender': gender.isNotEmpty ? gender : null,
+    'email': email.isNotEmpty ? email : null,
+    'address': address.isNotEmpty ? address : null,
+    'lives_in_hostel': true,
+    'hostel_name': blockName,
+  };
+  if (courseId != null) studentPayload['course_id'] = courseId;
+  if (sectionId != null) studentPayload['section_id'] = sectionId;
+
+  final studentInsert =
+      await _client.from('students').insert(studentPayload).select().single();
   final studentId = studentInsert['id'];
 
-  // 2) Room number se room_id + block_id nikaalo
+  // 2) Room number se room_id + block_id nikaalo (tenant scoped)
   final room = await _client
       .from('rooms')
       .select('id, block_id')
       .eq('room_number', roomNumber)
+      .eq('institution_id', institutionId)
       .maybeSingle();
 
   if (room == null) {
@@ -233,6 +256,7 @@ Future<void> addHostelStudentFull({
 
   // 3) hostel_students me link banao (blood_group/guardian_phone yahin save hote hain)
   await _client.from('hostel_students').insert({
+    'institution_id': institutionId,
     'student_id': studentId,
     'room_id': room['id'],
     'block_id': room['block_id'],

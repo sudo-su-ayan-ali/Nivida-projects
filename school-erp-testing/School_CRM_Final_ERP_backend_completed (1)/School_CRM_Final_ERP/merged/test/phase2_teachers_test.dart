@@ -256,7 +256,7 @@ void main() {
         'emp_id': 'EMP-001',
         'name': 'Dr. Meera Nambiar',
         'department': 'Science',
-        'institution_id': 'd0000000-0000-0000-0000-000000000001',
+        'institution_id': '00000000-0000-0000-0000-000000000001',
       };
 
       if (ErpBackupTables.tablesWithGeneratedIdentity.contains('teachers')) {

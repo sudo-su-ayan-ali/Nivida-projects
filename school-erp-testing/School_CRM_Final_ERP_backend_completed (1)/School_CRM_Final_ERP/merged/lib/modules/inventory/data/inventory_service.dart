@@ -9,16 +9,16 @@ class InventoryService {
   Future<String> _resolveInstitutionId() async {
     try {
       final userId = _client.auth.currentUser?.id;
-      if (userId == null) return 'd0000000-0000-0000-0000-000000000001';
+      if (userId == null) return '00000000-0000-0000-0000-000000000001';
       final profile = await _client
           .from('profiles')
           .select('institution_id')
           .eq('id', userId)
           .maybeSingle();
       return (profile?['institution_id'] as String?) ??
-          'd0000000-0000-0000-0000-000000000001';
+          '00000000-0000-0000-0000-000000000001';
     } catch (_) {
-      return 'd0000000-0000-0000-0000-000000000001';
+      return '00000000-0000-0000-0000-000000000001';
     }
   }
 

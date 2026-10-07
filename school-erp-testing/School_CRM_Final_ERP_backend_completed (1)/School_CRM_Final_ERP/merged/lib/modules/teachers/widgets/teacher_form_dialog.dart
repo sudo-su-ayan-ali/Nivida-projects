@@ -7,7 +7,7 @@ import '../theme/app_colors.dart';
 /// Demo single-institution id used consistently across the app's
 /// Supabase inserts (see students/inventory modules) until real
 /// multi-tenant institution selection is wired up.
-const String _kInstitutionId = 'd0000000-0000-0000-0000-000000000001';
+const String _kInstitutionId = '00000000-0000-0000-0000-000000000001';
 
 /// Modal used for both "Add Teacher" and "Edit Teacher". Returns the
 /// resulting [Teacher] via Navigator.pop when saved, or null on cancel.

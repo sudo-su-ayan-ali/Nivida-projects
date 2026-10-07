@@ -386,19 +386,22 @@ class _MarkAttendanceDialog extends StatefulWidget {
 class _MarkAttendanceDialogState extends State<_MarkAttendanceDialog> {
   String? _route;
   final Set<String> _present = {};
-  final List<String> _students = const [
-    'Rohit Sharma',
-    'Ayesha Khan',
-    'Vivaan Gupta',
-    'Diya Patel',
-    'Kabir Singh',
-    'Meera Nair',
-  ];
+  List<String> _students = [];
+  bool _loadingStudents = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _present.addAll(_students);
+  Future<void> _loadStudentsForRoute(String routeName) async {
+    setState(() {
+      _loadingStudents = true;
+      _students = [];
+      _present.clear();
+    });
+    final names = await TransportService().fetchStudentsForRoute(routeName);
+    if (!mounted) return;
+    setState(() {
+      _students = names;
+      _present.addAll(names);
+      _loadingStudents = false;
+    });
   }
 
   @override
@@ -416,12 +419,15 @@ class _MarkAttendanceDialogState extends State<_MarkAttendanceDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-                 AppDropdownField<String>(
+          AppDropdownField<String>(
             label: 'Route',
             value: _route,
             items: widget.routeNames,
             labelBuilder: (e) => e,
-            onChanged: (v) => setState(() => _route = v),
+            onChanged: (v) {
+              setState(() => _route = v);
+              if (v != null) _loadStudentsForRoute(v);
+            },
             required: true,
             icon: Icons.alt_route_outlined,
           ),
@@ -429,45 +435,71 @@ class _MarkAttendanceDialogState extends State<_MarkAttendanceDialog> {
           FieldLabel(
             'Students (${_present.length}/${_students.length} present)',
           ),
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.border),
-              borderRadius: BorderRadius.circular(11),
+          if (_loadingStudents)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else if (_route == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('Select a route to load allocated students.'),
+            )
+          else if (_students.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('No students allocated to this route yet.'),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Column(
+                children: [
+                  for (int i = 0; i < _students.length; i++)
+                    _StudentAttendanceTile(
+                      name: _students[i],
+                      present: _present.contains(_students[i]),
+                      isLast: i == _students.length - 1,
+                      onToggle: () => setState(() {
+                        final s = _students[i];
+                        if (_present.contains(s)) {
+                          _present.remove(s);
+                        } else {
+                          _present.add(s);
+                        }
+                      }),
+                    ),
+                ],
+              ),
             ),
-            child: Column(
-              children: [
-                for (int i = 0; i < _students.length; i++)
-                  _StudentAttendanceTile(
-                    name: _students[i],
-                    present: _present.contains(_students[i]),
-                    isLast: i == _students.length - 1,
-                    onToggle: () => setState(() {
-                      final s = _students[i];
-                      if (_present.contains(s)) {
-                        _present.remove(s);
-                      } else {
-                        _present.add(s);
-                      }
-                    }),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-void _submit() async {
-  if (_route == null) {
-    showAppSnackBar(context, 'Please select a route', icon: Icons.error_rounded, color: AppColors.danger);
-    return;
+  Future<void> _submit() async {
+    if (_route == null) {
+      showAppSnackBar(context, 'Please select a route',
+          icon: Icons.error_rounded, color: AppColors.danger);
+      return;
+    }
+    if (_students.isEmpty) {
+      showAppSnackBar(context, 'No students to mark for this route',
+          icon: Icons.error_rounded, color: AppColors.danger);
+      return;
+    }
+    final attendanceMap = {
+      for (final s in _students) s: _present.contains(s)
+    };
+    await TransportService().markAttendance(_route!, attendanceMap);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    showAppSnackBar(context,
+        'Attendance saved for $_route (${_present.length}/${_students.length} present)');
   }
-  final attendanceMap = {for (final s in _students) s: _present.contains(s)};
-  await TransportService().markAttendance(_route!, attendanceMap);
-  Navigator.of(context).pop();
-  showAppSnackBar(context, 'Attendance saved for $_route (${_present.length}/${_students.length} present)');
-}
 }
 
 class _StudentAttendanceTile extends StatelessWidget {
