@@ -268,15 +268,12 @@ isWide
       children: [
         SizedBox(
           height: 260, // <-- yahi height fix karti hai, jitna chahiye utna badhao/ghatao
-          child: Scrollbar(
-            thumbVisibility: true,
-            child: ListView.separated(
-              padding: EdgeInsets.zero,
-              itemCount: state.children.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) =>
-                  _childTile(context, state, state.children[index]),
-            ),
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: state.children.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) =>
+                _childTile(context, state, state.children[index]),
           ),
         ),
         const SizedBox(height: 12),
@@ -450,15 +447,12 @@ isWide
     
     child: SizedBox(
       height: 260, // dono card ki height same rakhna better lagega
-      child: Scrollbar(
-        thumbVisibility: true,
-        child: ListView.separated(
-          padding: EdgeInsets.zero,
-          itemCount: state.children.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 14),
-          itemBuilder: (context, index) =>
-              _academicChildBlock(state.children[index]),
-        ),
+      child: ListView.separated(
+        padding: EdgeInsets.zero,
+        itemCount: state.children.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 14),
+        itemBuilder: (context, index) =>
+            _academicChildBlock(state.children[index]),
       ),
     ),
   );
@@ -713,14 +707,11 @@ Widget _upcomingEventsCard(BuildContext context, AppStateProvider state) {
     ),
     child: SizedBox(
       height: 260, // Fee Summary card jitni height rakhi, taaki row match ho
-      child: Scrollbar(
-        thumbVisibility: true,
-        child: ListView.separated(
-          padding: EdgeInsets.zero,
-          itemCount: events.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) => _eventTile(events[index]),
-        ),
+      child: ListView.separated(
+        padding: EdgeInsets.zero,
+        itemCount: events.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) => _eventTile(events[index]),
       ),
     ),
   );
@@ -804,15 +795,12 @@ Widget _teacherCommunicationCard(
                 style: TextStyle(color: Colors.grey),
               ),
             )
-          : Scrollbar(
-              thumbVisibility: true,
-              child: ListView.separated(
-                padding: EdgeInsets.zero,
-                itemCount: threads.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) =>
-                    _threadTile(context, state, threads[index]),
-              ),
+          : ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: threads.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) =>
+                  _threadTile(context, state, threads[index]),
             ),
     ),
   );
@@ -1132,6 +1120,12 @@ class _AnimatedMenuBackgroundState extends State<_AnimatedMenuBackground>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   void _ensureParticles(Size size) {

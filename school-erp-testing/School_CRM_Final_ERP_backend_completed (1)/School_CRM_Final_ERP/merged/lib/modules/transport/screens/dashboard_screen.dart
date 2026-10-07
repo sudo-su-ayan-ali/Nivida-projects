@@ -152,20 +152,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return k;
     }).toList();
 
-        setState(() {
-      _routes = routes;
-      _kpis = updatedKpis;
-      _summary = summary;
-      _alerts = alerts;
-      _trips = trips;
-      _fees = fees;
-      _notifications = notifications;
-      _messages = messages;
-      _loading = false;
-    });
+      if (!mounted) return;
+      setState(() {
+        _routes = routes;
+        _kpis = updatedKpis;
+        _summary = summary;
+        _alerts = alerts;
+        _trips = trips;
+        _fees = fees;
+        _notifications = notifications;
+        _messages = messages;
+        _loading = false;
+      });
     } catch (err) {
       print('❌ Transport dashboard load error: $err');
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

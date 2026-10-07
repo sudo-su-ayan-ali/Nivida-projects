@@ -7,6 +7,7 @@
 
 library app_store;
 
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
@@ -472,14 +473,33 @@ class AppStore extends ChangeNotifier {
     try {
       final rows = await _client.from('exam_evaluations').select();
       evaluations = (rows as List).map((r) {
-        final marksList = (r['marks'] as List? ?? [])
-            .map((m) => QuestionMark(
-                  questionNo: m['questionNo'] ?? '',
-                  maxMarks: m['maxMarks'] ?? 0,
-                  awarded: m['awarded'],
-                  comment: m['comment'],
-                ))
-            .toList();
+        final rawMarks = r['marks'];
+        List<dynamic> rawList = [];
+        if (rawMarks is List) {
+          rawList = rawMarks;
+        } else if (rawMarks is String) {
+          try {
+            final parsed = jsonDecode(rawMarks);
+            if (parsed is List) rawList = parsed;
+          } catch (_) {}
+        } else if (rawMarks is num) {
+          rawList = [
+            {'questionNo': '1', 'maxMarks': 100, 'awarded': rawMarks.toInt(), 'comment': ''}
+          ];
+        }
+
+        final marksList = rawList.map((m) {
+          if (m is Map) {
+            return QuestionMark(
+              questionNo: (m['questionNo'] ?? m['question_no'] ?? '').toString(),
+              maxMarks: (m['maxMarks'] ?? m['max_marks'] as num?)?.toInt() ?? 0,
+              awarded: (m['awarded'] as num?)?.toInt() ?? (m['marks'] as num?)?.toInt(),
+              comment: m['comment']?.toString(),
+            );
+          }
+          return QuestionMark(questionNo: '1', maxMarks: 100, awarded: (m as num?)?.toInt());
+        }).toList();
+
         return EvaluationRecord(
           id: r['id'],
           bookId: r['book_id'],
@@ -499,8 +519,8 @@ class AppStore extends ChangeNotifier {
                 id: r['id'],
                 bookId: r['book_id'],
                 requestedByUserId: r['requested_by'] ?? '',
-                originalValue: r['original_value'],
-                newValue: r['new_value'],
+                originalValue: (r['original_value'] as num?)?.toInt() ?? 0,
+                newValue: (r['new_value'] as num?)?.toInt() ?? 0,
                 reason: r['reason'] ?? '',
                 status: CorrectionStatus.values.firstWhere((s) => s.name == r['status'],
                     orElse: () => CorrectionStatus.pending),
@@ -524,8 +544,8 @@ class AppStore extends ChangeNotifier {
                 studentId: r['student_id'],
                 bookId: r['book_id'],
                 subjectId: r['subject_id'],
-                originalMarks: r['original_marks'],
-                revisedMarks: r['revised_marks'],
+                originalMarks: (r['original_marks'] as num?)?.toInt() ?? 0,
+                revisedMarks: (r['revised_marks'] as num?)?.toInt(),
                 reason: r['reason'] ?? '',
                 status: RevaluationStatus.values.firstWhere((s) => s.name == r['status'],
                     orElse: () => RevaluationStatus.requested),

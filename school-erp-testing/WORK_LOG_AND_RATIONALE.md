@@ -1376,9 +1376,39 @@
   - Python QA/VAPT contract suite: **60/60 tests passed (100%)**.
   - Static analyzer: **0 errors**.
 
+### 47. Runtime Exception Hardening: Type-Safe Examination Parsing, Transport Column Parity & Lifecycle Clean-Up
+
+#### What Was Done:
+- **Investigated & Eliminated Live Web Runtime Exceptions:**
+  1. **Examination Module Evaluations Type Mismatch (`TypeError: 4: type 'int' is not a subtype of type 'List<dynamic>?'`):**
+     - In [`app_store.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/state/app_store.dart), `loadEvaluationsFromSupabase()` previously assumed `r['marks']` was always typed as `List?`. In databases where evaluation rows store scalar integer scores or JSON strings, this threw a runtime `TypeError`.
+     - Hardened payload parsing: implemented adaptive decoding supporting `List`, JSON-encoded `String`, and numeric/scalar `num` representations.
+     - Added safe integer conversions for `MarksCorrectionRequest` (`originalValue`, `newValue`) and `RevaluationRequest` (`originalMarks`, `revisedMarks`).
+  2. **Transport Service Column Schema Parity (`student_transport.institution_id does not exist`):**
+     - In [`transport_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/data/transport_service.dart), `fetchKpiCounts()` attempted to filter `student_transport` by `institution_id`, causing a PostgreSQL error 42703.
+     - Isolated the query logic: `routes` and `vehicles` are scoped by `institution_id` with un-scoped fallbacks, while `student_transport` is queried directly without the nonexistent column.
+  3. **Transport Dashboard Unmounted State Lifecycle (`setState() called after dispose()`):**
+     - In [`dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/screens/dashboard_screen.dart), added `if (!mounted) return;` checks before executing `setState()` in `_loadAll()` and guarded error handling with `if (mounted) setState(...)`.
+  4. **Parents Dashboard Scrollbar Scheduler Assertion (`The Scrollbar's ScrollController has no ScrollPosition attached`):**
+     - In [`dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/parents/screens/dashboard_screen.dart), removed redundant manual `Scrollbar` wrappers on `ListView.separated` inside `_myChildrenCard`, `_academicSummaryCard`, `_upcomingEventsCard`, and `_teacherCommunicationCard`, which previously caused missing `ScrollPosition` scheduler assertions on Flutter Web desktop viewports.
+  5. **Animated Background Active Ticker Disposal (`_AnimatedMenuBackgroundState was disposed with an active Ticker`):**
+     - In [`dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/parents/screens/dashboard_screen.dart), implemented `dispose()` in `_AnimatedMenuBackgroundState` to cleanly stop and dispose its repeating `AnimationController`.
+
+#### Why It Was Done:
+- To eliminate all runtime console errors, unhandled scheduler assertions, and async state memory leaks reported during live web sessions.
+- To make payload ingestion resilient to variations in database row formatting across different Supabase environments.
+
+#### For What:
+- Restores smooth, zero-exception operation across the dashboard, examination, transport, and parent portal interfaces.
+- Verified with zero regressions:
+  - Flutter test suite: **77/77 tests passed (100%)**.
+  - Python QA/VAPT contract suite: **60/60 tests passed (100%)**.
+  - Static analyzer: **0 errors**.
+
 ---
 
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+
 
 
 

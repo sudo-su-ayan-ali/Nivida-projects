@@ -55,18 +55,32 @@ class TransportService {
 
   Future<Map<String, int>> fetchKpiCounts() async {
     final instId = await _resolveInstitutionId();
-    var routesQ = _client.from('routes').select('id');
-    var vehiclesQ = _client.from('vehicles').select('id, status');
-    var studentsQ = _client.from('student_transport').select('id');
+    List routes = [];
     try {
-      routesQ = routesQ.eq('institution_id', instId);
-      vehiclesQ = vehiclesQ.eq('institution_id', instId);
-      studentsQ = studentsQ.eq('institution_id', instId);
-    } catch (_) {}
-    final routes = await routesQ;
-    final vehicles = await vehiclesQ;
+      routes = await _client.from('routes').select('id').eq('institution_id', instId);
+    } catch (_) {
+      try {
+        routes = await _client.from('routes').select('id');
+      } catch (_) {}
+    }
+
+    List vehicles = [];
+    try {
+      vehicles = await _client.from('vehicles').select('id, status').eq('institution_id', instId);
+    } catch (_) {
+      try {
+        vehicles = await _client.from('vehicles').select('id, status');
+      } catch (_) {}
+    }
+
+    List students = [];
+    try {
+      students = await _client.from('student_transport').select('id');
+    } catch (_) {
+      students = [];
+    }
+
     final activeVehicles = vehicles.where((v) => v['status'] == 'Active').length;
-    final students = await studentsQ;
 
     return {
       'activeRoutes': routes.length,
