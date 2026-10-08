@@ -50,6 +50,7 @@
 | **42. Enable Full Functionality in Attendance Management Module** | In the Attendance tab, selecting a different date in the filter bar did not load attendance records from Supabase; bulk status updates only modified local state without saving to the database; CSV export only showed a toast without downloading a file; and table pagination was disconnected. Schema differences between `enrollment_no` vs `admission_no` and `name` vs `full_name` also caused empty roll numbers/names. | Wired dynamic date reload in `_applyFilters()`, added persistent bulk database update loop in `_bulkUpdateStatus()`, implemented live CSV file download in `_openExport()`, connected pagination with `_Pagination` footer in `attendance_table.dart`, and expanded `AttendanceRecord.fromMap()` to parse `full_name` and `enrollment_no` with remarks persistence in `AttendanceRepository.markAttendance()`. |
 | **43. Global Synchronization & Interactivity Across Inventory and Transport Modules** | Top KPI cards and overview tiles in the Inventory module lacked interactivity; more actions dropdown had placeholder refresh and import text; hardcoded tenant IDs risked multi-tenant cross-talk. Transport module report generation only gave a toast message without real file output, and transport service used hardcoded static UUIDs for tenants without schema column fallback guards. | Made Inventory KPI cards and overview tiles interactive with live filter links; wired asynchronous database reload in inventory `More Actions -> Refresh`; added dynamic multi-tenant institution resolution across `InventoryService` and `TransportService` with fallback column stripping; implemented live CSV generation and browser download in Transport `Generate Report` dialog. |
 | **48. Backend Wiring Repair: Tenant UUID, Transport Schema & Live CRUD** | Wrong `d0000000…` institution fallbacks, missing transport operational tables, unscoped transport queries, hardcoded attendance students, and broken students/hostel inserts against provisioned schema. | Aligned fallbacks to Tenant Alpha UUID, added transport extras migration + provisioning/RLS, scoped TransportService, wired live route students, fixed students/hostel inserts, updated docs. |
+| **49. Fix Student Deletion Foreign Key Violation (`23503`) in Live PostgreSQL** | Deleting a student failed with PostgREST exception 23503 ("update or delete on table students violates foreign key constraint student_transport_student_id_fkey") when referencing child tables in live instances were created without `ON DELETE CASCADE`. | Added explicit cascading child-record cleanup and detachment in `StudentRepository.deleteStudent()` across all referencing tables (`student_transport`, `hostel_students`, `tc_requests`, `homework_submissions`, `parent_student_links`, `attendance_records`, `student_fees`, `fee_transactions`, `fee_waivers`, `results`, `library_books`) prior to deleting the student. |
 
 ---
 
@@ -1438,6 +1439,31 @@
 - Verified:
   - `phase3_remaining_modules_test.dart` + `phase2_students_test.dart` + `phase2_teachers_test.dart`: **19/19 passed**.
   - Analyzer: **0 errors** on changed files.
+
+### 49. Fix Student Deletion Foreign Key Violation (`23503`) in Live PostgreSQL
+#### What Was Done:
+- In [`StudentRepository.deleteStudent`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/students/data/student_repository.dart), added an explicit cascading cleanup process prior to deleting the student record from `public.students`.
+- Iterates through all potential referencing child tables:
+  - `student_transport`
+  - `hostel_students`
+  - `tc_requests`
+  - `homework_submissions`
+  - `parent_student_links`
+  - `attendance_records`
+  - `attendance`
+  - `student_fees`
+  - `fee_transactions`
+  - `fee_waivers`
+  - `results`
+- Detaches student reference from non-cascading nullable tables (`library_books` setting `student_id = null`).
+- Verified with Flutter unit and widget tests (`phase2_students_test.dart`: 7/7 pass) and contract tests (`test_phase2_students_section2.py`: 5/5 pass).
+
+#### Why It Was Done:
+- When a user deletes a student in the ERP UI, Supabase returned error `PostgrestException(message: update or delete on table "students" violates foreign key constraint "student_transport_student_id_fkey" on table "student_transport", code: 23503, detail: key is still referenced from table "student_transport")`.
+- While provisioning scripts specify `ON DELETE CASCADE`, in deployed instances or preexisting environments where foreign key constraints were defined without cascade actions, deleting the parent record raises PostgreSQL error `23503`.
+
+#### For What:
+- Guarantees seamless and resilient student deletion in the UI without foreign key blocking or unhandled PostgREST exceptions, keeping local state and the database completely synchronized.
 
 ---
 

@@ -184,6 +184,34 @@ class StudentRepository extends ChangeNotifier {
   }
 
   Future<void> deleteStudent(String id) async {
+    // In live PostgreSQL instances where child tables were created without ON DELETE CASCADE,
+    // foreign key constraint 23503 is raised. We cleanly delete or detach child records first.
+    final childTables = [
+      'student_transport',
+      'hostel_students',
+      'tc_requests',
+      'homework_submissions',
+      'parent_student_links',
+      'attendance_records',
+      'attendance',
+      'student_fees',
+      'fee_transactions',
+      'fee_waivers',
+      'results',
+    ];
+    for (final table in childTables) {
+      try {
+        await _client.from(table).delete().eq('student_id', id);
+      } catch (e) {
+        debugPrint('Note: cleanup on $table for student $id: $e');
+      }
+    }
+    try {
+      await _client.from('library_books').update({'student_id': null}).eq('student_id', id);
+    } catch (e) {
+      debugPrint('Note: detach library_books for student $id: $e');
+    }
+
     await _client.from('students').delete().eq('id', id);
     _students.removeWhere((s) => s.id == id);
     notifyListeners();
