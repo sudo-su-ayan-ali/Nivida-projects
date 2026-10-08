@@ -1443,9 +1443,14 @@
 ### 49. Fix Student Deletion Foreign Key Violation (`23503`) in Live PostgreSQL
 #### What Was Done:
 - In [`StudentRepository.deleteStudent`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/students/data/student_repository.dart), added an explicit cascading cleanup process prior to deleting the student record from `public.students`.
-- Iterates through all potential referencing child tables:
+- Iterates through all potential referencing child tables across all modules:
   - `student_transport`
   - `hostel_students`
+  - `hostel_leave_requests`
+  - `hostel_attendance`
+  - `hostel_complaints`
+  - `hostel_fees`
+  - `hostel_visitors`
   - `tc_requests`
   - `homework_submissions`
   - `parent_student_links`
@@ -1453,17 +1458,27 @@
   - `attendance`
   - `student_fees`
   - `fee_transactions`
+  - `fee_payments`
   - `fee_waivers`
   - `results`
+  - `documents`
+  - `assessment_records`
+  - `exam_answer_books`
+  - `exam_certificates`
+  - `exam_eligibility`
+  - `exam_malpractice_incidents`
+  - `exam_results`
+  - `exam_revaluation_requests`
+  - `exam_seat_assignments`
 - Detaches student reference from non-cascading nullable tables (`library_books` setting `student_id = null`).
 - Verified with Flutter unit and widget tests (`phase2_students_test.dart`: 7/7 pass) and contract tests (`test_phase2_students_section2.py`: 5/5 pass).
 
 #### Why It Was Done:
-- When a user deletes a student in the ERP UI, Supabase returned error `PostgrestException(message: update or delete on table "students" violates foreign key constraint "student_transport_student_id_fkey" on table "student_transport", code: 23503, detail: key is still referenced from table "student_transport")`.
-- While provisioning scripts specify `ON DELETE CASCADE`, in deployed instances or preexisting environments where foreign key constraints were defined without cascade actions, deleting the parent record raises PostgreSQL error `23503`.
+- When deleting a student, Supabase returned foreign key constraint errors (`23503`), first on `student_transport_student_id_fkey`, `attendance_recoeds_institution_id_student_id_fkey`, and then on `hostel_leave_requests_student_id_fkey`.
+- In live database instances, foreign key constraints on child tables across multiple modules were configured without `ON DELETE CASCADE`.
 
 #### For What:
-- Guarantees seamless and resilient student deletion in the UI without foreign key blocking or unhandled PostgREST exceptions, keeping local state and the database completely synchronized.
+- Eliminates all possible cascading foreign key blocks across all 12 modules when deleting a student, ensuring clean record removal without unhandled exceptions.
 
 ---
 

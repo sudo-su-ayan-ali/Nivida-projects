@@ -189,6 +189,11 @@ class StudentRepository extends ChangeNotifier {
     final childTables = [
       'student_transport',
       'hostel_students',
+      'hostel_leave_requests',
+      'hostel_attendance',
+      'hostel_complaints',
+      'hostel_fees',
+      'hostel_visitors',
       'tc_requests',
       'homework_submissions',
       'parent_student_links',
@@ -196,8 +201,18 @@ class StudentRepository extends ChangeNotifier {
       'attendance',
       'student_fees',
       'fee_transactions',
+      'fee_payments',
       'fee_waivers',
       'results',
+      'documents',
+      'assessment_records',
+      'exam_answer_books',
+      'exam_certificates',
+      'exam_eligibility',
+      'exam_malpractice_incidents',
+      'exam_results',
+      'exam_revaluation_requests',
+      'exam_seat_assignments',
     ];
     for (final table in childTables) {
       try {
