@@ -51,6 +51,7 @@
 | **43. Global Synchronization & Interactivity Across Inventory and Transport Modules** | Top KPI cards and overview tiles in the Inventory module lacked interactivity; more actions dropdown had placeholder refresh and import text; hardcoded tenant IDs risked multi-tenant cross-talk. Transport module report generation only gave a toast message without real file output, and transport service used hardcoded static UUIDs for tenants without schema column fallback guards. | Made Inventory KPI cards and overview tiles interactive with live filter links; wired asynchronous database reload in inventory `More Actions -> Refresh`; added dynamic multi-tenant institution resolution across `InventoryService` and `TransportService` with fallback column stripping; implemented live CSV generation and browser download in Transport `Generate Report` dialog. |
 | **48. Backend Wiring Repair: Tenant UUID, Transport Schema & Live CRUD** | Wrong `d0000000…` institution fallbacks, missing transport operational tables, unscoped transport queries, hardcoded attendance students, and broken students/hostel inserts against provisioned schema. | Aligned fallbacks to Tenant Alpha UUID, added transport extras migration + provisioning/RLS, scoped TransportService, wired live route students, fixed students/hostel inserts, updated docs. |
 | **49. Fix Student Deletion Foreign Key Violation (`23503`) in Live PostgreSQL** | Deleting a student failed with PostgREST exception 23503 ("update or delete on table students violates foreign key constraint student_transport_student_id_fkey") when referencing child tables in live instances were created without `ON DELETE CASCADE`. | Added explicit cascading child-record cleanup and detachment in `StudentRepository.deleteStudent()` across all referencing tables (`student_transport`, `hostel_students`, `tc_requests`, `homework_submissions`, `parent_student_links`, `attendance_records`, `student_fees`, `fee_transactions`, `fee_waivers`, `results`, `library_books`) prior to deleting the student. |
+| **50. Fix Fees Module Student Search, Role Access, and Null Due Date Parsing** | When logged in as Principal, navigating to Fees -> Collect Fees failed: search for students (e.g. Ayan) returned empty results due to uncaught null `due_date` parsing exceptions in `feesDataLoadedProvider`, Principal role was missing from `/collect` and `/day-closing` tabs, and search query didn't trim whitespace or check roll numbers. | Replaced strict `DateTime.parse` with null-safe `DateTime.tryParse` with `DateTime.now()` fallback in `app_providers.dart`, wrapped loaders and mutations in `try/catch`, added `UserRole.principal` to tabbar `visibleTo`, and enhanced `FeeCollectionScreen` with trimmed queries, rollNo/phone search, clear button, and empty state feedback. |
 
 ---
 
@@ -1479,6 +1480,36 @@
 
 #### For What:
 - Eliminates all possible cascading foreign key blocks across all 12 modules when deleting a student, ensuring clean record removal without unhandled exceptions.
+
+---
+
+### 50. Fix Fees Module Student Search, Role Access, and Null Due Date Parsing
+#### What Was Done:
+- In [`app_providers.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/core/state/app_providers.dart):
+  - Handled `null` or unparseable `due_date` values in Supabase `student_fees` rows safely via `DateTime.tryParse(rawDueDate.toString()) ?? DateTime.now()`.
+  - Added robust null fallbacks for `head` labels, `installment_name`, and amounts.
+  - Wrapped each table fetch in `feesDataLoadedProvider` (`students`, `student_fees`, `fee_transactions`, `fee_waivers`) in resilient individual `try-catch` blocks so that a failure in one table does not abort student loading.
+  - Hardened database write mutations in `applyPayment` with safe error catches.
+- In [`app_tabbar.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/core/widgets/app_tabbar.dart):
+  - Added `UserRole.principal` to `visibleTo` for the `Fee Collection` (`/collect`) and `Day Closing` (`/day-closing`) tab navigation items.
+- In [`fee_collection_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/features/fee_collection/fee_collection_screen.dart):
+  - Trimmed user search input and expanded matching criteria to search student name, admission number, roll number, and parent phone number.
+  - Added clear icon button (`suffixIcon`) to search input field when text is present.
+  - Added descriptive "No student found matching..." empty-state feedback.
+  - Added empty-state fallback notices when a selected student has no installments or fee heads scheduled.
+- Ran test suites:
+  - `flutter test`: **77/77 tests passed**.
+  - `pytest QA&VAPT/QA/tests/test_phase*.py`: **60/60 tests passed**.
+  - `flutter analyze lib/modules/fees/`: **0 compiler errors**.
+
+#### Why It Was Done:
+- In Supabase, table `student_fees` has rows with `due_date: null`.
+- When loading fee data, `DateTime.parse(i['due_date'])` threw an uncaught exception, crashing `loadFromSupabase()` in `feesDataLoadedProvider`. This left `studentsProvider` empty (`[]`), causing any student search (such as "Ayan") to return zero results.
+- The Principal role was omitted from `visibleTo` on `/collect` and `/day-closing` tabs in `app_tabbar.dart`.
+- The search query was not trimmed, causing leading or trailing spaces to prevent matching student records.
+
+#### For What:
+- Restores full fee collection capability for Principals and Fee Accountants, allowing instant student lookups (including Ayan Ali), installment selections, discount adjustments, and payment processing without runtime crashes.
 
 ---
 

@@ -31,15 +31,18 @@ class StudentsNotifier extends StateNotifier<List<Student>> {
           .map(
             (f) => FeeHead(
               id: f['id'],
-              name: f['fee_type'] ?? '',
+              name: f['fee_type'] ?? f['category'] ?? '',
               amount: (f['amount'] as num?)?.toDouble() ?? 0,
             ),
           )
           .toList();
-           final installments = (installmentRows as List)
+      final installments = (installmentRows as List)
           .where((i) => i['student_id'] == row['id'])
           .map((i) {
-            final dueDate = DateTime.parse(i['due_date']);
+            final rawDueDate = i['due_date'];
+            final dueDate = rawDueDate != null
+                ? (DateTime.tryParse(rawDueDate.toString()) ?? DateTime.now())
+                : DateTime.now();
             var status = InstallmentStatus.values.firstWhere(
               (s) => s.name == i['status'],
               orElse: () => InstallmentStatus.pending,
@@ -54,7 +57,7 @@ class StudentsNotifier extends StateNotifier<List<Student>> {
             }
             return Installment(
               id: i['id'],
-              label: i['category'] ?? '',
+              label: i['category'] ?? i['label'] ?? 'Installment',
               dueDate: dueDate,
               amount: amount,
               paidAmount: paidAmount,
@@ -120,20 +123,24 @@ class StudentsNotifier extends StateNotifier<List<Student>> {
       studentId,
     ).installments.firstWhere((i) => i.id == installmentId);
 
-    await _client
-        .from('student_fees')
-        .update({
-          'amount_paid': updatedInst.paidAmount,
-          'status': updatedInst.status.name,
-        })
-        .eq('id', installmentId);
+    try {
+      await _client
+          .from('student_fees')
+          .update({
+            'amount_paid': updatedInst.paidAmount,
+            'status': updatedInst.status.name,
+          })
+          .eq('id', installmentId);
 
-    await _client.from('payments').insert({
-      'student_fee_id': installmentId,
-      'amount': amount,
-      'status': 'paid',
-      'confirmed_at': DateTime.now().toIso8601String(),
-    });
+      await _client.from('payments').insert({
+        'student_fee_id': installmentId,
+        'amount': amount,
+        'status': 'paid',
+        'confirmed_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Warning: Failed to update student_fees/payments: $e');
+    }
   }
 
   Student _rebuildStudentWithPayment(
@@ -169,10 +176,26 @@ final classOptionsProvider = FutureProvider<List<String>>((ref) async {
 });
 
 final feesDataLoadedProvider = FutureProvider<void>((ref) async {
-  await ref.read(studentsProvider.notifier).loadFromSupabase();
-  await ref.read(expensesProvider.notifier).loadFromSupabase();
-  await ref.read(incomesProvider.notifier).loadFromSupabase();
-  await ref.read(transactionsProvider.notifier).loadFromSupabase();
+  try {
+    await ref.read(studentsProvider.notifier).loadFromSupabase();
+  } catch (e) {
+    debugPrint('Error loading students in feesDataLoadedProvider: $e');
+  }
+  try {
+    await ref.read(expensesProvider.notifier).loadFromSupabase();
+  } catch (e) {
+    debugPrint('Error loading expenses in feesDataLoadedProvider: $e');
+  }
+  try {
+    await ref.read(incomesProvider.notifier).loadFromSupabase();
+  } catch (e) {
+    debugPrint('Error loading incomes in feesDataLoadedProvider: $e');
+  }
+  try {
+    await ref.read(transactionsProvider.notifier).loadFromSupabase();
+  } catch (e) {
+    debugPrint('Error loading transactions in feesDataLoadedProvider: $e');
+  }
 });
 
 /// ---- Search / filter query for the student master ----

@@ -19,7 +19,7 @@ const navItems = [
   NavItem('Students & Fees', Icons.groups_2_rounded, '/students',
       [UserRole.superAdmin, UserRole.accountant, UserRole.cashier, UserRole.principal, UserRole.teacher]),
   NavItem('Fee Collection', Icons.point_of_sale_rounded, '/collect',
-      [UserRole.superAdmin, UserRole.accountant, UserRole.cashier]),
+      [UserRole.superAdmin, UserRole.accountant, UserRole.cashier, UserRole.principal]),
   NavItem('Defaulters', Icons.warning_amber_rounded, '/defaulters',
       [UserRole.superAdmin, UserRole.accountant, UserRole.principal]),
   NavItem('Reports', Icons.bar_chart_rounded, '/reports',
@@ -27,7 +27,7 @@ const navItems = [
   NavItem('Finance', Icons.account_balance_rounded, '/finance',
       [UserRole.superAdmin, UserRole.accountant, UserRole.principal]),
   NavItem('Day Closing', Icons.point_of_sale_outlined, '/day-closing',
-      [UserRole.superAdmin, UserRole.accountant, UserRole.cashier]),
+      [UserRole.superAdmin, UserRole.accountant, UserRole.cashier, UserRole.principal]),
   NavItem('Audit Log', Icons.fact_check_rounded, '/audit',
       [UserRole.superAdmin, UserRole.principal]),
 ];

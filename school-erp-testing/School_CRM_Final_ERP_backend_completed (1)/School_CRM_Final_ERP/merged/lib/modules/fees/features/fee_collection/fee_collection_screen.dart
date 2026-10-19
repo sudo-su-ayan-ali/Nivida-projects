@@ -75,10 +75,14 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final students = ref.watch(studentsProvider);
-    final query = _searchCtrl.text.toLowerCase();
+    final query = _searchCtrl.text.toLowerCase().trim();
     final results = query.isEmpty
         ? <Student>[]
-        : students.where((s) => s.name.toLowerCase().contains(query) || s.admissionNo.toLowerCase().contains(query)).take(6).toList();
+        : students.where((s) =>
+            s.name.toLowerCase().contains(query) ||
+            s.admissionNo.toLowerCase().contains(query) ||
+            s.rollNo.toLowerCase().contains(query) ||
+            s.parentPhone.contains(query)).take(6).toList();
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -102,6 +106,7 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
   }
 
   Widget _buildLeft(ThemeData theme, List<Student> results) {
+    final query = _searchCtrl.text.toLowerCase().trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -113,8 +118,28 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
               TextField(
                 controller: _searchCtrl,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Search by name or admission no…'),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: 'Search by name or admission no…',
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() {});
+                          },
+                        )
+                      : null,
+                ),
               ),
+              if (query.isNotEmpty && results.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    'No student found matching "$query"',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13),
+                  ),
+                ),
               if (results.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(top: 10),
@@ -170,41 +195,51 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
           const SizedBox(height: 16),
           SectionCard(
             title: 'Select Installment',
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final i in _selected!.installments)
-                  ChoiceChip(
-                    label: Text('${i.label} · ${Fmt.inr(i.balance)}'),
-                    selected: _selectedInstallmentId == i.id,
-                    onSelected: i.status == InstallmentStatus.paid ? null : (_) => setState(() => _selectedInstallmentId = i.id),
+            child: _selected!.installments.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text('No fee installments scheduled for this student.', style: theme.textTheme.bodyMedium),
+                  )
+                : Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final i in _selected!.installments)
+                        ChoiceChip(
+                          label: Text('${i.label} · ${Fmt.inr(i.balance)}'),
+                          selected: _selectedInstallmentId == i.id,
+                          onSelected: i.status == InstallmentStatus.paid ? null : (_) => setState(() => _selectedInstallmentId = i.id),
+                        ),
+                    ],
                   ),
-              ],
-            ),
           ),
           const SizedBox(height: 16),
           SectionCard(
             title: 'Fee Heads',
-            child: Column(
-              children: [
-                for (final h in _selected!.feeHeads)
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _selectedHeadIds.contains(h.id),
-                    onChanged: (v) => setState(() {
-                      if (v == true) {
-                        _selectedHeadIds.add(h.id);
-                      } else {
-                        _selectedHeadIds.remove(h.id);
-                      }
-                    }),
-                    title: Text(h.name),
-                    subtitle: h.optional ? const Text('Optional head') : null,
-                    secondary: Text(Fmt.inr(h.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+            child: _selected!.feeHeads.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text('No fee heads configured for this student.', style: theme.textTheme.bodyMedium),
+                  )
+                : Column(
+                    children: [
+                      for (final h in _selected!.feeHeads)
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _selectedHeadIds.contains(h.id),
+                          onChanged: (v) => setState(() {
+                            if (v == true) {
+                              _selectedHeadIds.add(h.id);
+                            } else {
+                              _selectedHeadIds.remove(h.id);
+                            }
+                          }),
+                          title: Text(h.name),
+                          subtitle: h.optional ? const Text('Optional head') : null,
+                          secondary: Text(Fmt.inr(h.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                    ],
                   ),
-              ],
-            ),
           ),
         ],
       ],
