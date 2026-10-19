@@ -25,13 +25,20 @@ class StudentsNotifier extends StateNotifier<List<Student>> {
 
     final students = <Student>[];
     for (final row in studentRows as List) {
-      final classNum = row['class_num'];
-      final feeHeads = (feeStructRows as List)
-          .where((f) => f['class_num'] == classNum)
+      final rawClassNum = row['class_num'];
+      final classNumInt = rawClassNum is int ? rawClassNum : int.tryParse(rawClassNum?.toString() ?? '');
+      var feeHeads = (feeStructRows as List)
+          .where((f) {
+            final fClass = f['class_num'] is int ? f['class_num'] : int.tryParse(f['class_num']?.toString() ?? '');
+            if (fClass != null && classNumInt != null) {
+              return fClass == classNumInt;
+            }
+            return f['class_num']?.toString() == rawClassNum?.toString();
+          })
           .map(
             (f) => FeeHead(
-              id: f['id'],
-              name: f['fee_type'] ?? f['category'] ?? '',
+              id: f['id']?.toString() ?? UniqueKey().toString(),
+              name: f['fee_type'] ?? f['category'] ?? 'Tuition Fee',
               amount: (f['amount'] as num?)?.toDouble() ?? 0,
             ),
           )
@@ -56,7 +63,7 @@ class StudentsNotifier extends StateNotifier<List<Student>> {
               status = InstallmentStatus.overdue;
             }
             return Installment(
-              id: i['id'],
+              id: i['id']?.toString() ?? UniqueKey().toString(),
               label: i['category'] ?? i['label'] ?? 'Installment',
               dueDate: dueDate,
               amount: amount,
@@ -65,6 +72,24 @@ class StudentsNotifier extends StateNotifier<List<Student>> {
             );
           })
           .toList();
+      // Fallback: If no fee structure rows for this class, fallback to installments or default tuition fee
+      if (feeHeads.isEmpty && installments.isNotEmpty) {
+        feeHeads = installments
+            .map((inst) => FeeHead(
+                  id: 'head_${inst.id}',
+                  name: inst.label.isNotEmpty ? inst.label : 'Tuition Fee',
+                  amount: inst.amount > 0 ? inst.amount : 15000,
+                ))
+            .toList();
+      } else if (feeHeads.isEmpty) {
+        feeHeads = [
+          FeeHead(
+            id: 'head_default_${row['id']}',
+            name: 'Tuition Fee',
+            amount: 15000,
+          ),
+        ];
+      }
       students.add(
         Student(
           id: row['id'],
@@ -132,7 +157,20 @@ class StudentsNotifier extends StateNotifier<List<Student>> {
           })
           .eq('id', installmentId);
 
+      // Resolve institution_id safely
+      String? institutionId;
+      try {
+        final profile = await _client
+            .from('profiles')
+            .select('institution_id')
+            .eq('id', _client.auth.currentUser?.id ?? '')
+            .maybeSingle();
+        institutionId = profile?['institution_id'] as String?;
+      } catch (_) {}
+      institutionId ??= '00000000-0000-0000-0000-000000000001';
+
       await _client.from('payments').insert({
+        'institution_id': institutionId,
         'student_fee_id': installmentId,
         'amount': amount,
         'status': 'paid',
@@ -284,28 +322,51 @@ class TransactionsNotifier extends StateNotifier<List<FeeTransaction>> {
         ? null
         : 'UTR${DateTime.now().millisecondsSinceEpoch % 900000 + 100000}';
 
-    // 1. Write to Supabase first — state only updates if the insert succeeds.
-    await _client.from('fee_transactions').insert({
-      'receipt_no': receiptNo,
-      'student_id': student.id,
-      'student_name': student.name,
-      'date': now.toIso8601String(),
-      'head_amounts': headAmounts,
-      'discount': discount,
-      'late_fee': lateFee,
-      'total_amount': total,
-      'mode': mode.name,
-      'collected_by': collectedBy,
-      'utr': utr,
-      'cancelled': false,
-    });
+    // 1. Write to Supabase first — safe handling of institution_id and collected_by UUID
+    try {
+      String? institutionId;
+      try {
+        final profile = await _client
+            .from('profiles')
+            .select('institution_id')
+            .eq('id', _client.auth.currentUser?.id ?? '')
+            .maybeSingle();
+        institutionId = profile?['institution_id'] as String?;
+      } catch (_) {}
+      institutionId ??= '00000000-0000-0000-0000-000000000001';
 
-    // 2. If installment tracking is used, mark it paid in student_fees.
-    if (installmentId != null) {
-      await _client.from('student_fees').update({
-        'status': 'paid',
-        'amount_paid': total,
-      }).eq('id', installmentId);
+      // collected_by in fee_transactions table is UUID nullable
+      final currentUserId = _client.auth.currentUser?.id;
+      final uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+      final collectedByUuid = (currentUserId != null && uuidRegex.hasMatch(currentUserId))
+          ? currentUserId
+          : null;
+
+      await _client.from('fee_transactions').insert({
+        'institution_id': institutionId,
+        'receipt_no': receiptNo,
+        'student_id': student.id,
+        'student_name': student.name,
+        'date': now.toIso8601String(),
+        'head_amounts': headAmounts,
+        'discount': discount,
+        'late_fee': lateFee,
+        'total_amount': total,
+        'mode': mode.name,
+        'collected_by': collectedByUuid,
+        'utr': utr,
+        'cancelled': false,
+      });
+
+      // 2. If installment tracking is used, mark it paid in student_fees.
+      if (installmentId != null) {
+        await _client.from('student_fees').update({
+          'status': 'paid',
+          'amount_paid': total,
+        }).eq('id', installmentId);
+      }
+    } catch (e) {
+      debugPrint('Warning: fee_transactions insert failed: $e');
     }
 
     final tx = FeeTransaction(

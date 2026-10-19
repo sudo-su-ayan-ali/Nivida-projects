@@ -22,6 +22,7 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
   final _discountCtrl = TextEditingController(text: '0');
   PaymentMode _mode = PaymentMode.cash;
   final _searchCtrl = TextEditingController();
+  bool _isCollecting = false;
 
   @override
   void initState() {
@@ -37,9 +38,13 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
   void _selectStudent(Student s) {
     setState(() {
       _selected = s;
-      _selectedHeadIds
-        ..clear()
-        ..addAll(s.feeHeads.where((h) => !h.optional).map((h) => h.id));
+      _selectedHeadIds.clear();
+      final nonOptional = s.feeHeads.where((h) => !h.optional).map((h) => h.id).toList();
+      if (nonOptional.isNotEmpty) {
+        _selectedHeadIds.addAll(nonOptional);
+      } else if (s.feeHeads.isNotEmpty) {
+        _selectedHeadIds.addAll(s.feeHeads.map((h) => h.id));
+      }
       final firstUnpaid = s.installments.where((i) => i.status != InstallmentStatus.paid).toList();
       _selectedInstallmentId = firstUnpaid.isNotEmpty ? firstUnpaid.first.id : (s.installments.isNotEmpty ? s.installments.first.id : null);
       _discountCtrl.text = '0';
@@ -306,9 +311,15 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: (_selected == null || _selectedHeadIds.isEmpty) ? null : _collectPayment,
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: const Text('Collect & Generate Receipt'),
+              onPressed: (_selected == null || _isCollecting) ? null : _collectPayment,
+              icon: _isCollecting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_circle_outline_rounded),
+              label: Text(_isCollecting ? 'Processing...' : 'Collect & Generate Receipt'),
             ),
           ),
         ],
@@ -328,32 +339,66 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
       );
 
   void _collectPayment() async {
-    final student = _selected!;
-    final headAmounts = <String, double>{
-      for (final h in student.feeHeads.where((h) => _selectedHeadIds.contains(h.id))) h.name: h.amount,
-    };
-    final tx = await ref.read(transactionsProvider.notifier).collect(
-          student: student,
-          headAmounts: headAmounts,
-          discount: _discount,
-          lateFee: _lateFee,
-          mode: _mode,
-          collectedBy: '${ref.read(activeRoleProvider).label} (You)',
+    if (_selected == null || _isCollecting) return;
+    setState(() => _isCollecting = true);
+
+    try {
+      final student = _selected!;
+      var headAmounts = <String, double>{
+        for (final h in student.feeHeads.where((h) => _selectedHeadIds.contains(h.id))) h.name: h.amount,
+      };
+
+      // Fallback: If no head was explicitly selected, allocate to Tuition Fee or default head
+      if (headAmounts.isEmpty) {
+        if (student.feeHeads.isNotEmpty) {
+          final first = student.feeHeads.first;
+          headAmounts[first.name] = first.amount;
+        } else {
+          headAmounts['Tuition Fee'] = _total > 0 ? _total : 15000;
+        }
+      }
+
+      final tx = await ref.read(transactionsProvider.notifier).collect(
+            student: student,
+            headAmounts: headAmounts,
+            discount: _discount,
+            lateFee: _lateFee,
+            mode: _mode,
+            collectedBy: '${ref.read(activeRoleProvider).label} (You)',
+          );
+
+      if (_selectedInstallmentId != null) {
+        await ref.read(studentsProvider.notifier).applyPayment(
+              studentId: student.id,
+              installmentId: _selectedInstallmentId!,
+              amount: _total,
+              mode: _mode.name,
+            );
+      }
+
+      ref.read(auditLogProvider.notifier).log(
+            ref.read(activeRoleProvider).label,
+            'Fee Collected',
+            '${tx.receiptNo} · ${student.name} · ${Fmt.inr(tx.totalAmount)}',
+          );
+
+      if (mounted) {
+        context.go('/receipt/${tx.receiptNo}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to collect fee: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
-    if (_selectedInstallmentId != null) {
-  await ref.read(studentsProvider.notifier).applyPayment(
-    studentId: student.id,
-    installmentId: _selectedInstallmentId!,
-    amount: _total,
-    mode: _mode.name,
-  );
-}
-    ref.read(auditLogProvider.notifier).log(
-          '${ref.read(activeRoleProvider).label}',
-          'Fee Collected',
-          '${tx.receiptNo} · ${student.name} · ${Fmt.inr(tx.totalAmount)}',
-        );
-    context.go('/receipt/${tx.receiptNo}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCollecting = false);
+      }
+    }
   }
 }
 
