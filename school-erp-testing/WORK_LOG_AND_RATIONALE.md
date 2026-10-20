@@ -55,6 +55,7 @@
 | **51. Fix Fee Collection Execution and "Collect & Generate Receipt" Button** | "Collect & Generate Receipt" was disabled when a student lacked `fee_structures` scheduling, and passing a plain text role string into UUID column `collected_by` caused database type error 22P02. | Added auto-selection fallbacks to default Tuition Fee head, handled UUID type conversions safely, and connected state updates with receipt routing. |
 | **52. End-to-End Backend Verification, Automated QA & Contract Test Alignment** | Verified all rules, architecture documents, and backend wirings across the 12 modules and 104 database tables, ensuring zero regressions and 100% automated test compliance. | Aligned pytest fixtures and assertion returns in `test_account_seeding_14_roles.py`, verified 77/77 Flutter client tests passing, verified 63/63 Python QA contract tests passing (140/140 total), and confirmed 0 compilation errors across the Flutter codebase. |
 | **53. Examination Module: Fix Reveal Identity Modal Hang & Custody Chain Resiliency** | In the Examination module's Answer Book Custody / Result Study screen, clicking "Confirm" on the "Reveal identity" pop-up hung or failed to dismiss due to outer `BuildContext` reuse in `confirmDialog` and unhandled `firstWhere` exceptions in `revealIdentity`. | Pop dialog using dialog's own `BuildContext`, hardened `revealIdentity` and `transitionBook` with null safety, added try-catch error guards and live refresh capability. |
+| **54. Fix Post-Hot-Restart Widget Lifecycle Exceptions and UUID Type Violations in Examination Module** | While running the app live on Chrome (`flutter run -d chrome`), hot reload/restart triggered `setState() called after dispose()` in dashboard cards (`_RecentActivitiesCardState`, `_FeeDueAlertsCardState`, `_AttendanceHeatmapCardState`, `_UpcomingEventsCardState`), and custody event / incident reporting logged PostgreSQL `22P02` (invalid input syntax for type uuid for `"u_super"` and teacher names). | Added `mounted` checks across all dashboard cards prior to `setState()`, added UUID validation (`_safeUuid`, `_resolveActorUserId`) to examination answer book custody events, malpractice incidents, and revaluation requests so only valid UUIDs are passed to Postgres UUID columns. |
 
 ---
 
@@ -1592,6 +1593,29 @@
 
 #### For What:
 - Resolves the issue where clicking "Confirm" on the "Reveal identity: This is a privileged action and will be recorded in the audit log" modal stopped responding. The modal now closes smoothly, performs identity revelation securely, records the action in audit logs, displays an informative snackbar, and allows live data refreshing.
+
+---
+
+### 54. Fix Post-Hot-Restart Widget Lifecycle Exceptions and UUID Type Violations in Examination Module
+#### What Was Done:
+- In [`lib/widgets/recent_activities_card.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/recent_activities_card.dart), [`lib/widgets/fee_due_alerts_card.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/fee_due_alerts_card.dart), [`lib/widgets/attendance_heatmap_card.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/attendance_heatmap_card.dart), and [`lib/widgets/upcoming_events_card.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/widgets/upcoming_events_card.dart):
+  - Added `if (!mounted) return;` guards before every `setState()` invocation in both successful async returns and exception catch blocks.
+- In [`lib/modules/examination/state/app_store.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/state/app_store.dart):
+  - Introduced `_uuidRegex`, `_safeUuid()`, and `_resolveActorUserId()` helpers to validate UUID formats before sending payload fields to PostgreSQL UUID columns.
+  - In `generateAnonymousBooks()` and `_transition()`: resolved `actor_user_id` using `_resolveActorUserId()`, resolving to the active Supabase authenticated user UUID or `null` rather than a non-UUID string like `"u_super"`, eliminating PostgreSQL `22P02 (invalid input syntax for type uuid: "u_super")` errors.
+  - In `createRevaluation()`: verified that `student_id`, `book_id`, and `subject_id` match UUID patterns before attempting insert, preventing runtime `22P02` rejections on `"manual-ref"`.
+  - In `reportIncident()`: verified `student_id`, `exam_id`, `room_id`, and `reported_by` UUID syntax before database insertion, preventing `22P02` errors on names like `"Anita Rao"`.
+- Verified quality gates:
+  - `flutter analyze lib/modules/examination/`: **0 errors**.
+  - `flutter test test/phase3_examination_test.dart`: **7/7 tests passed**.
+  - `pytest QA&VAPT/QA/tests`: **63/63 tests passed**.
+
+#### Why It Was Done:
+- In Chrome debugging mode, hot restarts or tab transitions dispose widgets while their background PostgREST network futures are still resolving. When those futures completed, calling `setState()` on unmounted state objects triggered Flutter runtime `DartError: setState() called after dispose()`.
+- Examination demo state used placeholder IDs (e.g. `'u_super'`, `'manual-ref'`, or user display names) which PostgreSQL strictly rejects with code `22P02` whenever columns are defined as `UUID`.
+
+#### For What:
+- Eliminates debug console errors during live web debugging, protects Postgres database transactions against UUID casting failures, and ensures smooth widget unmounting during navigation and hot reloads.
 
 ---
 

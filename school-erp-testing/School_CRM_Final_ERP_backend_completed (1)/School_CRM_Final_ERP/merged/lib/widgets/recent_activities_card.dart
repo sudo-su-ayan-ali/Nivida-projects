@@ -137,13 +137,16 @@ class _RecentActivitiesCardState extends State<RecentActivitiesCard> {
       activities.sort((a, b) => b.time.compareTo(a.time));
       final top = activities.take(5).toList();
 
+      if (!mounted) return;
       setState(() {
         _activities = top;
         _loading = false;
       });
     } catch (e) {
       debugPrint('RECENT ACTIVITIES DEBUG: failed: $e');
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

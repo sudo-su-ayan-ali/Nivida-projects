@@ -901,7 +901,26 @@ class AppStore extends ChangeNotifier {
   // -------------------------------------------------------------------
   // Anonymous Examination Book + Barcode Security Center (flagship)
   // -------------------------------------------------------------------
-   Future<List<AnonymousBook>> generateAnonymousBooks({
+   final _uuidRegex = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+
+  String? _safeUuid(String? val) {
+    if (val == null) return null;
+    final trimmed = val.trim();
+    if (_uuidRegex.hasMatch(trimmed)) return trimmed;
+    final authId = _client.auth.currentUser?.id;
+    if (authId != null && _uuidRegex.hasMatch(authId)) return authId;
+    return null;
+  }
+
+  String? _resolveActorUserId() {
+    final authId = _client.auth.currentUser?.id;
+    if (authId != null && _uuidRegex.hasMatch(authId)) return authId;
+    final currentId = currentUser?.id;
+    if (currentId != null && _uuidRegex.hasMatch(currentId)) return currentId;
+    return null;
+  }
+
+  Future<List<AnonymousBook>> generateAnonymousBooks({
     required String examId, required String subjectId, required int count,
   }) async {
     if (!can(Permission.generateAnonymousBooks)) return [];
@@ -914,13 +933,18 @@ class AppStore extends ChangeNotifier {
       books.add(b);
       created.add(b);
       try {
-        await _client.from('exam_answer_books').insert({
-          'id': b.id, 'institution_id': institutionId, 'anon_id': b.anonId,
-          'exam_id': examId, 'subject_id': subjectId, 'status': 'generated',
-        });
-        await _client.from('exam_book_custody_events').insert({
-          'book_id': b.id, 'to_status': 'generated', 'actor_user_id': currentUser!.id,
-        });
+        final safeExamId = _safeUuid(examId);
+        final safeSubjectId = _safeUuid(subjectId);
+        if (safeExamId != null && safeSubjectId != null) {
+          await _client.from('exam_answer_books').insert({
+            'id': b.id, 'institution_id': institutionId, 'anon_id': b.anonId,
+            'exam_id': safeExamId, 'subject_id': safeSubjectId, 'status': 'generated',
+          });
+          final actorId = _resolveActorUserId();
+          await _client.from('exam_book_custody_events').insert({
+            'book_id': b.id, 'to_status': 'generated', 'actor_user_id': actorId,
+          });
+        }
       } catch (e) { print('❌ Answer book insert error: $e'); }
     }
     notifyListeners();
@@ -935,14 +959,17 @@ class AppStore extends ChangeNotifier {
     b.status = status;
     b.history.add(CustodyEvent(toStatus: status, actorUserId: currentUser!.name, note: note));
     try {
+      final safeStudentId = _safeUuid(b.studentId);
+      final safeExaminerId = _safeUuid(b.examinerId);
       _client.from('exam_answer_books').update({
         'status': status.name,
         if (status == BookStatus.identityRevealed) 'identity_revealed': true,
-        if (b.studentId != null) 'student_id': b.studentId,
-        if (b.examinerId != null) 'examiner_id': b.examinerId,
+        if (safeStudentId != null) 'student_id': safeStudentId,
+        if (safeExaminerId != null) 'examiner_id': safeExaminerId,
       }).eq('id', b.id).catchError((e) => print('❌ Book status update error: $e'));
+      final actorId = _resolveActorUserId();
       _client.from('exam_book_custody_events').insert({
-        'book_id': b.id, 'to_status': status.name, 'actor_user_id': currentUser!.id, 'note': note,
+        'book_id': b.id, 'to_status': status.name, 'actor_user_id': actorId, 'note': note,
       }).catchError((e) => print('❌ Custody event error: $e'));
     } catch (e) {
       debugPrint('❌ Transition db error: $e');
@@ -1262,11 +1289,16 @@ class AppStore extends ChangeNotifier {
     revaluations.add(r);
     notifyListeners();
     try {
-      await _client.from('exam_revaluation_requests').insert({
-        'id': r.id, 'institution_id': institutionId, 'student_id': r.studentId,
-        'book_id': r.bookId, 'subject_id': r.subjectId, 'original_marks': r.originalMarks,
-        'reason': r.reason, 'status': r.status.name,
-      });
+      final safeStudentId = _safeUuid(r.studentId);
+      final safeBookId = _safeUuid(r.bookId);
+      final safeSubjectId = _safeUuid(r.subjectId);
+      if (safeStudentId != null && safeSubjectId != null) {
+        await _client.from('exam_revaluation_requests').insert({
+          'id': r.id, 'institution_id': institutionId, 'student_id': safeStudentId,
+          'book_id': safeBookId, 'subject_id': safeSubjectId, 'original_marks': r.originalMarks,
+          'reason': r.reason, 'status': r.status.name,
+        });
+      }
     } catch (e) { print('❌ Revaluation create error: $e'); }
     audit.log(actor: currentUser!, action: 'Revaluation requested', module: 'Revaluation', referenceId: r.id);
   }
@@ -1319,12 +1351,18 @@ class AppStore extends ChangeNotifier {
     incidents.add(i);
     notifyListeners();
     try {
-      await _client.from('exam_malpractice_incidents').insert({
-        'id': i.id, 'institution_id': institutionId, 'student_id': i.studentId,
-        'exam_id': i.examId, 'room_id': i.roomId.isEmpty ? null : i.roomId,
-        'seat_code': i.seatCode, 'incident_type': i.incidentType, 'description': i.description,
-        'reported_by': i.reportedByUserId, 'action_taken': i.actionTaken, 'status': i.status.name,
-      });
+      final safeStudentId = _safeUuid(i.studentId);
+      final safeExamId = _safeUuid(i.examId);
+      final safeRoomId = _safeUuid(i.roomId);
+      final safeReporterId = _safeUuid(i.reportedByUserId) ?? _resolveActorUserId();
+      if (safeStudentId != null && safeExamId != null) {
+        await _client.from('exam_malpractice_incidents').insert({
+          'id': i.id, 'institution_id': institutionId, 'student_id': safeStudentId,
+          'exam_id': safeExamId, 'room_id': safeRoomId,
+          'seat_code': i.seatCode, 'incident_type': i.incidentType, 'description': i.description,
+          'reported_by': safeReporterId, 'action_taken': i.actionTaken, 'status': i.status.name,
+        });
+      }
     } catch (e) { print('❌ Incident report error: $e'); }
     audit.log(actor: currentUser!, action: 'Incident reported', module: 'Malpractice', referenceId: i.id);
   }

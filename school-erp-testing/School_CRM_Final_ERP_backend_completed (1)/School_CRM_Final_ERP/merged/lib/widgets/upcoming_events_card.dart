@@ -70,13 +70,16 @@ class _UpcomingEventsCardState extends State<UpcomingEventsCard> {
         );
       }).toList();
 
+      if (!mounted) return;
       setState(() {
         _events = events;
         _loading = false;
       });
     } catch (e) {
       debugPrint('UPCOMING EVENTS DEBUG: failed: $e');
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

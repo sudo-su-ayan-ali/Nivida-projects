@@ -139,6 +139,7 @@ class _AttendanceHeatmapCardState extends State<AttendanceHeatmapCard> {
         }),
       );
 
+      if (!mounted) return;
       setState(() {
         _sectionNames = sections.map((s) => s['name'] as String).toList();
         _rowLabels = rowLabels;
@@ -147,7 +148,9 @@ class _AttendanceHeatmapCardState extends State<AttendanceHeatmapCard> {
       });
     } catch (e) {
       debugPrint('ATTENDANCE HEATMAP DEBUG: failed: $e');
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 

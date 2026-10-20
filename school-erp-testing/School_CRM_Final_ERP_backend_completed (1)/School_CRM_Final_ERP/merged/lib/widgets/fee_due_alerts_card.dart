@@ -100,13 +100,16 @@ class _FeeDueAlertsCardState extends State<FeeDueAlertsCard> {
         colorIndex++;
       }
 
+      if (!mounted) return;
       setState(() {
         _alerts = alerts;
         _loading = false;
       });
     } catch (e) {
       debugPrint('FEE DUE ALERTS DEBUG: failed: $e');
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
