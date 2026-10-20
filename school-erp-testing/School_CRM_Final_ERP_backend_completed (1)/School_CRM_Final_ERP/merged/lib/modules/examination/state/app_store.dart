@@ -866,7 +866,8 @@ class AppStore extends ChangeNotifier {
     if (!can(Permission.approveQuestionPapers) &&
         status != PaperStatus.submitted)
       return;
-    final p = paperSets.firstWhere((p) => p.id == paperId);
+    final p = paperSets.where((p) => p.id == paperId).firstOrNull;
+    if (p == null) return;
     final old = p.status;
     p.status = status;
     try {
@@ -953,7 +954,8 @@ class AppStore extends ChangeNotifier {
   /// Public entry point used by UI screens to advance a book's status by id
   /// (e.g. custody chain buttons, marks locking, approval).
   void transitionBook(String bookId, BookStatus status, {String note = ''}) {
-    final b = books.firstWhere((b) => b.id == bookId);
+    final b = books.where((b) => b.id == bookId).firstOrNull;
+    if (b == null) return;
     _transition(b, status, note);
   }
 
@@ -1006,12 +1008,13 @@ class AppStore extends ChangeNotifier {
     };
   }
 
-  EvaluationRecord startEvaluation(
+  EvaluationRecord? startEvaluation(
     String bookId, {
     EvaluationStage stage = EvaluationStage.first,
   }) {
     if (!can(Permission.enterMarks)) throw Exception('Not permitted');
-    final b = books.firstWhere((b) => b.id == bookId);
+    final b = books.where((b) => b.id == bookId).firstOrNull;
+    if (b == null) return null;
     final existing = evaluations.firstWhere(
       (e) =>
           e.bookId == bookId &&
@@ -1054,8 +1057,10 @@ class AppStore extends ChangeNotifier {
     rec.locked = true;
     rec.submittedAt = DateTime.now();
     if (!evaluations.any((e) => e.id == rec.id)) evaluations.add(rec);
-    final b = books.firstWhere((b) => b.id == rec.bookId);
-    _transition(b, BookStatus.evaluated, 'Marks submitted and locked by examiner');
+    final b = books.where((b) => b.id == rec.bookId).firstOrNull;
+    if (b != null) {
+      _transition(b, BookStatus.evaluated, 'Marks submitted and locked by examiner');
+    }
     try {
       await _client.from('exam_evaluations').upsert({
         'id': rec.id, 'institution_id': institutionId, 'book_id': rec.bookId,
@@ -1074,10 +1079,10 @@ class AppStore extends ChangeNotifier {
       if (maxPossible == 0) continue;
       final diffPct = ((rec.total - other.total).abs() / maxPossible) * 100;
       if (diffPct > moderationThresholdPercent) {
-        audit.log(actor: currentUser!, action: 'Flagged for moderation (diff ${diffPct.toStringAsFixed(1)}%)', module: 'Moderation', referenceId: b.anonId);
+        audit.log(actor: currentUser!, action: 'Flagged for moderation (diff ${diffPct.toStringAsFixed(1)}%)', module: 'Moderation', referenceId: b?.anonId ?? rec.bookId);
       }
     }
-    audit.log(actor: currentUser!, action: 'Marks locked', module: 'Marks Locking', referenceId: b.anonId, newValue: '${rec.total}');
+    audit.log(actor: currentUser!, action: 'Marks locked', module: 'Marks Locking', referenceId: b?.anonId ?? rec.bookId, newValue: '${rec.total}');
     notifyListeners();
   }
 
@@ -1097,7 +1102,8 @@ class AppStore extends ChangeNotifier {
 
   Future<void> decideCorrection(String reqId, bool approve) async {
     if (!can(Permission.approveMarksCorrection)) return;
-    final r = corrections.firstWhere((c) => c.id == reqId);
+    final r = corrections.where((c) => c.id == reqId).firstOrNull;
+    if (r == null) return;
     r.status = approve ? CorrectionStatus.approved : CorrectionStatus.rejected;
     r.approvedByUserId = currentUser!.name;
     notifyListeners();
@@ -1115,7 +1121,8 @@ class AppStore extends ChangeNotifier {
   /// Only callable post evaluation/approval by authorized roles.
   Student? revealIdentity(String bookId) {
     if (!can(Permission.revealIdentity)) return null;
-    final b = books.firstWhere((b) => b.id == bookId);
+    final b = books.where((b) => b.id == bookId).firstOrNull;
+    if (b == null) return null;
     if (b.status != BookStatus.approved && b.status != BookStatus.marksLocked) {
       // still allow for demo but log as early reveal
     }
@@ -1126,7 +1133,7 @@ class AppStore extends ChangeNotifier {
       'Identity revealed by authorized role',
     );
     if (b.studentId == null) return null;
-    return students.firstWhere((s) => s.id == b.studentId);
+    return students.where((s) => s.id == b.studentId).firstOrNull;
   }
 
   // -------------------------------------------------------------------
@@ -1230,7 +1237,8 @@ class AppStore extends ChangeNotifier {
       _ => true,
     };
     if (!permOk) return;
-    final r = results.firstWhere((r) => r.id == resultId);
+    final r = results.where((r) => r.id == resultId).firstOrNull;
+    if (r == null) return;
     final old = r.stage;
     r.stage = stage;
         _client.from('exam_results').update({'stage': stage.name}).eq('id', resultId)

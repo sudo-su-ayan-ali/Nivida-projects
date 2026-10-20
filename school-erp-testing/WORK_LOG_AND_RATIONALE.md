@@ -54,6 +54,7 @@
 | **50. Fix Fees Module Student Search, Role Access, and Null Due Date Parsing** | When logged in as Principal, navigating to Fees -> Collect Fees failed: search for students (e.g. Ayan) returned empty results due to uncaught null `due_date` parsing exceptions in `feesDataLoadedProvider`, Principal role was missing from `/collect` and `/day-closing` tabs, and search query didn't trim whitespace or check roll numbers. | Replaced strict `DateTime.parse` with null-safe `DateTime.tryParse` with `DateTime.now()` fallback in `app_providers.dart`, wrapped loaders and mutations in `try/catch`, added `UserRole.principal` to tabbar `visibleTo`, and enhanced `FeeCollectionScreen` with trimmed queries, rollNo/phone search, clear button, and empty state feedback. |
 | **51. Fix Fee Collection Execution and "Collect & Generate Receipt" Button** | "Collect & Generate Receipt" was disabled when a student lacked `fee_structures` scheduling, and passing a plain text role string into UUID column `collected_by` caused database type error 22P02. | Added auto-selection fallbacks to default Tuition Fee head, handled UUID type conversions safely, and connected state updates with receipt routing. |
 | **52. End-to-End Backend Verification, Automated QA & Contract Test Alignment** | Verified all rules, architecture documents, and backend wirings across the 12 modules and 104 database tables, ensuring zero regressions and 100% automated test compliance. | Aligned pytest fixtures and assertion returns in `test_account_seeding_14_roles.py`, verified 77/77 Flutter client tests passing, verified 63/63 Python QA contract tests passing (140/140 total), and confirmed 0 compilation errors across the Flutter codebase. |
+| **53. Examination Module: Fix Reveal Identity Modal Hang & Custody Chain Resiliency** | In the Examination module's Answer Book Custody / Result Study screen, clicking "Confirm" on the "Reveal identity" pop-up hung or failed to dismiss due to outer `BuildContext` reuse in `confirmDialog` and unhandled `firstWhere` exceptions in `revealIdentity`. | Pop dialog using dialog's own `BuildContext`, hardened `revealIdentity` and `transitionBook` with null safety, added try-catch error guards and live refresh capability. |
 
 ---
 
@@ -1563,6 +1564,34 @@
 
 #### For What:
 - Certifies that the backend services, Supabase PostgREST client integrations, multi-tenant scoping (`institution_id`), and role-based permissions matrix are fully operational and verified.
+
+---
+
+### 53. Examination Module: Fix Reveal Identity Modal Hang & Custody Chain Resiliency
+#### What Was Done:
+- In [`lib/modules/examination/widgets/app_shell.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/widgets/app_shell.dart):
+  - Fixed `confirmDialog`: replaced outer `context` references in `Navigator.pop(context, ...)` with `Navigator.of(dialogCtx).pop(...)` using the dialog's own `BuildContext` (`dialogCtx`) supplied by the `showDialog` builder.
+- In [`lib/modules/examination/state/app_store.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/state/app_store.dart):
+  - In `revealIdentity(String bookId)`: replaced strict `books.firstWhere` and `students.firstWhere` with safe null checks (`books.where((b) => b.id == bookId).firstOrNull` and `students.where((s) => s.id == b.studentId).firstOrNull`) to prevent unhandled `StateError: Bad state: No element` crashes when mapping students.
+  - In `transitionBook`: guarded `books.where((b) => b.id == bookId).firstOrNull` with an early null-check return.
+  - In `submitEvaluation`: guarded book lookup for divergence audit logs so null anonymous book references do not throw unhandled runtime exceptions.
+  - In `startEvaluation`: hardened book lookup using null-safe traversal.
+  - In `setResultStage` & `setPaperStatus`: replaced strict `.firstWhere` lookups with `.where(...).firstOrNull` guards.
+- In [`lib/modules/examination/screens/answer_books_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/screens/answer_books_screen.dart):
+  - Converted `AnswerBooksScreen` to a `StatefulWidget` and added a live "Refresh custody records" action button calling `store.loadAnswerBooksFromSupabase()` and `store.loadStudentsFromSupabase()`.
+  - Wrapped `confirmDialog` and `store.revealIdentity()` calls inside a comprehensive `try/catch` block with clear success and error `showAppSnack` feedback.
+- Verified quality gates:
+  - `flutter analyze lib/modules/examination/`: verified zero compiler errors.
+  - `flutter test test/phase3_examination_test.dart`: 7/7 tests passed.
+  - `flutter test`: 77/77 tests passed.
+  - `pytest QA&VAPT/QA/tests`: 63/63 contract tests passed.
+
+#### Why It Was Done:
+- In Flutter apps with nested router / navigation shells (`GoRouter`), popping a dialog with an outer parent context instead of the dialog's own route context fails to pop the dialog route or attempts to pop an ancestor route, causing the dialog to stay open and become unresponsive to clicks.
+- If a book record or corresponding student was not found in the in-memory store, Dart threw an unhandled `StateError`, silently terminating the asynchronous handler and leaving the UI dialog hanging indefinitely.
+
+#### For What:
+- Resolves the issue where clicking "Confirm" on the "Reveal identity: This is a privileged action and will be recorded in the audit log" modal stopped responding. The modal now closes smoothly, performs identity revelation securely, records the action in audit logs, displays an informative snackbar, and allows live data refreshing.
 
 ---
 

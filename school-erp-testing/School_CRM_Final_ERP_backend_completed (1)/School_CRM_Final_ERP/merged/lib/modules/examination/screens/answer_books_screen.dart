@@ -25,8 +25,37 @@ const List<BookStatus> kCustodyChain = [
   BookStatus.archived,
 ];
 
-class AnswerBooksScreen extends StatelessWidget {
+class AnswerBooksScreen extends StatefulWidget {
   const AnswerBooksScreen({super.key});
+
+  @override
+  State<AnswerBooksScreen> createState() => _AnswerBooksScreenState();
+}
+
+class _AnswerBooksScreenState extends State<AnswerBooksScreen> {
+  bool _isRefreshing = false;
+
+  Future<void> _refreshData() async {
+    setState(() => _isRefreshing = true);
+    final store = context.read<AppStore>();
+    try {
+      await Future.wait([
+        store.loadAnswerBooksFromSupabase(),
+        store.loadStudentsFromSupabase(),
+      ]);
+      if (mounted) {
+        showAppSnack(context, 'Answer books refreshed.');
+      }
+    } catch (e) {
+      if (mounted) {
+        showAppSnack(context, 'Refresh error: $e', error: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +67,30 @@ class AnswerBooksScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const PageHeader(title: 'Answer Book Inventory & Chain of Custody', subtitle: 'Full lifecycle: Generated → ... → Result Published → Archived'),
+          Row(
+            children: [
+              const Expanded(
+                child: PageHeader(
+                  title: 'Answer Book Inventory & Chain of Custody',
+                  subtitle: 'Full lifecycle: Generated → ... → Result Published → Archived',
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 24),
+                child: IconButton.outlined(
+                  tooltip: 'Refresh custody records',
+                  onPressed: _isRefreshing ? null : _refreshData,
+                  icon: _isRefreshing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+              ),
+            ],
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: SizedBox(
@@ -88,10 +140,26 @@ class AnswerBooksScreen extends StatelessWidget {
                           onPressed: !store.can(Permission.revealIdentity)
                               ? null
                               : () async {
-                                  if (await confirmDialog(context, title: 'Reveal identity', message: 'This is a privileged action and will be recorded in the audit log. Continue?')) {
-                                    final s = store.revealIdentity(b.id);
+                                  try {
+                                    final confirmed = await confirmDialog(
+                                      context,
+                                      title: 'Reveal identity',
+                                      message: 'This is a privileged action and will be recorded in the audit log. Continue?',
+                                    );
+                                    if (confirmed) {
+                                      final s = store.revealIdentity(b.id);
+                                      if (context.mounted) {
+                                        showAppSnack(
+                                          context,
+                                          s == null
+                                              ? 'Identity revealed for anonymous book ${b.anonId} (No direct student profile mapped).'
+                                              : 'Identity revealed: ${s.name} (Roll ${s.rollNo})',
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
                                     if (context.mounted) {
-                                      showAppSnack(context, s == null ? 'No mapping found.' : 'Identity revealed: ${s.name} (Roll ${s.rollNo})');
+                                      showAppSnack(context, 'Failed to reveal identity: $e', error: true);
                                     }
                                   }
                                 },

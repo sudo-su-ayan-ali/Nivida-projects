@@ -222,12 +222,12 @@ class EmptyState extends StatelessWidget {
 Future<bool> confirmDialog(BuildContext context, {required String title, required String message}) async {
   final res = await showDialog<bool>(
     context: context,
-    builder: (_) => AlertDialog(
+    builder: (dialogCtx) => AlertDialog(
       title: Text(title),
       content: Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm')),
+        TextButton(onPressed: () => Navigator.of(dialogCtx).pop(false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.of(dialogCtx).pop(true), child: const Text('Confirm')),
       ],
     ),
   );
