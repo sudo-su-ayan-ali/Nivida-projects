@@ -179,7 +179,12 @@ def find_file(repo_root, rel_path):
         raise FileNotFoundError(f"Could not find: {full_path}")
     return full_path
 
-def test_dart_model_definitions(dart_file):
+def test_dart_model_definitions():
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+    dart_file = find_file(
+        repo_root, 
+        "School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/login/models/erp_role.dart"
+    )
     print("\n--- TEST 1: Verifying Flutter Dart Role Model (erp_role.dart) ---")
     with open(dart_file, "r", encoding="utf-8") as f:
         content = f.read()
@@ -191,49 +196,35 @@ def test_dart_model_definitions(dart_file):
         dart_enum = p["dart_enum"]
 
         # Check loginId and password in kErpRoles
-        if f"loginId: '{login_id}'" not in content:
-            print(f"[FAIL] loginId '{login_id}' not found in Dart model")
-            return False
-        if f"password: '{password}'" not in content:
-            print(f"[FAIL] password for '{login_id}' not found in Dart model")
-            return False
+        assert f"loginId: '{login_id}'" in content, f"loginId '{login_id}' not found in Dart model"
+        assert f"password: '{password}'" in content, f"password for '{login_id}' not found in Dart model"
 
         # Check erpRoleFromString mapping
         pattern = rf"case\s+'{db_role}':\s+return\s+ErpRole\.{dart_enum};"
-        if not re.search(pattern, content):
-            print(f"[FAIL] erpRoleFromString mapping missing for db_role '{db_role}' -> 'ErpRole.{dart_enum}'")
-            return False
+        assert re.search(pattern, content), f"erpRoleFromString mapping missing for db_role '{db_role}' -> 'ErpRole.{dart_enum}'"
 
         # Check canApprove
         if p["can_approve"]:
-            if not re.search(rf"ErpRole\.{dart_enum}:[^\}}]+canApprove:\s*true", content, re.DOTALL):
-                print(f"[FAIL] canApprove: true not found for {dart_enum}")
-                return False
+            assert re.search(rf"ErpRole\.{dart_enum}:[^\}}]+canApprove:\s*true", content, re.DOTALL), f"canApprove: true not found for {dart_enum}"
 
     print(f"[PASS] All {len(EXPECTED_PERSONAS)} personas accurately defined in Flutter Dart model.")
-    return True
 
-def test_sql_seed_coverage(sql_file):
-    print(f"\n--- TEST 2: Verifying SQL Seed Coverage in {os.path.basename(sql_file)} ---")
-    with open(sql_file, "r", encoding="utf-8") as f:
-        content = f.read()
+def test_sql_seed_coverage():
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+    sql_seed_1 = find_file(repo_root, "QA&VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql")
+    sql_seed_4 = find_file(repo_root, "QA&VAPT/provisioning/04_seed_all_14_roles.sql")
 
-    for p in EXPECTED_PERSONAS:
-        # Check login ID in SQL
-        if p["role_id"] not in content:
-            print(f"[FAIL] Persona '{p['role_id']}' missing from SQL script!")
-            return False
-        # Check email format in SQL
-        if p["email"] not in content:
-            print(f"[FAIL] Email '{p['email']}' missing from SQL script!")
-            return False
-        # Check database role string in SQL
-        if f"'{p['db_role']}'" not in content:
-            print(f"[FAIL] DB role '{p['db_role']}' missing from SQL script!")
-            return False
+    for sql_file in [sql_seed_1, sql_seed_4]:
+        print(f"\n--- TEST 2: Verifying SQL Seed Coverage in {os.path.basename(sql_file)} ---")
+        with open(sql_file, "r", encoding="utf-8") as f:
+            content = f.read()
 
-    print(f"[PASS] All {len(EXPECTED_PERSONAS)} personas present with exact credentials in SQL script.")
-    return True
+        for p in EXPECTED_PERSONAS:
+            assert p["role_id"] in content, f"Persona '{p['role_id']}' missing from SQL script {os.path.basename(sql_file)}!"
+            assert p["email"] in content, f"Email '{p['email']}' missing from SQL script {os.path.basename(sql_file)}!"
+            assert f"'{p['db_role']}'" in content, f"DB role '{p['db_role']}' missing from SQL script {os.path.basename(sql_file)}!"
+
+        print(f"[PASS] All {len(EXPECTED_PERSONAS)} personas present with exact credentials in {os.path.basename(sql_file)}.")
 
 def test_shell_routing_and_permissions():
     print("\n--- TEST 3: Verifying Shell Routing & Permissions Logic ---")
@@ -254,34 +245,20 @@ def test_shell_routing_and_permissions():
             section_idx = p["allowed_sections"][0]
             print(f"[PASS] {p['persona']} ({p['role_id']}) -> Restricted Shell displaying only section index [{section_idx}]")
 
-    return True
-
 def main():
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-    dart_model = find_file(
-        repo_root, 
-        "School_CRM_Final_ERP_backend_completed (1)/School_CRM_Final_ERP/merged/lib/login/models/erp_role.dart"
-    )
-    sql_seed_1 = find_file(repo_root, "QA&VAPT/provisioning/01_tenant_alpha_beta_provisioning.sql")
-    sql_seed_4 = find_file(repo_root, "QA&VAPT/provisioning/04_seed_all_14_roles.sql")
-
-    all_passed = True
-    if not test_dart_model_definitions(dart_model):
-        all_passed = False
-    if not test_sql_seed_coverage(sql_seed_1):
-        all_passed = False
-    if not test_sql_seed_coverage(sql_seed_4):
-        all_passed = False
-    if not test_shell_routing_and_permissions():
-        all_passed = False
-
-    if all_passed:
+    try:
+        test_dart_model_definitions()
+        test_sql_seed_coverage()
+        test_shell_routing_and_permissions()
         print("\n================================================================")
         print("ALL 14 ROLES ACCOUNT SEEDING & PERMISSIONS TESTS PASSED (100%)")
         print("================================================================")
         return 0
-    else:
-        print("\n[ERROR] Account seeding tests failed!")
+    except AssertionError as e:
+        print(f"\n[ERROR] Account seeding test failed: {e}")
+        return 1
+    except Exception as e:
+        print(f"\n[ERROR] Unexpected error: {e}")
         return 1
 
 if __name__ == "__main__":
