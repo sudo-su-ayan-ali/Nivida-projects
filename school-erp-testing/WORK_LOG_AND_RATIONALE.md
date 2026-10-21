@@ -1663,6 +1663,30 @@
 
 ---
 
+### 57. Examination Module: Fix Audit Logs Screen Data Loading, Null Safety, and Real-Time Refresh
+#### What Was Done:
+- In [`lib/modules/examination/services/security_services.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/services/security_services.dart):
+  - In `loadFromSupabase()`: moved client resolution inside the try-catch block and added null-safe string/date coercion (`toString()`, `DateTime.tryParse`) for all fields from `exam_audit_log` records, preventing runtime unhandled exceptions and client termination when fields or timestamps contain nulls.
+- In [`lib/modules/examination/state/app_store.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/state/app_store.dart):
+  - Included `loadAuditLogFromSupabase()` in `loadRemainingExaminationData()` so audit records load automatically when entering the Examination module alongside rooms, duties, and evaluations.
+- In [`lib/modules/examination/screens/remaining_module_screens.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/examination/screens/remaining_module_screens.dart):
+  - Converted `AuditLogsScreen` from a `StatelessWidget` to a `StatefulWidget` that automatically triggers `loadAuditLogFromSupabase()` on initial render.
+  - Added a live "Refresh Logs" button in `PageHeader.actions` with an active spinner and loading indicator during asynchronous Supabase fetches.
+  - Enhanced search matcher to search across action, module, user name, and role.
+  - Styled role badges and timestamps with readable colors.
+- Verified quality gates:
+  - `flutter analyze lib/modules/examination/`: **0 errors**.
+  - `flutter test test/phase3_examination_test.dart`: **7/7 tests passed**.
+  - `pytest QA&VAPT/QA/tests`: **63/63 tests passed**.
+
+#### Why It Was Done:
+- Navigating to "Audit Logs" previously relied purely on a fire-and-forget background call in `loadCoursesFromSupabase()` without direct lifecycle hooks or loading states on the screen itself. If rows were empty or remote fetch threw an unhandled StateError, the screen remained blank without any mechanism for the user to refresh or reload records.
+
+#### For What:
+- Ensures the Principal and exam controllers can view, search, and refresh the security and audit trail smoothly, with automatic initial loading and resilient database error handling.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
 
 

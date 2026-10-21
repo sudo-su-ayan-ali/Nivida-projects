@@ -300,6 +300,7 @@ class AppStore extends ChangeNotifier {
       loadRevaluationsFromSupabase(),
       loadMalpracticeFromSupabase(),
       loadNotificationsFromSupabase(),
+      loadAuditLogFromSupabase(),
     ]);
   }
 

@@ -195,25 +195,26 @@ class AuditService {
   /// Loads persisted audit history from Supabase so the trail survives
   /// app restarts / refreshes instead of living only in memory.
   Future<void> loadFromSupabase() async {
-    final client = _client;
-    if (client == null) return;
     try {
+      final client = _client;
       final rows = await client.from('exam_audit_log').select();
-      _entries
-        ..clear()
-        ..addAll((rows as List).map((r) => AuditLogEntry(
-              id: r['id'],
-              actorUserId: r['actor_user_id'],
-              actorRole: r['actor_role'],
-              action: r['action'],
-              module: r['module'],
-              referenceId: r['reference_id'],
-              previousValue: r['previous_value'],
-              newValue: r['new_value'],
-              timestamp: r['created_at'] != null ? DateTime.parse(r['created_at']) : null,
-              sessionInfo: r['session_info'] ?? 'web-session',
-            )))
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      if ((rows as List).isNotEmpty) {
+        _entries
+          ..clear()
+          ..addAll(rows.map((r) => AuditLogEntry(
+                id: r['id']?.toString(),
+                actorUserId: r['actor_user_id']?.toString() ?? 'System',
+                actorRole: r['actor_role']?.toString() ?? 'Admin',
+                action: r['action']?.toString() ?? 'Action',
+                module: r['module']?.toString() ?? 'General',
+                referenceId: r['reference_id']?.toString(),
+                previousValue: r['previous_value']?.toString(),
+                newValue: r['new_value']?.toString(),
+                timestamp: r['created_at'] != null ? DateTime.tryParse(r['created_at'].toString()) : null,
+                sessionInfo: r['session_info']?.toString() ?? 'web-session',
+              )))
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      }
     } catch (e) {
       debugPrint('❌ Audit log load error: $e');
     }

@@ -642,30 +642,109 @@ class RolesScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Audit Logs
 // ---------------------------------------------------------------------------
-class AuditLogsScreen extends StatelessWidget {
+class AuditLogsScreen extends StatefulWidget {
   const AuditLogsScreen({super.key});
+
+  @override
+  State<AuditLogsScreen> createState() => _AuditLogsScreenState();
+}
+
+class _AuditLogsScreenState extends State<AuditLogsScreen> {
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLogs();
+    });
+  }
+
+  Future<void> _loadLogs() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      await context.read<AppStore>().loadAuditLogFromSupabase();
+    } catch (_) {}
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
+    final entries = store.audit.entries;
+
     return SingleChildScrollView(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const PageHeader(title: 'Security & Audit Center', subtitle: 'Immutable log of every sensitive action across the system'),
+        PageHeader(
+          title: 'Security & Audit Center',
+          subtitle: 'Immutable log of every sensitive action across the system',
+          actions: [
+            ElevatedButton.icon(
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 16),
+              label: Text(_isLoading ? 'Refreshing...' : 'Refresh Logs'),
+              onPressed: _isLoading ? null : _loadLogs,
+            ),
+          ],
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: SectionCard(
-            child: AppDataTable<AuditLogEntry>(
-              rows: store.audit.entries,
-              searchHint: 'Search action or module...',
-              searchMatcher: (e, q) => e.action.toLowerCase().contains(q) || e.module.toLowerCase().contains(q),
-              columns: [
-                AppColumn(label: 'User', width: 120, cellBuilder: (e) => Text(e.actorUserId)),
-                AppColumn(label: 'Role', width: 130, cellBuilder: (e) => Text(e.actorRole)),
-                AppColumn(label: 'Action', width: 220, cellBuilder: (e) => Text(e.action)),
-                AppColumn(label: 'Module', width: 160, cellBuilder: (e) => Text(e.module)),
-                AppColumn(label: 'Reference', width: 140, cellBuilder: (e) => Text(e.referenceId ?? '-', overflow: TextOverflow.ellipsis)),
-                AppColumn(label: 'Timestamp', width: 160, cellBuilder: (e) => Text(e.timestamp.toString().split('.').first)),
-              ],
-            ),
+            child: _isLoading && entries.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : AppDataTable<AuditLogEntry>(
+                    rows: entries,
+                    searchHint: 'Search action or module...',
+                    searchMatcher: (e, q) =>
+                        e.action.toLowerCase().contains(q) ||
+                        e.module.toLowerCase().contains(q) ||
+                        e.actorUserId.toLowerCase().contains(q) ||
+                        e.actorRole.toLowerCase().contains(q),
+                    columns: [
+                      AppColumn(label: 'User', width: 140, cellBuilder: (e) => Text(e.actorUserId, style: const TextStyle(fontWeight: FontWeight.w600))),
+                      AppColumn(
+                        label: 'Role',
+                        width: 130,
+                        cellBuilder: (e) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            e.actorRole,
+                            style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      AppColumn(label: 'Action', width: 220, cellBuilder: (e) => Text(e.action, style: const TextStyle(fontWeight: FontWeight.w500))),
+                      AppColumn(label: 'Module', width: 160, cellBuilder: (e) => Text(e.module)),
+                      AppColumn(
+                        label: 'Reference',
+                        width: 140,
+                        cellBuilder: (e) => Text(e.referenceId ?? '-', overflow: TextOverflow.ellipsis),
+                      ),
+                      AppColumn(
+                        label: 'Timestamp',
+                        width: 160,
+                        cellBuilder: (e) => Text(
+                          e.timestamp.toString().split('.').first,
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ),
         const SizedBox(height: 24),
