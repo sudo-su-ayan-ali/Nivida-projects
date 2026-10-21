@@ -553,6 +553,7 @@ class AppStateProvider extends ChangeNotifier {
           .eq('student_id', studentId);
       if (linkRows.isEmpty) return null;
       final routeId = linkRows.first['route_id'];
+      if (routeId == null) return null;
 
       final routeRows = await _client
           .from('routes')
@@ -565,12 +566,12 @@ class AppStateProvider extends ChangeNotifier {
           .select('vehicle_number, driver_name')
           .eq('route_id', routeId);
 
-      final driverPhoneRows = vehicleRows.isNotEmpty
+      final driverPhoneRows = (vehicleRows.isNotEmpty && routeName.isNotEmpty)
           ? await _client
               .from('drivers')
               .select('phone')
               .eq('route_name', routeName)
-          : [];
+          : <dynamic>[];
 
       return TransportInfo(
         routeName: routeName,

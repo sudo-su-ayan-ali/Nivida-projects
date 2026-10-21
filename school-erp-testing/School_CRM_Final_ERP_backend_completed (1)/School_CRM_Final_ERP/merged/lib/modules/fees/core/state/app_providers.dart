@@ -342,11 +342,9 @@ class TransactionsNotifier extends StateNotifier<List<FeeTransaction>> {
           ? currentUserId
           : null;
 
-      await _client.from('fee_transactions').insert({
-        'institution_id': institutionId,
+      final feeTxPayload = <String, dynamic>{
         'receipt_no': receiptNo,
         'student_id': student.id,
-        'student_name': student.name,
         'date': now.toIso8601String(),
         'head_amounts': headAmounts,
         'discount': discount,
@@ -356,7 +354,23 @@ class TransactionsNotifier extends StateNotifier<List<FeeTransaction>> {
         'collected_by': collectedByUuid,
         'utr': utr,
         'cancelled': false,
-      });
+      };
+
+      try {
+        await _client.from('fee_transactions').insert({
+          ...feeTxPayload,
+          'institution_id': institutionId,
+          'student_name': student.name,
+        });
+      } catch (insertErr) {
+        // Fallback for schema variants without institution_id or student_name column
+        final errStr = insertErr.toString();
+        if (errStr.contains('institution_id') || errStr.contains('PGRST204')) {
+          await _client.from('fee_transactions').insert(feeTxPayload);
+        } else {
+          rethrow;
+        }
+      }
 
       // 2. If installment tracking is used, mark it paid in student_fees.
       if (installmentId != null) {

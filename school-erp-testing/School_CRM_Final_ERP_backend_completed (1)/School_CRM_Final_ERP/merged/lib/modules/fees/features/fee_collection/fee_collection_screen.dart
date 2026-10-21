@@ -148,21 +148,28 @@ class _FeeCollectionScreenState extends ConsumerState<FeeCollectionScreen> {
               if (results.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(top: 10),
-                  decoration: BoxDecoration(border: Border.all(color: theme.dividerColor), borderRadius: BorderRadius.circular(10)),
-                  child: Column(
-                    children: [
-                      for (final s in results)
-                        ListTile(
-                          dense: true,
-                          title: Text(s.name),
-                          subtitle: Text('${s.admissionNo} · Class ${s.className}-${s.section}'),
-                          trailing: Text(Fmt.inr(s.totalDue)),
-                          onTap: () {
-                            _selectStudent(s);
-                            _searchCtrl.clear();
-                          },
-                        ),
-                    ],
+                  child: Material(
+                    color: theme.cardColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: theme.dividerColor),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        for (final s in results)
+                          ListTile(
+                            dense: true,
+                            title: Text(s.name),
+                            subtitle: Text('${s.admissionNo} · Class ${s.className}-${s.section}'),
+                            trailing: Text(Fmt.inr(s.totalDue)),
+                            onTap: () {
+                              _selectStudent(s);
+                              _searchCtrl.clear();
+                            },
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               if (_selected != null) ...[

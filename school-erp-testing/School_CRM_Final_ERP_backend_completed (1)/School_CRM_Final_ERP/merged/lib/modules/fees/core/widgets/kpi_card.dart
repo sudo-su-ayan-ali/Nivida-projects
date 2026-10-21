@@ -90,12 +90,13 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.cardColor,
+    return Material(
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
+        side: BorderSide(color: theme.dividerColor),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: padding,
         child: Column(

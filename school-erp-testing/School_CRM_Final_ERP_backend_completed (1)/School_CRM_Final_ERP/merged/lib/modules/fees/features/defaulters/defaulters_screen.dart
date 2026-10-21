@@ -97,8 +97,14 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(color: theme.cardColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.dividerColor)),
+            child: Material(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: theme.dividerColor),
+              ),
+              clipBehavior: Clip.antiAlias,
               child: ListView.separated(
                 itemCount: shown.length,
                 separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor),

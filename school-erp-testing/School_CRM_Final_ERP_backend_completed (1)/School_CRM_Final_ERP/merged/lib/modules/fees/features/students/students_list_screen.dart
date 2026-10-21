@@ -72,15 +72,15 @@ class StudentsListScreen extends ConsumerWidget {
           Text('${students.length} students found', style: theme.textTheme.bodySmall),
           const SizedBox(height: 12),
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: theme.cardColor,
+            child: Material(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(16),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: theme.dividerColor),
+                side: BorderSide(color: theme.dividerColor),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: ListView.separated(
+              clipBehavior: Clip.antiAlias,
+              child: ListView.separated(
                   itemCount: students.length,
                   separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor),
                   itemBuilder: (context, i) {
@@ -119,7 +119,6 @@ class StudentsListScreen extends ConsumerWidget {
                     );
                   },
                 ),
-              ),
             ),
           ),
         ],

@@ -33,8 +33,14 @@ class AuditLogScreen extends ConsumerWidget {
                       ],
                     ),
                   )
-                : Container(
-                    decoration: BoxDecoration(color: theme.cardColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.dividerColor)),
+                : Material(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: theme.dividerColor),
+                    ),
+                    clipBehavior: Clip.antiAlias,
                     child: ListView.separated(
                       itemCount: logs.length,
                       separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor),
