@@ -155,6 +155,28 @@ class AuditService {
 
   List<AuditLogEntry> get entries => List.unmodifiable(_entries.reversed);
 
+  Future<String?> _resolveInstitutionId() async {
+    if (institutionId != null && institutionId!.isNotEmpty) {
+      return institutionId;
+    }
+    final uid = _client.auth.currentUser?.id;
+    if (uid != null) {
+      try {
+        final row = await _client
+            .from('profiles')
+            .select('institution_id')
+            .eq('id', uid)
+            .maybeSingle();
+        final instId = row?['institution_id'] as String?;
+        if (instId != null && instId.isNotEmpty) {
+          institutionId = instId;
+          return instId;
+        }
+      } catch (_) {}
+    }
+    return institutionId;
+  }
+
   void log({
     required AppUser actor,
     required String action,
@@ -173,23 +195,27 @@ class AuditService {
       newValue: newValue,
     );
     _entries.add(entry);
-    try {
-      _client.from('exam_audit_log').insert({
-        'id': entry.id,
-        'institution_id': institutionId,
-        'actor_user_id': entry.actorUserId,
-        'actor_role': entry.actorRole,
-        'action': entry.action,
-        'module': entry.module,
-        'reference_id': entry.referenceId,
-        'previous_value': entry.previousValue,
-        'new_value': entry.newValue,
-        'session_info': entry.sessionInfo,
-        'created_at': entry.timestamp.toIso8601String(),
-      }).catchError((e) => debugPrint('❌ Audit log insert error: $e'));
-    } catch (e) {
-      debugPrint('❌ Audit log client error: $e');
-    }
+
+    () async {
+      try {
+        final targetInstId = await _resolveInstitutionId();
+        await _client.from('exam_audit_log').insert({
+          'id': entry.id,
+          if (targetInstId != null) 'institution_id': targetInstId,
+          'actor_user_id': entry.actorUserId,
+          'actor_role': entry.actorRole,
+          'action': entry.action,
+          'module': entry.module,
+          'reference_id': entry.referenceId,
+          'previous_value': entry.previousValue,
+          'new_value': entry.newValue,
+          'session_info': entry.sessionInfo,
+          'created_at': entry.timestamp.toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint('❌ Audit log insert error: $e');
+      }
+    }();
   }
 
   /// Loads persisted audit history from Supabase so the trail survives
