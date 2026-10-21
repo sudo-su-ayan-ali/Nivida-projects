@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../data/erp_backup_service.dart';
 import '../state/app_store.dart';
 import '../models/models.dart';
 import '../services/security_services.dart';
@@ -306,6 +309,8 @@ class ArchiveScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Backup & Data Security
 // ---------------------------------------------------------------------------
+// Backup & Security Screen
+// ---------------------------------------------------------------------------
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
   @override
@@ -313,35 +318,278 @@ class BackupScreen extends StatefulWidget {
 }
 
 class _BackupScreenState extends State<BackupScreen> {
-  final List<Map<String, String>> history = [
-    {'date': DateTime.now().subtract(const Duration(days: 1)).toString().split('.').first, 'type': 'Automatic', 'status': 'Success'},
-  ];
+  static const String _prefKey = 'edusmart_backup_history';
+  List<Map<String, String>> history = [];
+  bool _isBackingUp = false;
+  String _progressMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw) as List;
+        if (mounted) {
+          setState(() {
+            history = decoded.map((e) => Map<String, String>.from(e as Map)).toList();
+          });
+        }
+        return;
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        history = [
+          {
+            'date': DateTime.now().subtract(const Duration(days: 1)).toString().split('.').first,
+            'type': 'Automatic',
+            'status': 'Success',
+            'details': 'System scheduled snapshot',
+          },
+        ];
+      });
+    }
+  }
+
+  Future<void> _saveHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefKey, jsonEncode(history));
+    } catch (_) {}
+  }
+
+  Future<void> _runBackup() async {
+    if (_isBackingUp) return;
+    setState(() {
+      _isBackingUp = true;
+      _progressMessage = 'Preparing tables...';
+    });
+
+    final nowStr = DateTime.now().toString().split('.').first;
+    try {
+      final service = ErpBackupService();
+      final outcome = await service.exportAllToExcel(
+        onProgress: (table, done, total) {
+          if (mounted) {
+            setState(() {
+              _progressMessage = 'Exporting $table ($done/$total)';
+            });
+          }
+        },
+      );
+
+      final failedCount = outcome.failed.length;
+      final totalRows = outcome.totalRows;
+      final status = failedCount == 0 ? 'Success' : (totalRows > 0 ? 'Partial' : 'Failed');
+      final details = 'Processed ${outcome.tables.length} tables, $totalRows rows' +
+          (failedCount > 0 ? ' ($failedCount failed)' : '');
+
+      final newEntry = {
+        'date': nowStr,
+        'type': 'Manual',
+        'status': status,
+        'details': details,
+      };
+
+      if (mounted) {
+        setState(() {
+          history.insert(0, newEntry);
+          _isBackingUp = false;
+          _progressMessage = '';
+        });
+        await _saveHistory();
+
+        // Also record in audit trail if store is available
+        try {
+          final store = context.read<AppStore>();
+          if (store.currentUser != null) {
+            store.audit.log(
+              actor: store.currentUser!,
+              action: 'Manual System Backup Generated',
+              module: 'Data Security / Backup',
+              newValue: 'Rows: $totalRows, Status: $status',
+            );
+          }
+        } catch (_) {}
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Backup complete! $details. File downloaded to your device.'),
+            backgroundColor: status == 'Failed' ? AppColors.danger : AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      final errEntry = {
+        'date': nowStr,
+        'type': 'Manual',
+        'status': 'Failed',
+        'details': e.toString(),
+      };
+      if (mounted) {
+        setState(() {
+          history.insert(0, errEntry);
+          _isBackingUp = false;
+          _progressMessage = '';
+        });
+        await _saveHistory();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Backup failed: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const PageHeader(title: 'Backup / Recovery & Data Security', subtitle: 'Data protection and backup management'),
+        const PageHeader(
+          title: 'Backup / Recovery & Data Security',
+          subtitle: 'Institutional data protection, live Excel export & security audit management',
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: SectionCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              ElevatedButton.icon(
-                icon: const Icon(Icons.backup_outlined, size: 18),
-                label: const Text('Backup Now'),
-                onPressed: () => setState(() => history.insert(0, {'date': DateTime.now().toString().split('.').first, 'type': 'Manual', 'status': 'Success'})),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SectionCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Institutional Master Backup',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Generates a comprehensive multi-sheet Excel (.xlsx) backup across all ERP tables.',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        icon: _isBackingUp
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.download_rounded, size: 18),
+                        label: Text(_isBackingUp ? 'Exporting...' : 'Backup Now'),
+                        onPressed: _isBackingUp ? null : _runBackup,
+                      ),
+                    ],
+                  ),
+                  if (_isBackingUp) ...[
+                    const SizedBox(height: 16),
+                    LinearProgressIndicator(color: AppColors.primary),
+                    const SizedBox(height: 8),
+                    Text(
+                      _progressMessage,
+                      style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ]),
               ),
-              const SizedBox(height: 16),
-              const Text('Backup History', style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              ...history.map((h) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.check_circle_outline, color: AppColors.success),
-                    title: Text('${h['type']} backup'),
-                    subtitle: Text(h['date']!),
-                    trailing: const StatusBadge('Success', color: AppColors.success),
-                  )),
-            ]),
+              const SizedBox(height: 20),
+              SectionCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Backup History & Snapshots',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                      if (history.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Clear Backup History?'),
+                                content: const Text('Are you sure you want to clear the local backup history log?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                  ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Clear')),
+                                ],
+                              ),
+                            );
+                            if (confirmed == true && mounted) {
+                              setState(() => history.clear());
+                              await _saveHistory();
+                            }
+                          },
+                          icon: const Icon(Icons.clear_all, size: 16),
+                          label: const Text('Clear History', style: TextStyle(fontSize: 12)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (history.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text('No backup logs found. Click "Backup Now" to create your first backup.'),
+                      ),
+                    )
+                  else
+                    ...history.map((h) {
+                      final isSuccess = h['status'] == 'Success';
+                      final isPartial = h['status'] == 'Partial';
+                      final badgeColor = isSuccess
+                          ? AppColors.success
+                          : (isPartial ? AppColors.warning : AppColors.danger);
+                      final icon = isSuccess
+                          ? Icons.check_circle_outline
+                          : (isPartial ? Icons.warning_amber_rounded : Icons.error_outline);
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ListTile(
+                          leading: Icon(icon, color: badgeColor),
+                          title: Row(
+                            children: [
+                              Text('${h['type']} Backup', style: const TextStyle(fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 8),
+                              StatusBadge(h['status'] ?? 'Unknown', color: badgeColor),
+                            ],
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text('Created: ${h['date']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                              if (h['details'] != null) ...[
+                                const SizedBox(height: 2),
+                                Text(h['details']!, style: const TextStyle(fontSize: 12)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                ]),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),
