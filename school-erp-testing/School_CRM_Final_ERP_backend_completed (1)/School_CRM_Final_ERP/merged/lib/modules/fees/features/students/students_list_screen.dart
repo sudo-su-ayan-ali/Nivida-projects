@@ -74,7 +74,6 @@ class StudentsListScreen extends ConsumerWidget {
           Expanded(
             child: Material(
               color: theme.cardColor,
-              borderRadius: BorderRadius.circular(16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(color: theme.dividerColor),

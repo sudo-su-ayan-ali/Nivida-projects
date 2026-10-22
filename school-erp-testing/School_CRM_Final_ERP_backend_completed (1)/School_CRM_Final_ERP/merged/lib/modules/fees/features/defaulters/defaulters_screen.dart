@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/state/app_providers.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/widgets/kpi_card.dart';
 
 class _Bucket {
   final String label;
@@ -99,7 +97,6 @@ class _DefaultersScreenState extends ConsumerState<DefaultersScreen> {
           Expanded(
             child: Material(
               color: theme.cardColor,
-              borderRadius: BorderRadius.circular(16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(color: theme.dividerColor),

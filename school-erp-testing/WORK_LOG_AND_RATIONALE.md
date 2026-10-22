@@ -57,6 +57,7 @@
 | **53. Examination Module: Fix Reveal Identity Modal Hang & Custody Chain Resiliency** | In the Examination module's Answer Book Custody / Result Study screen, clicking "Confirm" on the "Reveal identity" pop-up hung or failed to dismiss due to outer `BuildContext` reuse in `confirmDialog` and unhandled `firstWhere` exceptions in `revealIdentity`. | Pop dialog using dialog's own `BuildContext`, hardened `revealIdentity` and `transitionBook` with null safety, added try-catch error guards and live refresh capability. |
 | **54. Fix Post-Hot-Restart Widget Lifecycle Exceptions and UUID Type Violations in Examination Module** | While running the app live on Chrome (`flutter run -d chrome`), hot reload/restart triggered `setState() called after dispose()` in dashboard cards (`_RecentActivitiesCardState`, `_FeeDueAlertsCardState`, `_AttendanceHeatmapCardState`, `_UpcomingEventsCardState`), and custody event / incident reporting logged PostgreSQL `22P02` (invalid input syntax for type uuid for `"u_super"` and teacher names). | Added `mounted` checks across all dashboard cards prior to `setState()`, added UUID validation (`_safeUuid`, `_resolveActorUserId`) to examination answer book custody events, malpractice incidents, and revaluation requests so only valid UUIDs are passed to Postgres UUID columns. |
 | **59. Fix Data Tools Excel Import Failures for `students` Immutability and `tp_syllabus_chapters` Schema Cache** | During full Excel backup restore (101 tables, 4,770 rows), import failed on `students` with PostgreSQL trigger P0001 (`id, institution_id, admission_id, enrollment_no... cannot be changed after enrollment`) and on `tp_syllabus_chapters` with PostgREST PGRST204 (`Could not find the 'institution_id' column... in the schema cache`). | Registered `tablesWithoutInstitutionId` in `ErpBackupTables`, prevented stamping `institution_id` on standalone teacher portal tables, implemented student P0001 immutability recovery via ignore-duplicates upsert in `erp_backup_service.dart`, updated `05_admin_import_rows_rpc.sql` to exclude immutable columns from `ON CONFLICT DO UPDATE SET`, and verified with `flutter analyze` and `flutter test`. |
+| **60. Fix Material Shape & BorderRadius Assertion Error in Fees Defaulters and List Screens** | Navigating to Fees -> Defaulters threw `assertion failed: !(shape != null && borderRadius != null) is not true` in `material.dart:209:15` because `Material` was passed both `borderRadius` and `shape: RoundedRectangleBorder(borderRadius: ...)`. | Removed redundant `borderRadius` parameter from `Material` widgets in `defaulters_screen.dart`, `students_list_screen.dart`, and `audit_log_screen.dart`, keeping shape-defined border radii in compliance with Flutter Material specifications, and verified all 77 client tests passing. |
 
 ---
 
@@ -1741,7 +1742,33 @@
 
 ---
 
+### 60. Fees Module: Fix Material Shape & BorderRadius Mutually Exclusive Assertion Error
+
+#### What Was Done:
+- **Root Cause Identification:**
+  - When the Principal navigates to Fees -> Defaulters, Flutter threw the framework assertion:
+    `assertion failed: file:///home/user/flutter/lib/src/material/material.dart:209:15: !(shape != null && borderRadius != null) is not true`.
+  - In Flutter's `Material` widget specification, `shape` and `borderRadius` are mutually exclusive parameters. If a custom `shape` (such as `RoundedRectangleBorder(borderRadius: ..., side: ...)`) is supplied, passing `borderRadius` at the `Material` level triggers an assertion failure.
+  - Inspection revealed three screens in `lib/modules/fees/features/` where `Material` was declared with both arguments:
+    1. [`defaulters_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/features/defaulters/defaulters_screen.dart#L100-L106): container for the defaulter students ListView.
+    2. [`students_list_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/features/students/students_list_screen.dart#L75-L81): container for the fee students roster ListView.
+    3. [`audit_log_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/fees/features/audit/audit_log_screen.dart#L36-L42): container for the audit log items ListView.
+- **Remediation:**
+  - Removed the redundant top-level `borderRadius: BorderRadius.circular(16)` from the `Material` widget in all three files, retaining the explicit `shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(...))` which controls the corner clipping and border stroke.
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/modules/fees/features/defaulters/defaulters_screen.dart lib/modules/fees/features/students/students_list_screen.dart lib/modules/fees/features/audit/audit_log_screen.dart`: **0 errors**.
+  - `flutter test`: **77/77 tests passed (100%)**.
+
+#### Why It Was Done:
+- In Flutter Material 3, `Material` strictly validates that both `shape` and `borderRadius` are not non-null simultaneously to prevent ambiguous border geometry.
+
+#### For What:
+- Restores immediate, bug-free rendering of the Defaulter Management screen, Student Fee List, and Audit Log in the Fees module for the Principal and accountants.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+
 
 
 
