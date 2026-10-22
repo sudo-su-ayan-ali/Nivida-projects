@@ -552,8 +552,8 @@ class AppStateProvider extends ChangeNotifier {
           .select('route_id')
           .eq('student_id', studentId);
       if (linkRows.isEmpty) return null;
-      final routeId = linkRows.first['route_id'];
-      if (routeId == null) return null;
+      final routeId = linkRows.first['route_id']?.toString();
+      if (routeId == null || routeId.isEmpty) return null;
 
       final routeRows = await _client
           .from('routes')

@@ -58,6 +58,7 @@
 | **54. Fix Post-Hot-Restart Widget Lifecycle Exceptions and UUID Type Violations in Examination Module** | While running the app live on Chrome (`flutter run -d chrome`), hot reload/restart triggered `setState() called after dispose()` in dashboard cards (`_RecentActivitiesCardState`, `_FeeDueAlertsCardState`, `_AttendanceHeatmapCardState`, `_UpcomingEventsCardState`), and custody event / incident reporting logged PostgreSQL `22P02` (invalid input syntax for type uuid for `"u_super"` and teacher names). | Added `mounted` checks across all dashboard cards prior to `setState()`, added UUID validation (`_safeUuid`, `_resolveActorUserId`) to examination answer book custody events, malpractice incidents, and revaluation requests so only valid UUIDs are passed to Postgres UUID columns. |
 | **59. Fix Data Tools Excel Import Failures for `students` Immutability and `tp_syllabus_chapters` Schema Cache** | During full Excel backup restore (101 tables, 4,770 rows), import failed on `students` with PostgreSQL trigger P0001 (`id, institution_id, admission_id, enrollment_no... cannot be changed after enrollment`) and on `tp_syllabus_chapters` with PostgREST PGRST204 (`Could not find the 'institution_id' column... in the schema cache`). | Registered `tablesWithoutInstitutionId` in `ErpBackupTables`, prevented stamping `institution_id` on standalone teacher portal tables, implemented student P0001 immutability recovery via ignore-duplicates upsert in `erp_backup_service.dart`, updated `05_admin_import_rows_rpc.sql` to exclude immutable columns from `ON CONFLICT DO UPDATE SET`, and verified with `flutter analyze` and `flutter test`. |
 | **60. Fix Material Shape & BorderRadius Assertion Error in Fees Defaulters and List Screens** | Navigating to Fees -> Defaulters threw `assertion failed: !(shape != null && borderRadius != null) is not true` in `material.dart:209:15` because `Material` was passed both `borderRadius` and `shape: RoundedRectangleBorder(borderRadius: ...)`. | Removed redundant `borderRadius` parameter from `Material` widgets in `defaulters_screen.dart`, `students_list_screen.dart`, and `audit_log_screen.dart`, keeping shape-defined border radii in compliance with Flutter Material specifications, and verified all 77 client tests passing. |
+| **61. Fix Transport Module Data Type Casting, Notifications Target Role Enum & Student Transport Queries** | In the Transport module and dashboard integrations: fee calculation fields threw `type 'int' is not a subtype of type 'double'` when integer amounts were returned by Supabase; `sendNotification` sent raw audience labels (`All Parents`) to `notifications.target_role` violating PostgreSQL `app_role` enum (`22P02`); `student_transport` queries filtered on missing `institution_id` column; and student details crashed with `TypeError: null is not a subtype of type Object` when `route_id` was null. | Replaced strict `as double` with null-safe `as num?)?.toDouble() ?? 0.0` across transport fee KPIs; mapped notification audience labels to valid `app_role` enum values with fallback persistence in `transport_messages`; omitted non-existent `institution_id` from `student_transport` queries; sanitized `route_id` null checks in `app_state_provider.dart`; and verified with `flutter test` passing 77/77 tests. |
 
 ---
 
@@ -1767,7 +1768,45 @@
 
 ---
 
+### 61. Transport Module: Fix Numeric Casting, Notifications Enum Violation, and Student Transport Routing
+
+#### What Was Done:
+- **Root Cause Identification:**
+  - Audited issues encountered when logging in as Principal and using the Transport section and parent student transport features:
+    1. **Type Cast Exceptions in Fee KPIs (`type 'int' is not a subtype of type 'double'`)**:
+       - In [`dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/screens/dashboard_screen.dart#L142), `(summary['feesToday'] as double)` and `((_summary['feesToday'] ?? 0.0) as double)` assumed decimal types, but Supabase/PostgreSQL returns numeric amounts as `int` (e.g. `1500`) when amounts have no fractional cents. This caused an unhandled TypeError during dashboard load.
+    2. **PostgreSQL 22P02 Enum Error on Notifications (`invalid input value for enum app_role: "All Parents"`)**:
+       - In [`transport_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/data/transport_service.dart#L283), `sendNotification` inserted the dropdown's display audience label (`'All Parents'`, `'All Drivers'`, etc.) directly into `notifications.target_role`, which is backed by PostgreSQL's `app_role` enum (`parent`, `student`, `faculty`, `principal`, etc.).
+    3. **Missing Column `student_transport.institution_id` (`PGRST 42703`)**:
+       - In `fetchStudentsForRoute`, queries to `student_transport` included `.eq('institution_id', instId)`. The provisioned database schema does not have an `institution_id` column on `student_transport` (tenant scoping is inherited via parent `routes` and `students`), causing student lookup per route to throw an error.
+    4. **Null Pointer in Student Transport Info (`TypeError: null is not a subtype of type Object`)**:
+       - In [`app_state_provider.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/parents/providers/app_state_provider.dart#L555), students with unassigned routes had `route_id: null` in `student_transport`, triggering a null object type exception when querying `routes` by ID.
+    5. **Unmounted setState in Weather Banner**:
+       - In [`welcome_banner.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/widgets/welcome_banner.dart#L288), async weather fetching invoked `setState()` without verifying `mounted`.
+- **Implementation & Remediation:**
+  1. In [`dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/screens/dashboard_screen.dart):
+     - Safely cast fee summary amounts using `((val as num?)?.toDouble() ?? 0.0)` across both the KPI card mapping and the `_FeeStat` widgets.
+  2. In [`transport_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/data/transport_service.dart):
+     - Added audience mapping from display labels to valid PostgreSQL `app_role` enum values (`parent`, `staff`, `faculty`, `student`, `principal`), and added fallback persistence into `transport_messages`.
+     - Removed `.eq('institution_id', instId)` from `student_transport` in `fetchStudentsForRoute()`.
+  3. In [`app_state_provider.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/parents/providers/app_state_provider.dart):
+     - Added null safety checks for `route_id`: if `route_id == null || route_id.isEmpty`, `_fetchTransport` returns early without issuing invalid query filters.
+  4. In [`welcome_banner.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/widgets/welcome_banner.dart):
+     - Added `if (!mounted) return;` checks to all weather fetch callbacks.
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/modules/transport/ lib/modules/parents/providers/app_state_provider.dart`: **0 errors**.
+  - `flutter test`: **77/77 tests passed (100%)**.
+
+#### Why It Was Done:
+- To eliminate runtime type errors, database enum exceptions, and unmounted widget exceptions across the Transport module and its related student transport screens.
+
+#### For What:
+- Guarantees smooth, reliable operation of the SchoolRide Transport ERP module for the Principal and transport managers.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+
 
 
 

@@ -286,21 +286,22 @@ class _WeatherTimeBadgeState extends State<_WeatherTimeBadge> {
         'appid': _apiKey,
       });
       final res = await http.get(url);
+      if (!mounted) return;
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         setState(() {
           _temp = (data['main']['temp'] as num).toDouble();
           _feelsLike = (data['main']['feels_like'] as num).toDouble();
-          _humidity = data['main']['humidity'] as int;
+          _humidity = (data['main']['humidity'] as num).toInt();
           _windSpeed = (data['wind']['speed'] as num).toDouble();
           _condition = data['weather'][0]['main'];
           _loading = false;
         });
       } else {
-        setState(() => _loading = false);
+        if (mounted) setState(() => _loading = false);
       }
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 

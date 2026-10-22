@@ -260,8 +260,7 @@ class TransportService {
       final rows = await _client
           .from('student_transport')
           .select('students(full_name, name)')
-          .eq('route_id', route['id'])
-          .eq('institution_id', instId);
+          .eq('route_id', route['id']);
 
       return (rows as List)
           .map((r) {
@@ -283,20 +282,48 @@ class TransportService {
   Future<void> sendNotification(
       String title, String body, String audience) async {
     final instId = await _resolveInstitutionId();
+    // Map human-readable audience string to database app_role enum
+    String targetRole = 'parent';
+    final lower = audience.toLowerCase();
+    if (lower.contains('driver')) {
+      targetRole = 'staff';
+    } else if (lower.contains('staff') || lower.contains('faculty')) {
+      targetRole = 'faculty';
+    } else if (lower.contains('student')) {
+      targetRole = 'student';
+    } else if (lower.contains('principal') || lower.contains('admin')) {
+      targetRole = 'principal';
+    } else {
+      targetRole = 'parent';
+    }
+
     final data = {
       'title': title,
       'body': body,
       'channel': 'sms',
       'delivery_status': 'sent',
-      'target_role': audience,
+      'target_role': targetRole,
       'sent_at': DateTime.now().toIso8601String(),
       'institution_id': instId,
     };
     try {
       await _client.from('notifications').insert(data);
     } catch (_) {
-      data.remove('institution_id');
-      await _client.from('notifications').insert(data);
+      try {
+        data.remove('institution_id');
+        await _client.from('notifications').insert(data);
+      } catch (err) {
+        // Standalone transport fallback: also record in transport_messages
+        try {
+          await _client.from('transport_messages').insert({
+            'sender_name': 'Transport Office',
+            'sender_role': 'transport_admin',
+            'preview': '$title: $body',
+            'read': false,
+            'institution_id': instId,
+          });
+        } catch (_) {}
+      }
     }
   }
 

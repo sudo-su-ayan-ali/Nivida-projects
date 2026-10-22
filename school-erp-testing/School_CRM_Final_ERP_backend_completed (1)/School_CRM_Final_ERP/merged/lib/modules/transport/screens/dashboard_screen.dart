@@ -137,9 +137,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
       if (k.title == 'Fees Collected Today') {
+        final feesTodayNum = (summary['feesToday'] as num?)?.toDouble() ?? 0.0;
         return KpiCardData(
           title: k.title,
-          value: '₹${(summary['feesToday'] as double).toStringAsFixed(0)}',
+          value: '₹${feesTodayNum.toStringAsFixed(0)}',
           subtitle: '${summary['transactionsToday']} transactions',
           icon: k.icon,
           gradient: k.gradient,
@@ -493,14 +494,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: _FeeStat(
                   label: "Today's Collection",
-                  value: '₹${((_summary['feesToday'] ?? 0.0) as double).toStringAsFixed(0)}',
+                  value: '₹${((_summary['feesToday'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(0)}',
                   color: AppColors.success,
                 ),
               ),
               Expanded(
                 child: _FeeStat(
                   label: 'This Month',
-                  value: '₹${((_summary['feesMonth'] ?? 0.0) as double).toStringAsFixed(0)}',
+                  value: '₹${((_summary['feesMonth'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(0)}',
                   color: AppColors.primary,
                 ),
               ),
