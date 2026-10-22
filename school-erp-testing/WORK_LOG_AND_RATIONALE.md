@@ -56,6 +56,7 @@
 | **52. End-to-End Backend Verification, Automated QA & Contract Test Alignment** | Verified all rules, architecture documents, and backend wirings across the 12 modules and 104 database tables, ensuring zero regressions and 100% automated test compliance. | Aligned pytest fixtures and assertion returns in `test_account_seeding_14_roles.py`, verified 77/77 Flutter client tests passing, verified 63/63 Python QA contract tests passing (140/140 total), and confirmed 0 compilation errors across the Flutter codebase. |
 | **53. Examination Module: Fix Reveal Identity Modal Hang & Custody Chain Resiliency** | In the Examination module's Answer Book Custody / Result Study screen, clicking "Confirm" on the "Reveal identity" pop-up hung or failed to dismiss due to outer `BuildContext` reuse in `confirmDialog` and unhandled `firstWhere` exceptions in `revealIdentity`. | Pop dialog using dialog's own `BuildContext`, hardened `revealIdentity` and `transitionBook` with null safety, added try-catch error guards and live refresh capability. |
 | **54. Fix Post-Hot-Restart Widget Lifecycle Exceptions and UUID Type Violations in Examination Module** | While running the app live on Chrome (`flutter run -d chrome`), hot reload/restart triggered `setState() called after dispose()` in dashboard cards (`_RecentActivitiesCardState`, `_FeeDueAlertsCardState`, `_AttendanceHeatmapCardState`, `_UpcomingEventsCardState`), and custody event / incident reporting logged PostgreSQL `22P02` (invalid input syntax for type uuid for `"u_super"` and teacher names). | Added `mounted` checks across all dashboard cards prior to `setState()`, added UUID validation (`_safeUuid`, `_resolveActorUserId`) to examination answer book custody events, malpractice incidents, and revaluation requests so only valid UUIDs are passed to Postgres UUID columns. |
+| **59. Fix Data Tools Excel Import Failures for `students` Immutability and `tp_syllabus_chapters` Schema Cache** | During full Excel backup restore (101 tables, 4,770 rows), import failed on `students` with PostgreSQL trigger P0001 (`id, institution_id, admission_id, enrollment_no... cannot be changed after enrollment`) and on `tp_syllabus_chapters` with PostgREST PGRST204 (`Could not find the 'institution_id' column... in the schema cache`). | Registered `tablesWithoutInstitutionId` in `ErpBackupTables`, prevented stamping `institution_id` on standalone teacher portal tables, implemented student P0001 immutability recovery via ignore-duplicates upsert in `erp_backup_service.dart`, updated `05_admin_import_rows_rpc.sql` to exclude immutable columns from `ON CONFLICT DO UPDATE SET`, and verified with `flutter analyze` and `flutter test`. |
 
 ---
 
@@ -1707,7 +1708,41 @@
 
 ---
 
+### 59. Data Tools: Fix Excel Import Failures for `students` Immutability and `tp_syllabus_chapters` Missing Column
+
+#### What Was Done:
+- **Root Cause Identification:**
+  - Audited the two errors reported during Data Tools Excel Import (`Total tables processed: 101, Total rows imported: 4770`):
+    1. `students`: Row 15 `[P0001]: id, institution_id, admission_id, enrollment_no, course_id, full_name, date_of_birth, contact_phone, guardian_name, and created_at cannot be changed after enrollment`.
+       - PostgreSQL trigger on `students` prevents any modification of enrolled student identity columns once enrolled. In `admin_import_rows` RPC and bulk upserts, `ON CONFLICT (id) DO UPDATE SET ...` included these immutable columns in the `DO UPDATE SET` assignment, tripping the trigger whenever an existing enrolled student row was re-imported from backup.
+    2. `tp_syllabus_chapters`: Row 1 `[FALLBACK_FAILED]: PostgrestException(message: Could not find the 'institution_id' column of 'tp_syllabus_chapters' in the schema cache, code: PGRST204)`.
+       - Standalone Teacher Portal tables (`tp_exams`, `tp_lesson_plans`, `tp_notifications`, `tp_ptm_slots`, `tp_resources`, `tp_syllabus_chapters`, `tp_todos`) were created in `teacher_portal_dashboard_extras_migration.sql` without an `institution_id` column.
+       - In `erp_backup_service.dart`, `r['institution_id'] = institutionId;` was stamped onto every table's rows indiscriminately. When `admin_import_rows` rejected the table (older DB RPC version) and fell back to direct client-side upsert, PostgREST threw `PGRST204` because `institution_id` does not exist on `tp_syllabus_chapters`.
+- **Implementation & Remediation:**
+  1. In [`lib/data/erp_backup_tables.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/data/erp_backup_tables.dart):
+     - Defined `tablesWithoutInstitutionId` containing all 7 standalone teacher portal tables (`tp_exams`, `tp_lesson_plans`, `tp_notifications`, `tp_ptm_slots`, `tp_resources`, `tp_syllabus_chapters`, `tp_todos`).
+  2. In [`lib/data/erp_backup_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/data/erp_backup_service.dart):
+     - Filtered `institution_id` stamping: stripped `institution_id` from rows belonging to tables in `ErpBackupTables.tablesWithoutInstitutionId` so neither the RPC nor the fallback receives an unmapped column.
+     - In fallback execution: sanitized fallback batch rows for `tablesWithoutInstitutionId` to prevent `PGRST204` PostgREST cache errors.
+     - In `_upsertInBatches`: intercepted `P0001` with `'cannot be changed after enrollment'` on the `students` table, and automatically recovered by executing a direct client-side `ignoreDuplicates: true` upsert for the conflicted row, preserving the enrolled student record without flagging a false-positive failure.
+  3. In [`QA&VAPT/provisioning/05_admin_import_rows_rpc.sql`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/QA&VAPT/provisioning/05_admin_import_rows_rpc.sql):
+     - Updated dynamic SQL `v_set_clause` generation for `students` table to exclude immutable columns (`id`, `institution_id`, `admission_id`, `enrollment_no`, `course_id`, `full_name`, `date_of_birth`, `contact_phone`, `guardian_name`, `created_at`).
+     - Added conditional fallback to `ON CONFLICT (...) DO NOTHING` when all provided columns are immutable or conflict keys.
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/data/erp_backup_service.dart lib/data/erp_backup_tables.dart`: **0 errors**.
+  - `flutter test test/phase2_dashboard_test.dart`: **7/7 tests passed (100%)**.
+  - Live Supabase integration verified: verified direct `ignoreDuplicates` upsert on `students` with code 201, and clean direct insert/cleanup on `tp_syllabus_chapters` without `institution_id`.
+
+#### Why It Was Done:
+- To allow the Principal to run full backups and restores of the 100+ tables without failure notifications or false-positive errors on existing enrolled students or standalone teacher portal tables.
+
+#### For What:
+- Guarantees seamless multi-table Excel data restore in Data Tools and complies with database immutability triggers and schema definitions.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+
 
 
 

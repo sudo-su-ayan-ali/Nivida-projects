@@ -102,6 +102,20 @@ class ErpBackupTables {
     'teachers',
   };
 
+  /// Tables jinke paas 'institution_id' column database schema me exist nahi karta
+  /// (jaise standalone Teacher Portal tables jo migration me bina institution_id bani thin).
+  /// In tables ke rows me 'institution_id' force-stamp nahi hona chahiye,
+  /// warna PostgREST PGRST204 column missing error deta hai.
+  static const Set<String> tablesWithoutInstitutionId = {
+    'tp_exams',
+    'tp_lesson_plans',
+    'tp_notifications',
+    'tp_ptm_slots',
+    'tp_resources',
+    'tp_syllabus_chapters',
+    'tp_todos',
+  };
+
   static String conflictKeyFor(String table) =>
       conflictKeyOverrides[table] ?? 'id';
 }

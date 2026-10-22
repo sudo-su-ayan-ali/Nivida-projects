@@ -161,6 +161,10 @@ BEGIN
         || ')';
 
       -- Build SET clause for ON CONFLICT UPDATE
+      -- Note: for 'students', omit immutable fields to avoid triggering PostgreSQL
+      -- P0001 immutability check ("id, institution_id, admission_id, enrollment_no,
+      -- course_id, full_name, date_of_birth, contact_phone, guardian_name, and
+      -- created_at cannot be changed after enrollment").
       v_set_clause := (
         SELECT string_agg(
           format('%I = EXCLUDED.%I', col, col),
@@ -168,6 +172,13 @@ BEGIN
         )
         FROM unnest(v_columns) WITH ORDINALITY AS t(col, ordinality)
         WHERE col <> p_conflict_key
+          AND (
+            p_table <> 'students'
+            OR col NOT IN (
+              'id', 'institution_id', 'admission_id', 'enrollment_no', 'course_id',
+              'full_name', 'date_of_birth', 'contact_phone', 'guardian_name', 'created_at'
+            )
+          )
       );
 
       -- Handle conflict key (may be composite: 'col1,col2')
@@ -176,16 +187,29 @@ BEGIN
         FROM unnest(string_to_array(p_conflict_key, ',')) AS t(part)
       );
 
-      -- Build column list string
-      v_sql := format(
-        'INSERT INTO public.%I (%s) VALUES %s ON CONFLICT (%s) DO UPDATE SET %s',
-        p_table,
-        (SELECT string_agg(format('%I', col), ', ' ORDER BY ordinality)
-           FROM unnest(v_columns) WITH ORDINALITY AS t(col, ordinality)),
-        v_values_clause,
-        v_conflict_cols,
-        COALESCE(v_set_clause, format('%I = EXCLUDED.%I', p_conflict_key, p_conflict_key))
-      );
+      -- Build column list string and upsert query
+      -- If v_set_clause is empty or NULL (all columns in row were immutable/conflict key),
+      -- use DO NOTHING so the existing row is cleanly preserved without failing.
+      IF v_set_clause IS NULL OR trim(v_set_clause) = '' THEN
+        v_sql := format(
+          'INSERT INTO public.%I (%s) VALUES %s ON CONFLICT (%s) DO NOTHING',
+          p_table,
+          (SELECT string_agg(format('%I', col), ', ' ORDER BY ordinality)
+             FROM unnest(v_columns) WITH ORDINALITY AS t(col, ordinality)),
+          v_values_clause,
+          v_conflict_cols
+        );
+      ELSE
+        v_sql := format(
+          'INSERT INTO public.%I (%s) VALUES %s ON CONFLICT (%s) DO UPDATE SET %s',
+          p_table,
+          (SELECT string_agg(format('%I', col), ', ' ORDER BY ordinality)
+             FROM unnest(v_columns) WITH ORDINALITY AS t(col, ordinality)),
+          v_values_clause,
+          v_conflict_cols,
+          v_set_clause
+        );
+      END IF;
 
       EXECUTE v_sql USING v_row;
       v_success_count := v_success_count + 1;
