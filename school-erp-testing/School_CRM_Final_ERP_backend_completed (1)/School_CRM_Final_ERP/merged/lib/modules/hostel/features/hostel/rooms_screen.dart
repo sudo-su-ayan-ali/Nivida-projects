@@ -5,13 +5,18 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/responsive/responsive.dart';
 import '../../data/providers/app_providers.dart';
+import '../../data/hostel_service.dart';
+import '../../models/room.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/filter_dropdown.dart';
 import '../../shared/widgets/primary_button.dart';
+import '../../shared/widgets/secondary_button.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/app_breadcrumb.dart';
+import '../../shared/widgets/app_dialog.dart';
+import '../../shared/widgets/confirm_dialog.dart';
 
 class RoomsScreen extends ConsumerStatefulWidget {
   const RoomsScreen({super.key});
@@ -66,7 +71,11 @@ Widget build(BuildContext context) {
                   Text('View and manage all hostel rooms and bed allocation.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
-              PrimaryButton(label: 'Add Room', icon: Icons.add_rounded, onPressed: () {}),
+              PrimaryButton(
+                label: 'Add Room',
+                icon: Icons.add_rounded,
+                onPressed: () => _showAddRoomDialog(context),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -131,7 +140,100 @@ Widget build(BuildContext context) {
       ),
       ),
     );
-    },
-  );
+  },
+);
+}
+
+  void _showAddRoomDialog(BuildContext context) async {
+    final blocks = await HostelService().fetchBlocks();
+    if (blocks.isEmpty) {
+      if (context.mounted) showAppSnackBar(context, 'No hostel blocks found. Please create a block first.', isError: true);
+      return;
+    }
+
+    String selectedBlockId = blocks.first['id'] as String;
+    final roomNumCtrl = TextEditingController(text: '101');
+    final floorCtrl = TextEditingController(text: '1');
+    final capacityCtrl = TextEditingController(text: '3');
+    String roomType = 'Triple';
+    bool saving = false;
+
+    if (!context.mounted) return;
+
+    showAppDialog(
+      context,
+      title: 'Add New Room',
+      content: StatefulBuilder(
+        builder: (ctx, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selectedBlockId,
+              decoration: const InputDecoration(labelText: 'Block', border: OutlineInputBorder()),
+              items: blocks.map((b) => DropdownMenuItem<String>(value: b['id'] as String, child: Text(b['name'] as String? ?? 'Block'))).toList(),
+              onChanged: (v) => setState(() => selectedBlockId = v!),
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: roomNumCtrl, decoration: const InputDecoration(labelText: 'Room Number (e.g. 101)', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: TextField(controller: floorCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Floor', border: OutlineInputBorder()))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: capacityCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Capacity', border: OutlineInputBorder()))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: roomType,
+              decoration: const InputDecoration(labelText: 'Room Type', border: OutlineInputBorder()),
+              items: const ['Single', 'Double', 'Triple', 'Dormitory'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+              onChanged: (v) => setState(() => roomType = v!),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx)),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: saving ? 'Saving...' : 'Add Room',
+                  icon: Icons.check_rounded,
+                  onPressed: saving ? null : () async {
+                    if (roomNumCtrl.text.trim().isEmpty) {
+                      showAppSnackBar(context, 'Please enter a room number.', isError: true);
+                      return;
+                    }
+                    setState(() => saving = true);
+                    try {
+                      await HostelService().createRoom(
+                        blockId: selectedBlockId,
+                        roomNumber: roomNumCtrl.text.trim(),
+                        floor: int.tryParse(floorCtrl.text.trim()) ?? 1,
+                        roomType: roomType,
+                        capacity: int.tryParse(capacityCtrl.text.trim()) ?? 3,
+                      );
+                      ref.invalidate(roomsProvider);
+                      ref.invalidate(blocksProvider);
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        showAppSnackBar(context, 'Room ${roomNumCtrl.text.trim()} added successfully.');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        showAppSnackBar(context, 'Failed to add room: $e', isError: true);
+                      }
+                    } finally {
+                      setState(() => saving = false);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -1,6 +1,7 @@
 import '../../data/hostel_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
@@ -36,6 +37,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   String bloodGroup = 'O+';
   DateTime? dateOfBirth;
   bool _initialized = false;
+  final Map<String, PlatformFile> _uploadedFiles = {};
+  bool _isUploadingDocs = false;
 
   @override
   void initState() {
@@ -142,9 +145,9 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 ], isDesktop),
                 const SizedBox(height: AppSpacing.xl),
                 _sectionCard('Documents', Icons.folder_rounded, [
-                  _uploadPlaceholder('Student Photo'),
-                  _uploadPlaceholder('Aadhaar / ID Proof'),
-                  _uploadPlaceholder('Previous School Certificate'),
+                  _documentUploadTile('Student Photo'),
+                  _documentUploadTile('Aadhaar / ID Proof'),
+                  _documentUploadTile('Previous School Certificate'),
                 ], isDesktop),
                 const SizedBox(height: AppSpacing.xxl),
                 Row(
@@ -153,68 +156,98 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                     SecondaryButton(label: 'Cancel', onPressed: () => context.go('/students')),
                     const SizedBox(width: 12),
                     PrimaryButton(
-                      label: isEditing ? 'Update Student' : 'Save Student',
+                      label: _isUploadingDocs
+                          ? 'Saving...'
+                          : isEditing
+                              ? 'Update Student'
+                              : 'Save Student',
                       icon: Icons.check_rounded,
-                    onPressed: () async {
-  if (!(_formKey.currentState?.validate() ?? false)) return;
-  if (!isEditing && dateOfBirth == null) {
-    showAppSnackBar(context, 'Please select the student\'s Date of Birth.');
-    return;
-  }
+                      onPressed: _isUploadingDocs
+                          ? null
+                          : () async {
+                              if (!(_formKey.currentState?.validate() ?? false)) return;
+                              if (!isEditing && dateOfBirth == null) {
+                                showAppSnackBar(context, 'Please select the student\'s Date of Birth.');
+                                return;
+                              }
 
-  try {
-    final dobStr = dateOfBirth != null
-        ? '${dateOfBirth!.year.toString().padLeft(4, '0')}-${dateOfBirth!.month.toString().padLeft(2, '0')}-${dateOfBirth!.day.toString().padLeft(2, '0')}'
-        : null;
+                              setState(() => _isUploadingDocs = true);
 
-    if (isEditing) {
-      await HostelService().updateHostelStudentFull(
-        hostelStudentId: widget.studentId!,
-        name: name.text.trim(),
-        phone: phone.text.trim(),
-        email: email.text.trim(),
-        gender: gender,
-        guardianName: guardianName.text.trim(),
-        guardianPhone: guardianPhone.text.trim(),
-        address: address.text.trim(),
-        bloodGroup: bloodGroup,
-        blockName: block,
-        roomNumber: roomCtrl.text.trim(),
-        className: className,
-        sectionName: section,
-        dateOfBirth: dobStr,
-      );
-      ref.invalidate(studentsProvider);
-      if (context.mounted) {
-        showAppSnackBar(context, 'Student ${name.text.trim()} updated successfully.');
-        context.go('/students');
-      }
-    } else {
-      await HostelService().addHostelStudentFull(
-        name: name.text.trim(),
-        phone: phone.text.trim(),
-        email: email.text.trim(),
-        gender: gender,
-        guardianName: guardianName.text.trim(),
-        guardianPhone: guardianPhone.text.trim(),
-        address: address.text.trim(),
-        bloodGroup: bloodGroup,
-        blockName: block,
-        roomNumber: roomCtrl.text.trim(),
-        dateOfBirth: dobStr!,
-      );
-      ref.invalidate(studentsProvider);
-      if (context.mounted) {
-        showAppSnackBar(context, 'Student ${name.text.trim()} added successfully.');
-        context.go('/students');
-      }
-    }
-  } catch (e) {
-    if (context.mounted) {
-      showAppSnackBar(context, 'Failed to ${isEditing ? "update" : "add"} student: $e', isError: true);
-    }
-  }
-},
+                              try {
+                                final dobStr = dateOfBirth != null
+                                    ? '${dateOfBirth!.year.toString().padLeft(4, '0')}-${dateOfBirth!.month.toString().padLeft(2, '0')}-${dateOfBirth!.day.toString().padLeft(2, '0')}'
+                                    : null;
+
+                                String studentId;
+                                if (isEditing) {
+                                  studentId = await HostelService().updateHostelStudentFull(
+                                    hostelStudentId: widget.studentId!,
+                                    name: name.text.trim(),
+                                    phone: phone.text.trim(),
+                                    email: email.text.trim(),
+                                    gender: gender,
+                                    guardianName: guardianName.text.trim(),
+                                    guardianPhone: guardianPhone.text.trim(),
+                                    address: address.text.trim(),
+                                    bloodGroup: bloodGroup,
+                                    blockName: block,
+                                    roomNumber: roomCtrl.text.trim(),
+                                    className: className,
+                                    sectionName: section,
+                                    dateOfBirth: dobStr,
+                                  );
+                                } else {
+                                  studentId = await HostelService().addHostelStudentFull(
+                                    name: name.text.trim(),
+                                    phone: phone.text.trim(),
+                                    email: email.text.trim(),
+                                    gender: gender,
+                                    guardianName: guardianName.text.trim(),
+                                    guardianPhone: guardianPhone.text.trim(),
+                                    address: address.text.trim(),
+                                    bloodGroup: bloodGroup,
+                                    blockName: block,
+                                    roomNumber: roomCtrl.text.trim(),
+                                    dateOfBirth: dobStr!,
+                                  );
+                                }
+
+                                // Upload / link any attached documents
+                                if (_uploadedFiles.isNotEmpty) {
+                                  for (final entry in _uploadedFiles.entries) {
+                                    try {
+                                      await HostelService().saveStudentDocument(
+                                        studentId: studentId,
+                                        title: entry.key,
+                                        fileName: entry.value.name,
+                                        type: entry.value.extension?.toUpperCase() ?? 'PDF',
+                                      );
+                                    } catch (_) {}
+                                  }
+                                }
+
+                                ref.invalidate(studentsProvider);
+                                if (context.mounted) {
+                                  showAppSnackBar(
+                                    context,
+                                    'Student ${name.text.trim()} ${isEditing ? "updated" : "added"} successfully${_uploadedFiles.isNotEmpty ? " with ${_uploadedFiles.length} document(s)" : ""}.',
+                                  );
+                                  context.go('/students');
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  showAppSnackBar(
+                                    context,
+                                    'Failed to ${isEditing ? "update" : "add"} student: $e',
+                                    isError: true,
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _isUploadingDocs = false);
+                                }
+                              }
+                            },
                     ),
                   ],
                 ),
@@ -321,7 +354,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
     );
   }
 
-  Widget _uploadPlaceholder(String label) {
+  Widget _documentUploadTile(String label) {
+    final file = _uploadedFiles[label];
     return SizedBox(
       width: 320,
       child: Column(
@@ -329,19 +363,72 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
         children: [
           Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Container(
-            height: 46,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              border: Border.all(color: AppColors.border, style: BorderStyle.solid),
+          InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            onTap: () async {
+              try {
+                final result = await FilePicker.platform.pickFiles(
+                  withData: true,
+                  type: FileType.custom,
+                  allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'docx', 'doc'],
+                );
+                if (result != null && result.files.isNotEmpty) {
+                  setState(() {
+                    _uploadedFiles[label] = result.files.first;
+                  });
+                  if (context.mounted) {
+                    showAppSnackBar(context, '$label selected: ${result.files.first.name}');
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  showAppSnackBar(context, 'Could not open file picker: $e', isError: true);
+                }
+              }
+            },
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: file != null ? AppColors.primary.withOpacity(0.08) : AppColors.background,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(
+                  color: file != null ? AppColors.primary : AppColors.border,
+                  width: file != null ? 1.5 : 1.0,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    file != null ? Icons.check_circle_rounded : Icons.upload_file_rounded,
+                    size: 18,
+                    color: file != null ? AppColors.primary : AppColors.textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      file != null ? file.name : 'Click to select or upload file',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: file != null ? AppColors.primary : AppColors.textMuted,
+                        fontWeight: file != null ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (file != null)
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+                      splashRadius: 14,
+                      onPressed: () {
+                        setState(() {
+                          _uploadedFiles.remove(label);
+                        });
+                      },
+                    ),
+                ],
+              ),
             ),
-            child: Row(children: [
-              const Icon(Icons.upload_file_rounded, size: 18, color: AppColors.textMuted),
-              const SizedBox(width: 8),
-              const Expanded(child: Text('Click to upload or drag file', style: TextStyle(fontSize: 12.5, color: AppColors.textMuted))),
-            ]),
           ),
         ],
       ),

@@ -1975,6 +1975,52 @@
 
 ---
 
+| **66. Fix Hostel Document Upload & Action Handlers Across Hostel Module** | In the Hostel Add/Edit Student form, document upload areas were non-interactive placeholders (`_uploadPlaceholder`) without file picking, storage, or attachment capability. Additionally, actions across Blocks, Rooms, Staff, Visitors, Complaints, Maintenance, and Fees were unhandled stub callbacks (`onPressed: () {}`). | Replaced document placeholders with interactive `FilePicker` upload tiles wired to Supabase `documents` table persistence, added a dedicated Documents tab to `StudentProfileScreen`, and implemented interactive dialogs & Supabase mutation methods for Add Block, Add Room, Add Staff, Check-In Visitor, File Complaint, Maintenance Request, Collect Fee, and Settings saving with 100% test pass (77/77). |
+
+---
+
+### Entry 66: Hostel Document Upload & Quick Actions Implementation Across Module
+- **Date & Context:** 2026-10-23
+- **Root Cause & Issues Identified:**
+  1. **Non-Interactive Documents Upload Area in Add Student Form**:
+     - In [`add_student_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/hostel/features/students/add_student_screen.dart), the Documents section used static display-only containers (`_uploadPlaceholder`) with no `onTap` callback, no `FilePicker` invocation, and no file persistence.
+  2. **Missing Document Association in Hostel Service & Student Profile**:
+     - `addHostelStudentFull` returned `void` rather than the generated `studentId`, preventing newly uploaded documents from being linked to the created student in the central `documents` table.
+     - `StudentProfileScreen` had no view tab for uploaded student documents.
+  3. **Empty Stub Handlers Across Hostel Management Screens**:
+     - Multiple primary buttons and quick actions had empty callbacks (`onPressed: () {}`):
+       - `Add Block` in `BlocksScreen`
+       - `Add Room` in `RoomsScreen`
+       - `Add Staff` in `StaffScreen`
+       - `Check-In Visitor` in `VisitorsScreen`
+       - `New Complaint` in `ComplaintsScreen`
+       - `New Request` in `MaintenanceScreen`
+       - `Collect Fee` in `FeesScreen`
+       - `Save Changes` in `SettingsScreen`
+       - `Generate for This Student` / `Bulk Generate for Block` in `IdCardGeneratorCard`
+- **Implementation & Remediation:**
+  1. **Interactive Document Upload in `AddStudentScreen`**:
+     - Integrated `FilePicker.platform.pickFiles` with custom file type filters (`pdf`, `png`, `jpg`, `jpeg`, `docx`, `doc`).
+     - Rendered dynamic stateful file tiles with file name display, check icons, and remove buttons.
+     - Updated save flow to return the student ID and persist records to the `documents` table using `HostelService().saveStudentDocument()`.
+  2. **Documents Tab in `StudentProfileScreen`**:
+     - Expanded tab controller from 5 to 6 tabs, adding a dedicated `Documents` tab that asynchronously queries and displays student documents via `HostelService().fetchStudentDocuments()`.
+  3. **Backend Service Methods in `HostelService`**:
+     - Implemented `saveStudentDocument`, `fetchStudentDocuments`, `createBlock`, `createRoom`, `createStaffMember`, `createComplaint`, `createMaintenanceRequest`, `createVisitor`, and `createFeePayment`.
+  4. **Interactive Action Modals**:
+     - Created dialog modals with validation, Supabase mutations, Riverpod cache invalidation, and feedback toasts for Blocks, Rooms, Staff, Visitors, Complaints, Maintenance, Fees, and Settings.
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/modules/hostel/`: **0 compile errors**.
+  - `flutter test`: **77/77 tests passed (100%)**.
+
+#### Why It Was Done:
+- To allow the Principal and hostel staff to seamlessly upload and view student documents, admit students with attached paperwork, and manage hostel blocks, rooms, staff, visitors, complaints, maintenance, and fees without hitting empty buttons or broken placeholders.
+
+#### For What:
+- Provides a fully functional, production-ready Hostel Management module with operational student document management and end-to-end CRUD capability.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
 
 

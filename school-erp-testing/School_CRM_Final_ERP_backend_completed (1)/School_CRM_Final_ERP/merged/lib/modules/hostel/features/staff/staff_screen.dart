@@ -4,14 +4,18 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../data/providers/app_providers.dart';
+import '../../data/hostel_service.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_data_table.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/filter_dropdown.dart';
 import '../../shared/widgets/primary_button.dart';
+import '../../shared/widgets/secondary_button.dart';
 import '../../shared/widgets/app_avatar.dart';
 import '../../shared/widgets/app_breadcrumb.dart';
+import '../../shared/widgets/app_dialog.dart';
+import '../../shared/widgets/confirm_dialog.dart';
 
 class StaffScreen extends ConsumerStatefulWidget {
   const StaffScreen({super.key});
@@ -57,7 +61,11 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                   Text('Manage wardens, accountants, and support staff.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
-              PrimaryButton(label: 'Add Staff', icon: Icons.person_add_alt_1_rounded, onPressed: () {}),
+              PrimaryButton(
+                label: 'Add Staff',
+                icon: Icons.person_add_alt_1_rounded,
+                onPressed: () => _showAddStaffDialog(context),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -109,6 +117,79 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
           ),
         ],
       ),
+      ),
+    );
+  }
+
+  void _showAddStaffDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    String role = 'Warden';
+    bool saving = false;
+
+    showAppDialog(
+      context,
+      title: 'Add Hostel Staff',
+      content: StatefulBuilder(
+        builder: (ctx, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Full Name', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: role,
+              decoration: const InputDecoration(labelText: 'Role', border: OutlineInputBorder()),
+              items: const ['Chief Hostel Warden', 'Warden', 'Assistant Warden', 'Accountant', 'Hostel Supervisor', 'Security Guard']
+                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                  .toList(),
+              onChanged: (v) => setState(() => role = v!),
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone Number', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: emailCtrl, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email Address', border: OutlineInputBorder())),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx)),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: saving ? 'Saving...' : 'Add Staff',
+                  icon: Icons.check_rounded,
+                  onPressed: saving ? null : () async {
+                    if (nameCtrl.text.trim().isEmpty || phoneCtrl.text.trim().isEmpty) {
+                      showAppSnackBar(context, 'Please enter name and phone.', isError: true);
+                      return;
+                    }
+                    setState(() => saving = true);
+                    try {
+                      await HostelService().createStaffMember(
+                        name: nameCtrl.text.trim(),
+                        role: role,
+                        phone: phoneCtrl.text.trim(),
+                        email: emailCtrl.text.trim(),
+                      );
+                      ref.invalidate(staffProvider);
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        showAppSnackBar(context, 'Staff "${nameCtrl.text.trim()}" added successfully.');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        showAppSnackBar(context, 'Failed to add staff: $e', isError: true);
+                      }
+                    } finally {
+                      setState(() => saving = false);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

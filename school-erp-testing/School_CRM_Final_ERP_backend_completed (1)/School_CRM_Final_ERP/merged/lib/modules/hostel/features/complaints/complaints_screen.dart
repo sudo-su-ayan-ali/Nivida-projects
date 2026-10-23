@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../data/providers/app_providers.dart';
+import '../../data/hostel_service.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_data_table.dart';
 import '../../shared/widgets/status_badge.dart';
@@ -11,8 +12,10 @@ import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/filter_dropdown.dart';
 import '../../shared/widgets/pagination.dart';
 import '../../shared/widgets/primary_button.dart';
+import '../../shared/widgets/secondary_button.dart';
 import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/app_breadcrumb.dart';
+import '../../shared/widgets/app_dialog.dart';
 
 class ComplaintsScreen extends ConsumerStatefulWidget {
   const ComplaintsScreen({super.key});
@@ -66,7 +69,11 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                   Text('Track and resolve student complaints across categories.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
-              PrimaryButton(label: 'New Complaint', icon: Icons.add_rounded, onPressed: () {}),
+              PrimaryButton(
+                label: 'New Complaint',
+                icon: Icons.add_rounded,
+                onPressed: () => _showNewComplaintDialog(context),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -138,6 +145,86 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
           ),
         ],
       ),
+      ),
+    );
+  }
+
+  void _showNewComplaintDialog(BuildContext context) {
+    final students = ref.read(studentsProvider).value ?? [];
+    if (students.isEmpty) {
+      if (context.mounted) showAppSnackBar(context, 'No students available to file a complaint for.', isError: true);
+      return;
+    }
+
+    String selectedStudentId = students.first.id;
+    String category = 'Mess';
+    final textCtrl = TextEditingController();
+    bool saving = false;
+
+    showAppDialog(
+      context,
+      title: 'File New Complaint',
+      content: StatefulBuilder(
+        builder: (ctx, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selectedStudentId,
+              decoration: const InputDecoration(labelText: 'Student', border: OutlineInputBorder()),
+              items: students.map((s) => DropdownMenuItem<String>(value: s.id, child: Text('${s.name} (${s.room})'))).toList(),
+              onChanged: (v) => setState(() => selectedStudentId = v!),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: category,
+              decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+              items: const ['Mess', 'Room / Maintenance', 'Discipline', 'Hygiene / Cleaning', 'Wi-Fi / Internet', 'Electrical', 'Other']
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (v) => setState(() => category = v!),
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: textCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Complaint Details', border: OutlineInputBorder())),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx)),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: saving ? 'Filing...' : 'Submit Complaint',
+                  icon: Icons.check_rounded,
+                  onPressed: saving ? null : () async {
+                    if (textCtrl.text.trim().isEmpty) {
+                      showAppSnackBar(context, 'Please enter complaint details.', isError: true);
+                      return;
+                    }
+                    setState(() => saving = true);
+                    try {
+                      await HostelService().createComplaint(
+                        studentId: selectedStudentId,
+                        category: category,
+                        complaintText: textCtrl.text.trim(),
+                      );
+                      ref.invalidate(complaintsProvider);
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        showAppSnackBar(context, 'Complaint submitted successfully.');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        showAppSnackBar(context, 'Failed to file complaint: $e', isError: true);
+                      }
+                    } finally {
+                      setState(() => saving = false);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import '../../core/constants/app_spacing.dart';
 import '../../core/responsive/responsive.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/primary_button.dart';
+import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/app_breadcrumb.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -93,7 +94,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _settingField('Contact Phone', '+91 98290 11234'),
           _settingField('Address', 'MG Road, Jaipur, Rajasthan'),
           const SizedBox(height: AppSpacing.lg),
-          Align(alignment: Alignment.centerRight, child: PrimaryButton(label: 'Save Changes', icon: Icons.check_rounded, onPressed: () {})),
+          Align(
+            alignment: Alignment.centerRight,
+            child: PrimaryButton(
+              label: 'Save Changes',
+              icon: Icons.check_rounded,
+              onPressed: () {
+                showAppSnackBar(context, '${sections[selected].$1} saved successfully.');
+              },
+            ),
+          ),
         ],
       ),
     );

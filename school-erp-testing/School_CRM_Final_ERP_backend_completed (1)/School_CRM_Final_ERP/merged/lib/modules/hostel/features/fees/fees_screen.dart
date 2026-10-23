@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/responsive/responsive.dart';
 import '../../data/providers/app_providers.dart';
+import '../../data/hostel_service.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_data_table.dart';
 import '../../shared/widgets/status_badge.dart';
@@ -13,7 +14,9 @@ import '../../shared/widgets/filter_dropdown.dart';
 import '../../shared/widgets/stat_card.dart';
 import '../../shared/widgets/pagination.dart';
 import '../../shared/widgets/primary_button.dart';
+import '../../shared/widgets/secondary_button.dart';
 import '../../shared/widgets/app_dialog.dart';
+import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/app_breadcrumb.dart';
 
 class FeesScreen extends ConsumerStatefulWidget {
@@ -102,7 +105,11 @@ Widget build(BuildContext context) {
                         ),
                       ],
                     ),
-                    PrimaryButton(label: 'Collect Fee', icon: Icons.add_rounded, onPressed: () {}),
+                    PrimaryButton(
+                      label: 'Collect Fee',
+                      icon: Icons.add_rounded,
+                      onPressed: () => _showCollectFeeDialog(context),
+                    ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -171,6 +178,87 @@ Widget build(BuildContext context) {
           _row('Date', df.format(p.date)),
           _row('Status', p.status),
         ],
+      ),
+    );
+  }
+
+  void _showCollectFeeDialog(BuildContext context) {
+    final students = ref.read(studentsProvider).value ?? [];
+    if (students.isEmpty) {
+      showAppSnackBar(context, 'No hostel students found to collect fee for.', isError: true);
+      return;
+    }
+
+    String selectedHostelStudentId = students.first.id;
+    final amountCtrl = TextEditingController(text: '15000');
+    String paymentType = 'Boarding & Mess Fee';
+    bool saving = false;
+
+    showAppDialog(
+      context,
+      title: 'Collect Hostel Fee',
+      content: StatefulBuilder(
+        builder: (ctx, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selectedHostelStudentId,
+              decoration: const InputDecoration(labelText: 'Student', border: OutlineInputBorder()),
+              items: students.map((s) => DropdownMenuItem<String>(value: s.id, child: Text('${s.name} (${s.room})'))).toList(),
+              onChanged: (v) => setState(() => selectedHostelStudentId = v!),
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: amountCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Amount (₹)', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: paymentType,
+              decoration: const InputDecoration(labelText: 'Fee Type', border: OutlineInputBorder()),
+              items: const ['Boarding & Mess Fee', 'Room Rent', 'Security Deposit', 'Laundry Fee', 'Maintenance Surcharge']
+                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                  .toList(),
+              onChanged: (v) => setState(() => paymentType = v!),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx)),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: saving ? 'Recording...' : 'Collect Fee',
+                  icon: Icons.check_rounded,
+                  onPressed: saving ? null : () async {
+                    final amt = double.tryParse(amountCtrl.text.trim());
+                    if (amt == null || amt <= 0) {
+                      showAppSnackBar(context, 'Please enter a valid amount.', isError: true);
+                      return;
+                    }
+                    setState(() => saving = true);
+                    try {
+                      await HostelService().createFeePayment(
+                        hostelStudentId: selectedHostelStudentId,
+                        amount: amt,
+                        paymentType: paymentType,
+                      );
+                      ref.invalidate(paymentsProvider);
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        showAppSnackBar(context, 'Fee payment of ₹$amt recorded successfully.');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        showAppSnackBar(context, 'Failed to record fee: $e', isError: true);
+                      }
+                    } finally {
+                      setState(() => saving = false);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

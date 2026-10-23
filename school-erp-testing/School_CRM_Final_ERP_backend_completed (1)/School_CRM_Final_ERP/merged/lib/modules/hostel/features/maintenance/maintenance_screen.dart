@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/responsive/responsive.dart';
 import '../../data/providers/app_providers.dart';
+import '../../data/hostel_service.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_data_table.dart';
 import '../../shared/widgets/status_badge.dart';
@@ -12,8 +13,10 @@ import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/filter_dropdown.dart';
 import '../../shared/widgets/stat_card.dart';
 import '../../shared/widgets/primary_button.dart';
+import '../../shared/widgets/secondary_button.dart';
 import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/app_breadcrumb.dart';
+import '../../shared/widgets/app_dialog.dart';
 
 class MaintenanceScreen extends ConsumerStatefulWidget {
   const MaintenanceScreen({super.key});
@@ -61,7 +64,11 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
                   Text('Track and assign maintenance requests across the hostel.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
-              PrimaryButton(label: 'New Request', icon: Icons.add_rounded, onPressed: () {}),
+              PrimaryButton(
+                label: 'New Request',
+                icon: Icons.add_rounded,
+                onPressed: () => _showNewRequestDialog(context),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -143,6 +150,88 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
           ),
         ],
       ),
+      ),
+    );
+  }
+
+  void _showNewRequestDialog(BuildContext context) async {
+    final rooms = await HostelService().fetchRoomsWithModel();
+    if (rooms.isEmpty) {
+      if (context.mounted) showAppSnackBar(context, 'No rooms available for maintenance request.', isError: true);
+      return;
+    }
+
+    String selectedRoomId = rooms.first.id;
+    String category = 'Plumbing';
+    final descCtrl = TextEditingController();
+    bool saving = false;
+
+    if (!context.mounted) return;
+
+    showAppDialog(
+      context,
+      title: 'New Maintenance Request',
+      content: StatefulBuilder(
+        builder: (ctx, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selectedRoomId,
+              decoration: const InputDecoration(labelText: 'Room', border: OutlineInputBorder()),
+              items: rooms.map((r) => DropdownMenuItem<String>(value: r.id, child: Text('Room ${r.number} (${r.block})'))).toList(),
+              onChanged: (v) => setState(() => selectedRoomId = v!),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: category,
+              decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+              items: const ['Plumbing', 'Electrical', 'Carpentry', 'AC / Heating', 'Civil / Painting', 'Pest Control', 'Other']
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (v) => setState(() => category = v!),
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: descCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Issue Description', border: OutlineInputBorder())),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx)),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: saving ? 'Submitting...' : 'Submit Request',
+                  icon: Icons.check_rounded,
+                  onPressed: saving ? null : () async {
+                    if (descCtrl.text.trim().isEmpty) {
+                      showAppSnackBar(context, 'Please enter an issue description.', isError: true);
+                      return;
+                    }
+                    setState(() => saving = true);
+                    try {
+                      await HostelService().createMaintenanceRequest(
+                        roomId: selectedRoomId,
+                        category: category,
+                        description: descCtrl.text.trim(),
+                      );
+                      ref.invalidate(maintenanceProvider);
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        showAppSnackBar(context, 'Maintenance request submitted.');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        showAppSnackBar(context, 'Failed to submit maintenance request: $e', isError: true);
+                      }
+                    } finally {
+                      setState(() => saving = false);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

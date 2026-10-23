@@ -1,4 +1,5 @@
 import '../../models/payment.dart';
+import '../../data/hostel_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,7 +30,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen>
   @override
   void initState() {
     super.initState();
-    tabController = TabController(length: 5, vsync: this);
+    tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -165,6 +166,7 @@ Widget build(BuildContext context) {
                   tabs: const [
                     Tab(text: 'Personal & Academic'),
                     Tab(text: 'Hostel Details'),
+                    Tab(text: 'Documents'),
                     Tab(text: 'Leave History'),
                     Tab(text: 'Fee History'),
                     Tab(text: 'Complaints'),
@@ -178,6 +180,7 @@ Widget build(BuildContext context) {
                     children: [
                       _personalTab(student),
                       _hostelTab(student),
+                      _documentsTab(student.id),
                       _leaveTab(leaves),
                       _feeTab(payments),
                       _complaintsTab(complaints),
@@ -326,6 +329,54 @@ Widget build(BuildContext context) {
             );
           },
         );
+
+  Widget _documentsTab(String studentId) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: HostelService().fetchStudentDocuments(studentId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snapshot.data ?? [];
+        if (docs.isEmpty) {
+          return const EmptyState(
+            icon: Icons.folder_open_rounded,
+            title: 'No documents attached',
+            message: 'No certificates or ID proofs have been uploaded for this student.',
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          itemCount: docs.length,
+          separatorBuilder: (_, __) => const Divider(color: AppColors.divider),
+          itemBuilder: (_, i) {
+            final d = docs[i];
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(Icons.description_rounded, color: AppColors.primary, size: 20),
+              ),
+              title: Text(
+                d['title'] ?? d['file_name'] ?? 'Document',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+              ),
+              subtitle: Text(
+                '${d['type'] ?? 'PDF'} · ${d['file_name'] ?? ''}',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              trailing: StatusBadge(status: d['status'] ?? 'Verified'),
+            );
+          },
+        );
+      },
+    );
+  }
 
   Widget _detailRow(String label, String value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),

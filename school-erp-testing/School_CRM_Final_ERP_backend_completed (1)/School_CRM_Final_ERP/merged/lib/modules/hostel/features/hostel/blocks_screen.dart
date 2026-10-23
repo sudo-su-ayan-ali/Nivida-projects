@@ -4,10 +4,14 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/responsive/responsive.dart';
 import '../../data/providers/app_providers.dart';
+import '../../data/hostel_service.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../../shared/widgets/primary_button.dart';
+import '../../shared/widgets/secondary_button.dart';
 import '../../shared/widgets/app_breadcrumb.dart';
+import '../../shared/widgets/app_dialog.dart';
+import '../../shared/widgets/confirm_dialog.dart';
 
 class BlocksScreen extends ConsumerWidget {
   const BlocksScreen({super.key});
@@ -42,7 +46,11 @@ return blocksAsync.when(
                   Text('Manage hostel blocks, floors, and capacity.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
-              PrimaryButton(label: 'Add Block', icon: Icons.add_rounded, onPressed: () {}),
+              PrimaryButton(
+                label: 'Add Block',
+                icon: Icons.add_rounded,
+                onPressed: () => _showAddBlockDialog(context, ref),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -104,6 +112,80 @@ return blocksAsync.when(
       ),
     ),
   );
+  }
+
+  void _showAddBlockDialog(BuildContext context, WidgetRef ref) {
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    final floorsCtrl = TextEditingController(text: '3');
+    final roomsCtrl = TextEditingController(text: '15');
+    final capacityCtrl = TextEditingController(text: '45');
+    bool saving = false;
+
+    showAppDialog(
+      context,
+      title: 'Add Hostel Block',
+      content: StatefulBuilder(
+        builder: (ctx, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Block Name (e.g. Block E - Himalaya)', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: codeCtrl, decoration: const InputDecoration(labelText: 'Block Code (e.g. E)', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: TextField(controller: floorsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Floors', border: OutlineInputBorder()))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: roomsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Total Rooms', border: OutlineInputBorder()))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: capacityCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Capacity', border: OutlineInputBorder()))),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx)),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: saving ? 'Saving...' : 'Add Block',
+                  icon: Icons.check_rounded,
+                  onPressed: saving ? null : () async {
+                    if (nameCtrl.text.trim().isEmpty || codeCtrl.text.trim().isEmpty) {
+                      showAppSnackBar(context, 'Please enter block name and code.', isError: true);
+                      return;
+                    }
+                    setState(() => saving = true);
+                    try {
+                      await HostelService().createBlock(
+                        name: nameCtrl.text.trim(),
+                        code: codeCtrl.text.trim().toUpperCase(),
+                        floors: int.tryParse(floorsCtrl.text.trim()) ?? 3,
+                        totalRooms: int.tryParse(roomsCtrl.text.trim()) ?? 15,
+                        capacity: int.tryParse(capacityCtrl.text.trim()) ?? 45,
+                      );
+                      ref.invalidate(blocksProvider);
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        showAppSnackBar(context, 'Block "${nameCtrl.text.trim()}" created successfully.');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        showAppSnackBar(context, 'Failed to add block: $e', isError: true);
+                      }
+                    } finally {
+                      setState(() => saving = false);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _stat(String value, String label) => Expanded(

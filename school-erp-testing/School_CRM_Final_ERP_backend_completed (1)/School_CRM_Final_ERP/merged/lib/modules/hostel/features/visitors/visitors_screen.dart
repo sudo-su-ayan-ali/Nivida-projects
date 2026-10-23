@@ -5,14 +5,17 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/responsive/responsive.dart';
 import '../../data/providers/app_providers.dart';
+import '../../data/hostel_service.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_data_table.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/stat_card.dart';
 import '../../shared/widgets/primary_button.dart';
+import '../../shared/widgets/secondary_button.dart';
 import '../../shared/widgets/confirm_dialog.dart';
 import '../../shared/widgets/app_breadcrumb.dart';
+import '../../shared/widgets/app_dialog.dart';
 
 class VisitorsScreen extends ConsumerStatefulWidget {
   const VisitorsScreen({super.key});
@@ -55,7 +58,11 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
                   Text('Log and track visitor check-ins across the hostel.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 ],
               ),
-              PrimaryButton(label: 'Check-In Visitor', icon: Icons.person_add_alt_1_rounded, onPressed: () {}),
+              PrimaryButton(
+                label: 'Check-In Visitor',
+                icon: Icons.person_add_alt_1_rounded,
+                onPressed: () => _showCheckInDialog(context),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -125,6 +132,83 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
           ),
         ],
       ),
+      ),
+    );
+  }
+
+  void _showCheckInDialog(BuildContext context) async {
+    final students = ref.read(studentsProvider).value ?? [];
+    if (students.isEmpty) {
+      if (context.mounted) showAppSnackBar(context, 'No students available to assign a visitor to.', isError: true);
+      return;
+    }
+
+    String selectedStudentId = students.first.id;
+    final visitorCtrl = TextEditingController();
+    final relationCtrl = TextEditingController(text: 'Father');
+    final phoneCtrl = TextEditingController();
+    bool saving = false;
+
+    showAppDialog(
+      context,
+      title: 'Check-In Visitor',
+      content: StatefulBuilder(
+        builder: (ctx, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selectedStudentId,
+              decoration: const InputDecoration(labelText: 'Visiting Student', border: OutlineInputBorder()),
+              items: students.map((s) => DropdownMenuItem<String>(value: s.id, child: Text('${s.name} (${s.room})'))).toList(),
+              onChanged: (v) => setState(() => selectedStudentId = v!),
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: visitorCtrl, decoration: const InputDecoration(labelText: 'Visitor Name', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: relationCtrl, decoration: const InputDecoration(labelText: 'Relationship (e.g. Father, Mother, Brother)', border: OutlineInputBorder())),
+            const SizedBox(height: 12),
+            TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Contact Phone', border: OutlineInputBorder())),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(label: 'Cancel', onPressed: () => Navigator.pop(ctx)),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: saving ? 'Checking in...' : 'Check In',
+                  icon: Icons.check_rounded,
+                  onPressed: saving ? null : () async {
+                    if (visitorCtrl.text.trim().isEmpty || phoneCtrl.text.trim().isEmpty) {
+                      showAppSnackBar(context, 'Please enter visitor name and phone.', isError: true);
+                      return;
+                    }
+                    setState(() => saving = true);
+                    try {
+                      await HostelService().createVisitor(
+                        studentId: selectedStudentId,
+                        visitorName: visitorCtrl.text.trim(),
+                        relation: relationCtrl.text.trim(),
+                        phone: phoneCtrl.text.trim(),
+                      );
+                      ref.invalidate(visitorsProvider);
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        showAppSnackBar(context, 'Visitor "${visitorCtrl.text.trim()}" checked in successfully.');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        showAppSnackBar(context, 'Failed to check in visitor: $e', isError: true);
+                      }
+                    } finally {
+                      setState(() => saving = false);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -244,7 +244,7 @@ Future<Map<String, dynamic>?> _resolveRoomAndBlock({
   return null;
 }
 
-Future<void> addHostelStudentFull({
+Future<String> addHostelStudentFull({
   required String name,
   required String phone,
   required String email,      // students table me column nahi hai — abhi save nahi hoga
@@ -344,19 +344,21 @@ Future<void> addHostelStudentFull({
   }
 
   // 3) hostel_students me link banao (blood_group/guardian_phone yahin save hote hain)
-  await _client.from('hostel_students').insert({
+  final hsRows = await _client.from('hostel_students').insert({
     'student_id': studentId,
     'room_id': room['id'],
     'block_id': room['block_id'],
     'status': 'active',
     'guardian_phone': guardianPhone,
     'blood_group': bloodGroup,
-  });
+  }).select('id');
 
   await _syncRoomOccupancy(room['id']);
+
+  return hsRows.isNotEmpty ? (hsRows.first['id'] as String) : studentId;
 }
 
-Future<void> updateHostelStudentFull({
+Future<String> updateHostelStudentFull({
   required String hostelStudentId,
   required String name,
   required String phone,
@@ -462,6 +464,8 @@ Future<void> updateHostelStudentFull({
   if (oldRoomId != null && oldRoomId != newRoomId) {
     await _syncRoomOccupancy(oldRoomId);
   }
+
+  return studentId;
 }
 
 Future<void> removeHostelStudentById(String hostelStudentId) async {
@@ -694,5 +698,147 @@ Future<List<Map<String, dynamic>>> fetchNotices() async {
 }
 Future<List<Map<String, dynamic>>> fetchStaff() async {
   return await _client.from('hostel_staff').select();
+}
+
+// ---- Documents ----
+Future<void> saveStudentDocument({
+  required String studentId,
+  required String title,
+  required String fileName,
+  String type = 'PDF',
+  String? fileUrl,
+  String status = 'Verified',
+}) async {
+  await _client.from('documents').insert({
+    'student_id': studentId,
+    'title': title,
+    'type': type,
+    'file_name': fileName,
+    'file_url': fileUrl ?? 'https://storage.edusmart.test/docs/$fileName',
+    'status': status,
+  });
+}
+
+Future<List<Map<String, dynamic>>> fetchStudentDocuments(String studentId) async {
+  return await _client.from('documents').select().eq('student_id', studentId);
+}
+
+// ---- Create methods for Hostel quick actions ----
+Future<void> createBlock({
+  required String name,
+  required String code,
+  required int floors,
+  required int totalRooms,
+  required int capacity,
+}) async {
+  await _client.from('hostel_blocks').insert({
+    'name': name,
+    'code': code,
+    'floors': floors,
+    'total_rooms': totalRooms,
+    'capacity': capacity,
+    'status': 'Active',
+  });
+}
+
+Future<void> createRoom({
+  required String blockId,
+  required String roomNumber,
+  required int floor,
+  required String roomType,
+  required int capacity,
+}) async {
+  await _client.from('rooms').insert({
+    'block_id': blockId,
+    'room_number': roomNumber,
+    'floor': floor,
+    'room_type': roomType.toLowerCase(),
+    'capacity': capacity,
+    'occupied': 0,
+    'status': 'available',
+  });
+}
+
+Future<void> createStaffMember({
+  required String name,
+  required String role,
+  required String phone,
+  required String email,
+}) async {
+  final institutionId = await _resolveInstitutionId();
+  final employeeId = 'EMP${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+  await _client.from('hostel_staff').insert({
+    'institution_id': institutionId,
+    'name': name,
+    'employee_id': employeeId,
+    'role': role,
+    'phone': phone,
+    'email': email,
+    'status': 'Active',
+  });
+}
+
+Future<void> createComplaint({
+  required String studentId,
+  required String category,
+  required String complaintText,
+}) async {
+  final institutionId = await _resolveInstitutionId();
+  await _client.from('hostel_complaints').insert({
+    'institution_id': institutionId,
+    'student_id': studentId,
+    'category': category,
+    'complaint_text': complaintText,
+    'status': 'open',
+  });
+}
+
+Future<void> createMaintenanceRequest({
+  required String roomId,
+  required String category,
+  required String description,
+}) async {
+  final institutionId = await _resolveInstitutionId();
+  await _client.from('hostel_maintenance_requests').insert({
+    'institution_id': institutionId,
+    'room_id': roomId,
+    'category': category,
+    'description': description,
+    'status': 'pending',
+  });
+}
+
+Future<void> createVisitor({
+  required String studentId,
+  required String visitorName,
+  required String relation,
+  required String phone,
+}) async {
+  final institutionId = await _resolveInstitutionId();
+  await _client.from('hostel_visitors').insert({
+    'institution_id': institutionId,
+    'student_id': studentId,
+    'visitor_name': visitorName,
+    'relation': relation,
+    'phone': phone,
+    'status': 'Checked In',
+  });
+}
+
+Future<void> createFeePayment({
+  required String hostelStudentId,
+  required double amount,
+  required String paymentType,
+}) async {
+  final invoiceNo = 'HST-INV-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+  final todayStr = DateTime.now().toIso8601String().split('T').first;
+  await _client.from('hostel_fees').insert({
+    'hostel_student_id': hostelStudentId,
+    'amount': amount,
+    'payment_type': paymentType,
+    'status': 'Paid',
+    'invoice_no': invoiceNo,
+    'payment_date': todayStr,
+  });
 }
 }

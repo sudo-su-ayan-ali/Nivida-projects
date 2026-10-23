@@ -6,6 +6,7 @@ import '../../../core/responsive/responsive.dart';
 import '../../../data/providers/app_providers.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../shared/widgets/confirm_dialog.dart';
 import '../../../shared/widgets/app_avatar.dart';
 
 /// Extra #5: Student ID / Hostel Card generator preview — schools regularly
@@ -45,9 +46,25 @@ final sample = students.isNotEmpty ? students.first : null;
                       spacing: 10,
                       runSpacing: 10,
                       children: [
-                        PrimaryButton(label: 'Generate for This Student', icon: Icons.badge_rounded, onPressed: () {}),
+                        PrimaryButton(
+                          label: 'Generate for This Student',
+                          icon: Icons.badge_rounded,
+                          onPressed: () {
+                            if (sample != null) {
+                              showAppSnackBar(context, 'Hostel ID card generated for ${sample.name}.');
+                            } else {
+                              showAppSnackBar(context, 'No student selected for ID card.', isError: true);
+                            }
+                          },
+                        ),
                         OutlinedButton.icon(
-                          onPressed: () {},
+                          onPressed: () {
+                            if (sample != null) {
+                              showAppSnackBar(context, 'Bulk ID card generation initiated for ${sample.block}.');
+                            } else {
+                              showAppSnackBar(context, 'No blocks available for bulk generation.', isError: true);
+                            }
+                          },
                           icon: const Icon(Icons.groups_rounded, size: 18),
                           label: const Text('Bulk Generate for Block'),
                         ),
