@@ -75,6 +75,22 @@ final paymentsProvider = FutureProvider<List<Payment>>((ref) async {
   return HostelService().fetchHostelFeesList();
 });
 
+DateTime _parseDate(dynamic val, [DateTime? fallback]) {
+  if (val == null) return fallback ?? DateTime.now();
+  if (val is DateTime) return val;
+  final s = val.toString().trim();
+  if (s.isEmpty) return fallback ?? DateTime.now();
+  return DateTime.tryParse(s) ?? fallback ?? DateTime.now();
+}
+
+DateTime? _parseNullableDate(dynamic val) {
+  if (val == null) return null;
+  if (val is DateTime) return val;
+  final s = val.toString().trim();
+  if (s.isEmpty) return null;
+  return DateTime.tryParse(s);
+}
+
 /// ---------- Leaves ----------
 class LeavesController extends StateNotifier<List<LeaveRequest>> {
   LeavesController() : super([]) {
@@ -82,19 +98,21 @@ class LeavesController extends StateNotifier<List<LeaveRequest>> {
   }
 
   Future<void> _load() async {
-    final rows = await HostelService().fetchLeaveRequests();
-    state = rows.map((r) => LeaveRequest(
-      id: r['id'],
-      studentName: r['students']?['full_name'] ?? '',
-      room: '',
-      leaveType: r['leave_type'] ?? '',
-      reason: r['reason'] ?? '',
-      from: DateTime.parse(r['from_date']),
-      to: DateTime.parse(r['to_date']),
-      emergencyContact: r['emergency_contact'] ?? '',
-      destination: r['destination'] ?? '',
-      status: r['status'] ?? 'Pending',
-    )).toList();
+    try {
+      final rows = await HostelService().fetchLeaveRequests();
+      state = rows.map((r) => LeaveRequest(
+        id: r['id'],
+        studentName: r['students']?['full_name'] ?? '',
+        room: '',
+        leaveType: r['leave_type'] ?? '',
+        reason: r['reason'] ?? '',
+        from: _parseDate(r['from_date']),
+        to: _parseDate(r['to_date']),
+        emergencyContact: r['emergency_contact'] ?? '',
+        destination: r['destination'] ?? '',
+        status: r['status'] ?? 'Pending',
+      )).toList();
+    } catch (_) {}
   }
 
   Future<void> updateStatus(String id, String status) async {
@@ -112,18 +130,20 @@ class ComplaintsController extends StateNotifier<List<Complaint>> {
   }
 
   Future<void> _load() async {
-    final rows = await HostelService().fetchComplaints();
-    state = rows.map((r) => Complaint(
-      id: r['id'],
-      studentName: r['students']?['full_name'] ?? '',
-      room: '',
-      category: r['category'] ?? '',
-      description: r['description'] ?? '',
-      priority: r['priority'] ?? 'Medium',
-      date: r['created_at'] != null ? DateTime.parse(r['created_at']) : DateTime.now(),
-      assignedTo: r['assigned_to'] ?? '',
-      status: r['status'] ?? 'Open',
-    )).toList();
+    try {
+      final rows = await HostelService().fetchComplaints();
+      state = rows.map((r) => Complaint(
+        id: r['id'],
+        studentName: r['students']?['full_name'] ?? '',
+        room: '',
+        category: r['category'] ?? '',
+        description: r['description'] ?? '',
+        priority: r['priority'] ?? 'Medium',
+        date: _parseDate(r['created_at']),
+        assignedTo: r['assigned_to'] ?? '',
+        status: r['status'] ?? 'Open',
+      )).toList();
+    } catch (_) {}
   }
 
   Future<void> updateStatus(String id, String status) async {
@@ -142,19 +162,21 @@ class MaintenanceController extends StateNotifier<List<MaintenanceRequest>> {
   }
 
   Future<void> _load() async {
-    final rows = await HostelService().fetchMaintenanceRequests();
-    state = rows.map((r) => MaintenanceRequest(
-      id: r['id'],
-      room: r['rooms']?['room_number'] ?? '',
-      block: '',
-      category: r['category'] ?? '',
-      issue: r['issue'] ?? '',
-      priority: r['priority'] ?? 'Medium',
-      assignedStaff: r['assigned_staff'] ?? '',
-      createdDate: r['created_at'] != null ? DateTime.parse(r['created_at']) : DateTime.now(),
-      expectedDate: r['expected_date'] != null ? DateTime.parse(r['expected_date']) : DateTime.now(),
-      status: r['status'] ?? 'Pending',
-    )).toList();
+    try {
+      final rows = await HostelService().fetchMaintenanceRequests();
+      state = rows.map((r) => MaintenanceRequest(
+        id: r['id'],
+        room: r['rooms']?['room_number'] ?? '',
+        block: '',
+        category: r['category'] ?? '',
+        issue: r['issue'] ?? '',
+        priority: r['priority'] ?? 'Medium',
+        assignedStaff: r['assigned_staff'] ?? '',
+        createdDate: _parseDate(r['created_at']),
+        expectedDate: _parseDate(r['expected_date']),
+        status: r['status'] ?? 'Pending',
+      )).toList();
+    } catch (_) {}
   }
 
   Future<void> updateStatus(String id, String status) async {
@@ -173,20 +195,22 @@ class VisitorsController extends StateNotifier<List<Visitor>> {
   }
 
   Future<void> _load() async {
-    final rows = await HostelService().fetchVisitors();
-    state = rows.map((r) => Visitor(
-      id: r['id'],
-      visitorName: r['visitor_name'] ?? '',
-      studentName: r['students']?['full_name'] ?? '',
-      relation: r['relation'] ?? '',
-      phone: r['phone'] ?? '',
-      idType: r['id_type'] ?? '',
-      idNumber: r['id_number'] ?? '',
-      purpose: r['purpose'] ?? '',
-      checkIn: r['check_in'] != null ? DateTime.parse(r['check_in']) : DateTime.now(),
-      checkOut: r['check_out'] != null ? DateTime.parse(r['check_out']) : null,
-      status: r['status'] ?? 'Checked In',
-    )).toList();
+    try {
+      final rows = await HostelService().fetchVisitors();
+      state = rows.map((r) => Visitor(
+        id: r['id'],
+        visitorName: r['visitor_name'] ?? '',
+        studentName: r['students']?['full_name'] ?? '',
+        relation: r['relation'] ?? '',
+        phone: r['phone'] ?? '',
+        idType: r['id_type'] ?? '',
+        idNumber: r['id_number'] ?? '',
+        purpose: r['purpose'] ?? '',
+        checkIn: _parseDate(r['check_in']),
+        checkOut: _parseNullableDate(r['check_out']),
+        status: r['status'] ?? 'Checked In',
+      )).toList();
+    } catch (_) {}
   }
 
   Future<void> checkOut(String id) async {
@@ -206,8 +230,8 @@ final noticesProvider = FutureProvider<List<Notice>>((ref) async {
     description: r['description'] ?? '',
     category: r['category'] ?? '',
     audience: r['audience'] ?? '',
-    publishDate: r['publish_date'] != null ? DateTime.parse(r['publish_date']) : DateTime.now(),
-    expiryDate: r['expiry_date'] != null ? DateTime.parse(r['expiry_date']) : DateTime.now(),
+    publishDate: _parseDate(r['publish_date']),
+    expiryDate: _parseDate(r['expiry_date']),
     priority: r['priority'] ?? 'Normal',
     status: r['status'] ?? 'Active',
   )).toList();
@@ -223,7 +247,7 @@ final staffProvider = FutureProvider<List<StaffMember>>((ref) async {
     role: r['role'] ?? '',
     phone: r['phone'] ?? '',
     email: r['email'] ?? '',
-    joiningDate: r['joining_date'] != null ? DateTime.parse(r['joining_date']) : DateTime.now(),
+    joiningDate: _parseDate(r['joining_date']),
     status: r['status'] ?? 'Active',
   )).toList();
 });
@@ -235,16 +259,18 @@ class AttendanceController extends StateNotifier<List<AttendanceRecord>> {
   }
 
   Future<void> _load() async {
-    final rows = await HostelService().fetchAttendanceToday();
-    state = rows.map((r) => AttendanceRecord(
-      id: r['id'],
-      studentName: r['students']?['full_name'] ?? '',
-      room: r['rooms']?['room_number'] ?? '',
-      block: '',
-      status: r['status'] ?? 'Not Marked',
-      checkInTime: r['check_in_time'] ?? '',
-      markedBy: r['marked_by'] ?? '',
-    )).toList();
+    try {
+      final rows = await HostelService().fetchAttendanceToday();
+      state = rows.map((r) => AttendanceRecord(
+        id: r['id'],
+        studentName: r['students']?['full_name'] ?? '',
+        room: r['rooms']?['room_number'] ?? '',
+        block: '',
+        status: r['status'] ?? 'Not Marked',
+        checkInTime: r['check_in_time'] ?? '',
+        markedBy: r['marked_by'] ?? '',
+      )).toList();
+    } catch (_) {}
   }
 
   Future<void> mark(String id, String status) async {

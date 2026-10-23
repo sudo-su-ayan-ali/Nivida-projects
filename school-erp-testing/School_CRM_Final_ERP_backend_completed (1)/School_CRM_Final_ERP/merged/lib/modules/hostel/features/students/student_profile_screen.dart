@@ -74,14 +74,15 @@ Widget build(BuildContext context) {
 
     final isDesktop = Responsive.isDesktop(context);
 
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppBreadcrumb(
-            items: ['Student Management', 'All Students', student.name],
-          ),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppBreadcrumb(
+              items: ['Student Management', 'All Students', student.name],
+            ),
           const SizedBox(height: 16),
           AppCard(
             child: Flex(
@@ -177,6 +178,7 @@ Widget build(BuildContext context) {
             ),
           ),
            ],
+        ),
       ),
     );
     },

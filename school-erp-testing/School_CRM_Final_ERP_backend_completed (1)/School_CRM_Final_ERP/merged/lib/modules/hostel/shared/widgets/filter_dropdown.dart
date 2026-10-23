@@ -18,6 +18,11 @@ class FilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final uniqueOptions = options.toSet().toList();
+    final effectiveValue = uniqueOptions.contains(value)
+        ? value
+        : (uniqueOptions.isNotEmpty ? uniqueOptions.first : null);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -27,11 +32,11 @@ class FilterDropdown extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: value,
+          value: effectiveValue,
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textSecondary),
           style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
-          items: options
-              .map((o) => DropdownMenuItem(value: o, child: Text("$label: $o".contains("All") ? o : o)))
+          items: uniqueOptions
+              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
               .toList(),
           onChanged: onChanged,
         ),

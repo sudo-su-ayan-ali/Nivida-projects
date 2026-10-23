@@ -171,8 +171,11 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
       onSelected: (v) {
         if (v == 'logout') {
-          ref.read(authProvider.notifier).logout();
-          context.go('/login');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('To log out of ERP, use the top-level ERP profile menu.')),
+          );
+        } else if (v == 'settings') {
+          context.go('/settings');
         }
       },
       itemBuilder: (_) => const [

@@ -11,16 +11,16 @@ class HostelService {
   Future<String> _resolveInstitutionId() async {
     try {
       final userId = _client.auth.currentUser?.id;
-      if (userId == null) return '00000000-0000-0000-0000-000000000001';
+      if (userId == null) return 'd0000000-0000-0000-0000-000000000001';
       final profile = await _client
           .from('profiles')
           .select('institution_id')
           .eq('id', userId)
           .maybeSingle();
       return (profile?['institution_id'] as String?) ??
-          '00000000-0000-0000-0000-000000000001';
+          'd0000000-0000-0000-0000-000000000001';
     } catch (_) {
-      return '00000000-0000-0000-0000-000000000001';
+      return 'd0000000-0000-0000-0000-000000000001';
     }
   }
 
@@ -137,7 +137,9 @@ Map<String, dynamic> _findById(List rows, String? id) {
     }
 
     final admissionDateStr = hs['admission_date'];
-    final admissionDate = admissionDateStr != null ? DateTime.parse(admissionDateStr) : DateTime.now();
+    final admissionDate = admissionDateStr != null
+        ? (DateTime.tryParse(admissionDateStr.toString()) ?? DateTime.now())
+        : DateTime.now();
 
     return Student(
       id: hs['id'],
@@ -242,12 +244,11 @@ Future<void> addHostelStudentFull({
       await _client.from('students').insert(studentPayload).select().single();
   final studentId = studentInsert['id'];
 
-  // 2) Room number se room_id + block_id nikaalo (tenant scoped)
+  // 2) Room number se room_id + block_id nikaalo
   final room = await _client
       .from('rooms')
       .select('id, block_id')
       .eq('room_number', roomNumber)
-      .eq('institution_id', institutionId)
       .maybeSingle();
 
   if (room == null) {
@@ -256,7 +257,6 @@ Future<void> addHostelStudentFull({
 
   // 3) hostel_students me link banao (blood_group/guardian_phone yahin save hote hain)
   await _client.from('hostel_students').insert({
-    'institution_id': institutionId,
     'student_id': studentId,
     'room_id': room['id'],
     'block_id': room['block_id'],
@@ -324,7 +324,7 @@ Future<void> removeHostelStudentById(String hostelStudentId) async {
         .single();
 
     final occupied = students.length;
-    final capacity = room['capacity'] as int;
+    final capacity = (room['capacity'] as num?)?.toInt() ?? 0;
     final status = occupied == 0
         ? 'Vacant'
         : occupied >= capacity
@@ -367,7 +367,9 @@ Future<List<Payment>> fetchHostelFeesList() async {
       room: room['room_number'] ?? '',
       amount: (f['amount'] as num?)?.toDouble() ?? 0,
       type: f['payment_type'] ?? '',
-      date: f['payment_date'] != null ? DateTime.parse(f['payment_date']) : DateTime.now(),
+      date: f['payment_date'] != null
+          ? (DateTime.tryParse(f['payment_date'].toString()) ?? DateTime.now())
+          : DateTime.now(),
       status: f['status'] ?? 'Pending',
       invoiceNo: f['invoice_no'] ?? '',
     );
@@ -383,8 +385,8 @@ Future<List<Payment>> fetchHostelFeesList() async {
     int totalCapacity = 0;
     int totalOccupied = 0;
     for (final r in rooms) {
-      totalCapacity += (r['capacity'] as int);
-      totalOccupied += (r['occupied'] as int);
+      totalCapacity += ((r['capacity'] as num?)?.toInt() ?? 0);
+      totalOccupied += ((r['occupied'] as num?)?.toInt() ?? 0);
     }
     final occupancyRate = totalCapacity == 0 ? 0.0 : totalOccupied / totalCapacity;
 

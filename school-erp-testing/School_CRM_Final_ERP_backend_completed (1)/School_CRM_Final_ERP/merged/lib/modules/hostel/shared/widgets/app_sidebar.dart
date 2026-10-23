@@ -180,7 +180,11 @@ class _AppSidebarState extends State<AppSidebar> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          onTap: () => context.go('/login'),
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('To log out of ERP, use the top-level ERP profile menu.')),
+            );
+          },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
             child: Row(

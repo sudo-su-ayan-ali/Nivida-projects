@@ -27,13 +27,31 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   final guardianPhone = TextEditingController();
   final address = TextEditingController();
   final email = TextEditingController();
+  late final TextEditingController roomCtrl;
   String gender = 'Male';
   String className = 'Class 9';
   String section = 'A';
   String block = 'Block A - Aravali';
-  String room = 'A-100';
   String bloodGroup = 'O+';
   DateTime? dateOfBirth;
+
+  @override
+  void initState() {
+    super.initState();
+    roomCtrl = TextEditingController(text: 'A-100');
+  }
+
+  @override
+  void dispose() {
+    name.dispose();
+    phone.dispose();
+    guardianName.dispose();
+    guardianPhone.dispose();
+    address.dispose();
+    email.dispose();
+    roomCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +90,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                 const SizedBox(height: AppSpacing.xl),
                 _sectionCard('Hostel Information', Icons.apartment_rounded, [
                   _dropdownField('Block', block, ['Block A - Aravali', 'Block B - Nilgiri', 'Block C - Vindhya', 'Block D - Satpura'], (v) => setState(() => block = v!), isDesktop),
-                  _field('Room Number', TextEditingController(text: room), isDesktop, onChanged: (v) => room = v),
+                  _field('Room Number', roomCtrl, isDesktop),
                 ], isDesktop),
                 const SizedBox(height: AppSpacing.xl),
                 _sectionCard('Emergency Contact', Icons.contact_emergency_rounded, [
@@ -115,7 +133,7 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       address: address.text.trim(),
       bloodGroup: bloodGroup,
       blockName: block,
-      roomNumber: room,
+      roomNumber: roomCtrl.text.trim(),
       dateOfBirth: dobStr,
     );
     ref.invalidate(studentsProvider);

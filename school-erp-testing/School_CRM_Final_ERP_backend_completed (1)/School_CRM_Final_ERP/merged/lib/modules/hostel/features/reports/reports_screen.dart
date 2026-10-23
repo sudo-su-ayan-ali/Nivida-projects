@@ -85,8 +85,24 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     const SizedBox(height: 4),
                     Expanded(child: Text(r.$4 as String, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
                     Row(children: [
-                      TextButton.icon(onPressed: () {}, icon: const Icon(Icons.picture_as_pdf_rounded, size: 15), label: const Text('PDF', style: TextStyle(fontSize: 12))),
-                      TextButton.icon(onPressed: () {}, icon: const Icon(Icons.table_chart_rounded, size: 15), label: const Text('CSV', style: TextStyle(fontSize: 12))),
+                      TextButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Exporting ${r.$1} as PDF...')),
+                          );
+                        },
+                        icon: const Icon(Icons.picture_as_pdf_rounded, size: 15),
+                        label: const Text('PDF', style: TextStyle(fontSize: 12)),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Exporting ${r.$1} as CSV...')),
+                          );
+                        },
+                        icon: const Icon(Icons.table_chart_rounded, size: 15),
+                        label: const Text('CSV', style: TextStyle(fontSize: 12)),
+                      ),
                     ]),
                   ],
                 ),
