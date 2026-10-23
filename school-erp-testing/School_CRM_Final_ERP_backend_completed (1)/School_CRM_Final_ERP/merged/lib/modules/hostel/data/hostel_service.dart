@@ -168,6 +168,82 @@ Map<String, dynamic> _findById(List rows, String? id) {
   }).toList();
 }
 
+Future<Map<String, dynamic>?> _resolveRoomAndBlock({
+  required String roomNumber,
+  String? blockName,
+}) async {
+  String? matchedBlockId;
+  if (blockName != null && blockName.trim().isNotEmpty) {
+    try {
+      final blocks = await _client.from('hostel_blocks').select('id, name');
+      final target = blockName.trim().toLowerCase();
+      for (final b in blocks) {
+        final bName = (b['name'] as String? ?? '').trim().toLowerCase();
+        if (bName == target ||
+            bName.contains(target) ||
+            target.contains(bName) ||
+            (target.contains('block a') && bName.contains('block a')) ||
+            (target.contains('block b') && bName.contains('block b')) ||
+            (target.contains('block c') && bName.contains('block c')) ||
+            (target.contains('block d') && bName.contains('block d'))) {
+          matchedBlockId = b['id'] as String;
+          break;
+        }
+      }
+    } catch (_) {}
+  }
+
+  final cleanTarget = roomNumber
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^0-9a-zA-Z]'), '');
+
+  // 1. Try finding in the matched block without using .single() or .maybeSingle()
+  if (matchedBlockId != null) {
+    try {
+      final blockRooms = await _client
+          .from('rooms')
+          .select('id, block_id, room_number')
+          .eq('block_id', matchedBlockId);
+
+      for (final r in blockRooms) {
+        final rNum = (r['room_number'] as String? ?? '').trim().toLowerCase();
+        final cleanRNum = rNum.replaceAll(RegExp(r'[^0-9a-zA-Z]'), '');
+        if (rNum == roomNumber.trim().toLowerCase() ||
+            cleanRNum == cleanTarget ||
+            rNum.endsWith(roomNumber.trim().toLowerCase()) ||
+            cleanRNum.endsWith(cleanTarget)) {
+          return r;
+        }
+      }
+      if (blockRooms.isNotEmpty) {
+        return blockRooms.first;
+      }
+    } catch (_) {}
+  }
+
+  // 2. Try finding across all rooms safely
+  try {
+    final allRooms =
+        await _client.from('rooms').select('id, block_id, room_number');
+    for (final r in allRooms) {
+      final rNum = (r['room_number'] as String? ?? '').trim().toLowerCase();
+      final cleanRNum = rNum.replaceAll(RegExp(r'[^0-9a-zA-Z]'), '');
+      if (rNum == roomNumber.trim().toLowerCase() ||
+          cleanRNum == cleanTarget ||
+          rNum.endsWith(roomNumber.trim().toLowerCase()) ||
+          cleanRNum.endsWith(cleanTarget)) {
+        return r;
+      }
+    }
+    if (allRooms.isNotEmpty) {
+      return allRooms.first;
+    }
+  } catch (_) {}
+
+  return null;
+}
+
 Future<void> addHostelStudentFull({
   required String name,
   required String phone,
@@ -220,10 +296,14 @@ Future<void> addHostelStudentFull({
   };
   if (courseId != null) admissionPayload['course_id'] = courseId;
 
-  final admissionInsert =
-      await _client.from('admissions').insert(admissionPayload).select().single();
-
-  final admissionId = admissionInsert['id'];
+  final admissionRows = await _client
+      .from('admissions')
+      .insert(admissionPayload)
+      .select();
+  if (admissionRows.isEmpty) {
+    throw Exception('Failed to create admission record.');
+  }
+  final admissionId = admissionRows.first['id'];
 
   // 1) Core students table — class_num/section are NOT NULL; current_semester does not exist.
   final studentPayload = <String, dynamic>{
@@ -245,19 +325,22 @@ Future<void> addHostelStudentFull({
   if (courseId != null) studentPayload['course_id'] = courseId;
   if (sectionId != null) studentPayload['section_id'] = sectionId;
 
-  final studentInsert =
-      await _client.from('students').insert(studentPayload).select().single();
-  final studentId = studentInsert['id'];
+  final studentRows =
+      await _client.from('students').insert(studentPayload).select();
+  if (studentRows.isEmpty) {
+    throw Exception('Failed to create student record.');
+  }
+  final studentId = studentRows.first['id'];
 
-  // 2) Room number se room_id + block_id nikaalo
-  final room = await _client
-      .from('rooms')
-      .select('id, block_id')
-      .eq('room_number', roomNumber)
-      .maybeSingle();
+  // 2) Room number aur block name se room_id + block_id nikaalo
+  final room = await _resolveRoomAndBlock(
+    roomNumber: roomNumber,
+    blockName: blockName,
+  );
 
   if (room == null) {
-    throw Exception('Room "$roomNumber" not found. Please enter a valid room number.');
+    throw Exception(
+        'Room "$roomNumber" not found in $blockName. Please enter a valid room number.');
   }
 
   // 3) hostel_students me link banao (blood_group/guardian_phone yahin save hote hain)
@@ -304,14 +387,14 @@ Future<void> updateHostelStudentFull({
   final oldRoomId = hsRow['room_id'] as String?;
 
   // 2) Find the new room
-  final room = await _client
-      .from('rooms')
-      .select('id, block_id')
-      .eq('room_number', roomNumber)
-      .maybeSingle();
+  final room = await _resolveRoomAndBlock(
+    roomNumber: roomNumber,
+    blockName: blockName,
+  );
 
   if (room == null) {
-    throw Exception('Room "$roomNumber" not found. Please enter a valid room number.');
+    throw Exception(
+        'Room "$roomNumber" not found in $blockName. Please enter a valid room number.');
   }
 
   final newRoomId = room['id'] as String;
@@ -465,11 +548,14 @@ Future<void> removeHostelStudentById(String hostelStudentId) async {
         .neq('status', 'vacated')
         .neq('status', 'inactive')
         .neq('status', 'deleted');
-    final room = await _client
+    final roomRows = await _client
         .from('rooms')
         .select('capacity')
         .eq('id', roomId)
-        .single();
+        .limit(1);
+
+    if (roomRows.isEmpty) return;
+    final room = roomRows[0];
 
     final occupied = students.length;
     final capacity = (room['capacity'] as num?)?.toInt() ?? 0;

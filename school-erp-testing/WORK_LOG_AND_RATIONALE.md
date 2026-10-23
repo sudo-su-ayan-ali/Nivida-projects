@@ -1941,6 +1941,38 @@
 #### For What:
 - Guarantees complete operational reliability of the Transport Management module for the Principal and transport administration.
 
+### 65. Hostel Module: Fix PostgREST 406 Error on Student Addition by Scoping Room Resolution to Block
+
+#### What Was Done:
+- **Root Cause Identification:**
+  - Audited student admission and update flows in `HostelService` (`lib/modules/hostel/data/hostel_service.dart`):
+    1. **PostgREST 406 Code Exception in `addHostelStudentFull` & `updateHostelStudentFull`**:
+       - When a student was added or updated, the service executed `_client.from('rooms').select('id, block_id').eq('room_number', roomNumber).maybeSingle()`.
+       - Because common room numbers (such as "101", "A-100", or "Room 101") exist across multiple hostel blocks (e.g. Block A, Block B, Block C, Block D), querying `rooms` solely by `room_number` without filtering by `block_id` returned 4 matching rows.
+       - In PostgREST, `.maybeSingle()` attaches the `Accept: application/vnd.pgrst.object+json` header. When more than 1 row is returned, PostgREST rejects the request with HTTP status `406: JSON object requested, multiple (or no) rows returned, code 406, details: Results contain 4 rows, application/vnd.pgrst.obj+json requires 1 row`.
+       - This threw an unhandled `PostgrestException` during student admission, completely blocking the Principal from adding hostel students.
+    2. **Fragile `.single()` Invocations in `admissionInsert`, `studentInsert`, and `_syncRoomOccupancy`**:
+       - `await _client.from('admissions').insert(...).select().single()` and `await _client.from('students').insert(...).select().single()` relied on `.single()`, making them susceptible to 406 errors if batch triggers or multi-row returns occurred.
+       - In `_syncRoomOccupancy()`, `await _client.from('rooms').select('capacity').eq('id', roomId).single()` also used `.single()`.
+- **Implementation & Remediation:**
+  1. In [`hostel_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/hostel/data/hostel_service.dart):
+     - Implemented `_resolveRoomAndBlock({required String roomNumber, String? blockName})`:
+       - First matches the user's selected `blockName` against `hostel_blocks` to identify the precise `block_id`.
+       - Filters rooms by `.eq('block_id', matchedBlockId)`, preventing duplicate room numbers across other blocks from interfering.
+       - Safely queries rooms as a `List` without the restrictive `.single()`/`.maybeSingle()` headers that cause HTTP 406 errors.
+       - Normalizes room number strings (handling prefix variations like "A-101", "Room 101", and "101") with fallback to block rooms.
+     - Replaced raw `.single()` calls on `admissions` and `students` inserts with safe non-empty list validation (`.insert(...).select()`).
+     - Refactored `_syncRoomOccupancy()` to query rooms with `.limit(1)` instead of `.single()`.
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/modules/hostel/`: **0 errors**.
+  - `flutter test`: **77/77 tests passed (100%)**.
+
+#### Why It Was Done:
+- To eliminate the PostgREST 406 exception that prevented the Principal from adding or updating students in the Hostel Management module when rooms share identical numbers across different hostel blocks.
+
+#### For What:
+- Guarantees smooth, reliable student enrollment and room assignment across all hostel blocks.
+
 ---
 
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
