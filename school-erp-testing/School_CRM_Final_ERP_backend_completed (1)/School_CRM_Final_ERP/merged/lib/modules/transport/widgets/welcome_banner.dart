@@ -7,7 +7,16 @@ import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
 
 class WelcomeBanner extends StatefulWidget {
-  const WelcomeBanner({super.key});
+  final String? activeRoutes;
+  final String? attendanceRate;
+  final int? delayCount;
+
+  const WelcomeBanner({
+    super.key,
+    this.activeRoutes,
+    this.attendanceRate,
+    this.delayCount,
+  });
 
   @override
   State<WelcomeBanner> createState() => _WelcomeBannerState();
@@ -138,10 +147,26 @@ class _WelcomeBannerState extends State<WelcomeBanner> with SingleTickerProvider
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: const [
-                        _StatusChip(icon: Icons.check_circle_rounded, label: '95.02% Attendance', color: Color(0xFF4ADE80)),
-                        _StatusChip(icon: Icons.route_rounded, label: '32 Routes Live', color: Colors.white),
-                        _StatusChip(icon: Icons.warning_rounded, label: '1 Delay Reported', color: Color(0xFFFBBF24)),
+                      children: [
+                        _StatusChip(
+                          icon: Icons.check_circle_rounded,
+                          label:
+                              '${widget.attendanceRate ?? '100.0'}% Attendance',
+                          color: const Color(0xFF4ADE80),
+                        ),
+                        _StatusChip(
+                          icon: Icons.route_rounded,
+                          label: '${widget.activeRoutes ?? '0'} Routes Live',
+                          color: Colors.white,
+                        ),
+                        _StatusChip(
+                          icon: Icons.warning_rounded,
+                          label:
+                              '${widget.delayCount ?? 0} Delay(s) Reported',
+                          color: (widget.delayCount ?? 0) > 0
+                              ? const Color(0xFFFBBF24)
+                              : const Color(0xFF4ADE80),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 22),

@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/transport_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -510,24 +511,45 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final email = user?.email ?? 'Principal';
+    final displayName = email.contains('@') ? email.split('@')[0] : email;
+
     return PopupMenuButton<String>(
       offset: const Offset(0, 50),
       color: Colors.white,
       elevation: 10,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: AppColors.border)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border)),
       onSelected: (value) {
         if (value == 'logout') {
-          showAppSnackBar(context, 'Signed out successfully', icon: Icons.logout_rounded, color: AppColors.textSecondary);
+          showAppSnackBar(context, 'Signed out successfully',
+              icon: Icons.logout_rounded, color: AppColors.textSecondary);
         } else {
           showAppSnackBar(context, value);
         }
       },
       itemBuilder: (context) => [
-        PopupMenuItem<String>(value: 'My Profile', child: _MenuRow(icon: Icons.person_outline_rounded, label: 'My Profile')),
-        PopupMenuItem<String>(value: 'Account Settings', child: _MenuRow(icon: Icons.settings_outlined, label: 'Account Settings')),
-        PopupMenuItem<String>(value: 'Switch School', child: _MenuRow(icon: Icons.swap_horiz_rounded, label: 'Switch School')),
+        PopupMenuItem<String>(
+            value: 'My Profile',
+            child:
+                _MenuRow(icon: Icons.person_outline_rounded, label: 'My Profile')),
+        PopupMenuItem<String>(
+            value: 'Account Settings',
+            child: _MenuRow(
+                icon: Icons.settings_outlined, label: 'Account Settings')),
+        PopupMenuItem<String>(
+            value: 'Switch School',
+            child: _MenuRow(
+                icon: Icons.swap_horiz_rounded, label: 'Switch School')),
         const PopupMenuDivider(height: 8),
-        PopupMenuItem<String>(value: 'logout', child: _MenuRow(icon: Icons.logout_rounded, label: 'Log Out', color: AppColors.danger)),
+        PopupMenuItem<String>(
+            value: 'logout',
+            child: _MenuRow(
+                icon: Icons.logout_rounded,
+                label: 'Log Out',
+                color: AppColors.danger)),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -538,23 +560,39 @@ class _ProfileCard extends StatelessWidget {
               height: 38,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(colors: [Color(0xFFFBBF24), Color(0xFFF59E0B)]),
+                gradient: const LinearGradient(
+                    colors: [Color(0xFFFBBF24), Color(0xFFF59E0B)]),
                 border: Border.all(color: Colors.white, width: 2),
-                boxShadow: [BoxShadow(color: AppColors.warning.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 3))],
+                boxShadow: [
+                  BoxShadow(
+                      color: AppColors.warning.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3))
+                ],
               ),
-              child: const Icon(Icons.person_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.person_rounded,
+                  color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Super Admin', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                Text('Administrator', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textMuted)),
+                Text(displayName,
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary)),
+                Text('Administrator',
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textMuted)),
               ],
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textMuted),
+            const Icon(Icons.keyboard_arrow_down_rounded,
+                size: 18, color: AppColors.textMuted),
           ],
         ),
       ),

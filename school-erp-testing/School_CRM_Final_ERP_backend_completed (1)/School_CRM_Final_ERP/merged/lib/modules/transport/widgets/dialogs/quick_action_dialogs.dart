@@ -69,22 +69,22 @@ class _AddRouteDialogState extends State<_AddRouteDialog> {
             ),
             const SizedBox(height: 16),
                        AppDropdownField<Map<String, dynamic>>(
-              label: 'Assign Driver',
+              label: 'Assign Driver${widget.drivers.isEmpty ? ' (Optional)' : ''}',
               value: _driver,
               items: widget.drivers,
               labelBuilder: (e) => e['full_name'] ?? '',
               onChanged: (v) => setState(() => _driver = v),
-              required: true,
+              required: widget.drivers.isNotEmpty,
               icon: Icons.badge_outlined,
             ),
             const SizedBox(height: 16),
             AppDropdownField<Map<String, dynamic>>(
-              label: 'Assign Vehicle',
+              label: 'Assign Vehicle${widget.vehicles.isEmpty ? ' (Optional)' : ''}',
               value: _vehicle,
               items: widget.vehicles,
               labelBuilder: (e) => e['vehicle_number'] ?? '',
               onChanged: (v) => setState(() => _vehicle = v),
-              required: true,
+              required: widget.vehicles.isNotEmpty,
               icon: Icons.directions_bus_outlined,
             ),
             const SizedBox(height: 16),
@@ -132,10 +132,11 @@ class _AddRouteDialogState extends State<_AddRouteDialog> {
   }
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final students = int.parse(_studentsCtrl.text.trim());
-    final driverName = _driver!['full_name'] as String;
-    final vehicleNumber = _vehicle!['vehicle_number'] as String;
-    final vehicleId = _vehicle!['id'] as String;
+    final students = int.tryParse(_studentsCtrl.text.trim()) ?? 0;
+    final driverName = _driver?['full_name'] as String? ?? 'Unassigned';
+    final vehicleNumber =
+        _vehicle?['vehicle_number'] as String? ?? 'Unassigned';
+    final vehicleId = _vehicle?['id'] as String?;
 
     final route = RouteSummaryRow(
       route: _nameCtrl.text.trim(),
@@ -159,16 +160,20 @@ class _AddRouteDialogState extends State<_AddRouteDialog> {
 
     try {
       final routeId = await TransportService().addRoute(_nameCtrl.text.trim());
-      await TransportService().assignVehicleToRoute(vehicleId, routeId, driverName);
+      if (vehicleId != null) {
+        await TransportService()
+            .assignVehicleToRoute(vehicleId, routeId, driverName);
+      }
     } catch (err) {
-      print('❌ Add Route error: $err');
       if (mounted) {
-        showAppSnackBar(context, 'Route save failed: $err');
+        showAppSnackBar(context, 'Route save failed: $err',
+            color: AppColors.danger);
       }
       return;
     }
 
     widget.onAdd(route, trip);
+    if (!mounted) return;
     Navigator.of(context).pop();
     showAppSnackBar(context, 'Route "${route.route}" created successfully');
   }
@@ -253,16 +258,23 @@ class _AddVehicleDialogState extends State<_AddVehicleDialog> {
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final number = _numberCtrl.text.trim();
-    final capacity = int.parse(_capacityCtrl.text.trim());
+    final capacity = int.tryParse(_capacityCtrl.text.trim()) ?? 40;
 
-    await TransportService().addVehicle(
-      number,
-      _type!,
-      capacity,
-    ); // 👈 NAYI LINE
-
-    Navigator.of(context).pop();
-    showAppSnackBar(context, 'Vehicle "$number" added to the fleet');
+    try {
+      await TransportService().addVehicle(
+        number,
+        _type ?? 'Bus',
+        capacity,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showAppSnackBar(context, 'Vehicle "$number" added to the fleet');
+    } catch (err) {
+      if (mounted) {
+        showAppSnackBar(context, 'Vehicle save failed: $err',
+            color: AppColors.danger);
+      }
+    }
   }
 }
 
@@ -348,20 +360,28 @@ class _AddDriverDialogState extends State<_AddDriverDialog> {
     );
   }
 
- void _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-  final name = _nameCtrl.text.trim();
+  void _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final name = _nameCtrl.text.trim();
 
-  await TransportService().addDriver(
-    name,
-    _phoneCtrl.text.trim(),
-    _licenseCtrl.text.trim(),
-    _route,
-  );
-
-  Navigator.of(context).pop();
-  showAppSnackBar(context, 'Driver "$name" added${_route != null ? ' and assigned to $_route' : ''}');
-}
+    try {
+      await TransportService().addDriver(
+        name,
+        _phoneCtrl.text.trim(),
+        _licenseCtrl.text.trim(),
+        _route,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showAppSnackBar(context,
+          'Driver "$name" added${_route != null ? ' and assigned to $_route' : ''}');
+    } catch (err) {
+      if (mounted) {
+        showAppSnackBar(context, 'Driver save failed: $err',
+            color: AppColors.danger);
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -494,11 +514,18 @@ class _MarkAttendanceDialogState extends State<_MarkAttendanceDialog> {
     final attendanceMap = {
       for (final s in _students) s: _present.contains(s)
     };
-    await TransportService().markAttendance(_route!, attendanceMap);
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    showAppSnackBar(context,
-        'Attendance saved for $_route (${_present.length}/${_students.length} present)');
+    try {
+      await TransportService().markAttendance(_route!, attendanceMap);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showAppSnackBar(context,
+          'Attendance saved for $_route (${_present.length}/${_students.length} present)');
+    } catch (err) {
+      if (mounted) {
+        showAppSnackBar(context, 'Failed to save attendance: $err',
+            color: AppColors.danger);
+      }
+    }
   }
 }
 
@@ -636,19 +663,28 @@ class _SendNotificationDialogState extends State<_SendNotificationDialog> {
   }
 
   void _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-  final notif = NotificationData(
-    title: _titleCtrl.text.trim(),
-    subtitle: 'Sent to $_audience',
-    time: 'Just now',
-    icon: Icons.notifications_active_rounded,
-    color: AppColors.danger,
-  );
- await TransportService().sendNotification(_titleCtrl.text.trim(), _msgCtrl.text.trim(), _audience);
-  widget.onAdd(notif);
-  Navigator.of(context).pop();
-  showAppSnackBar(context, 'Notification sent to $_audience');
-}
+    if (!_formKey.currentState!.validate()) return;
+    final notif = NotificationData(
+      title: _titleCtrl.text.trim(),
+      subtitle: 'Sent to $_audience',
+      time: 'Just now',
+      icon: Icons.notifications_active_rounded,
+      color: AppColors.danger,
+    );
+    try {
+      await TransportService().sendNotification(
+          _titleCtrl.text.trim(), _msgCtrl.text.trim(), _audience);
+      widget.onAdd(notif);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showAppSnackBar(context, 'Notification sent to $_audience');
+    } catch (err) {
+      if (mounted) {
+        showAppSnackBar(context, 'Failed to send notification: $err',
+            color: AppColors.danger);
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -711,8 +747,9 @@ class _CollectFeesDialogState extends State<_CollectFeesDialog> {
               icon: Icons.currency_rupee_rounded,
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Required';
-                if (num.tryParse(v.trim()) == null)
+                if (num.tryParse(v.trim()) == null) {
                   return 'Enter a valid amount';
+                }
                 return null;
               },
             ),
@@ -729,20 +766,30 @@ class _CollectFeesDialogState extends State<_CollectFeesDialog> {
     );
   }
 
- void _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-  final amountNum = num.parse(_amountCtrl.text.trim());
-  final row = FeeCollectionRow(
-    date: 'Today',
-    amount: '₹${amountNum.toStringAsFixed(0)}',
-    transactions: 1,
-    mode: _mode,
-  );
-  await TransportService().collectFee(_studentCtrl.text.trim(), amountNum.toDouble(), _mode);
-  widget.onAdd(row);
-  Navigator.of(context).pop();
-  showAppSnackBar(context, 'Payment of ₹${amountNum.toStringAsFixed(0)} recorded for ${_studentCtrl.text.trim()}');
-}
+  void _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final amountNum = num.tryParse(_amountCtrl.text.trim()) ?? 0;
+    final row = FeeCollectionRow(
+      date: 'Today',
+      amount: '₹${amountNum.toStringAsFixed(0)}',
+      transactions: 1,
+      mode: _mode,
+    );
+    try {
+      await TransportService()
+          .collectFee(_studentCtrl.text.trim(), amountNum.toDouble(), _mode);
+      widget.onAdd(row);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showAppSnackBar(context,
+          'Payment of ₹${amountNum.toStringAsFixed(0)} recorded for ${_studentCtrl.text.trim()}');
+    } catch (err) {
+      if (mounted) {
+        showAppSnackBar(context, 'Fee collection failed: $err',
+            color: AppColors.danger);
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -962,14 +1009,31 @@ class _TripScheduleDialogState extends State<_TripScheduleDialog> {
       ),
     );
   }
-void _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-  final trip = TripRow(route: _route!, driver: _driver!, vehicle: _vehicle!, tripType: _tripType, time: _timeCtrl.text.trim(), status: 'Scheduled');
-  await TransportService().scheduleTrip(_route!, _driver!, _vehicle!, _tripType, _timeCtrl.text.trim());
-  widget.onAdd(trip);
-  Navigator.of(context).pop();
-  showAppSnackBar(context, 'Trip scheduled for ${trip.route} at ${trip.time}');
-}
+  void _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final trip = TripRow(
+      route: _route!,
+      driver: _driver!,
+      vehicle: _vehicle!,
+      tripType: _tripType,
+      time: _timeCtrl.text.trim(),
+      status: 'Scheduled',
+    );
+    try {
+      await TransportService().scheduleTrip(_route!, _driver!, _vehicle!,
+          _tripType, _timeCtrl.text.trim());
+      widget.onAdd(trip);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showAppSnackBar(
+          context, 'Trip scheduled for ${trip.route} at ${trip.time}');
+    } catch (err) {
+      if (mounted) {
+        showAppSnackBar(context, 'Trip schedule failed: $err',
+            color: AppColors.danger);
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1055,27 +1119,36 @@ class _AnnouncementDialogState extends State<_AnnouncementDialog> {
     );
   }
 
- void _submit() async {
-  if (!_formKey.currentState!.validate()) return;
-  final alert = AlertData(
-    title: _titleCtrl.text.trim(),
-    subtitle: 'Announcement · $_audience',
-    time: 'Just now',
-    icon: Icons.campaign_rounded,
-    color: const Color(0xFF9333EA),
-    bgColor: const Color(0xFFF5F3FF),
-  );
-  final notif = NotificationData(
-    title: _titleCtrl.text.trim(),
-    subtitle: 'Announcement sent to $_audience',
-    time: 'Just now',
-    icon: Icons.campaign_rounded,
-    color: const Color(0xFF9333EA),
-  );
-await TransportService().sendNotification(_titleCtrl.text.trim(), _msgCtrl.text.trim(), _audience);
-  widget.onAddAlert(alert);
-  widget.onAddNotification(notif);
-  Navigator.of(context).pop();
-  showAppSnackBar(context, 'Announcement published to $_audience');
-}
+  void _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final alert = AlertData(
+      title: _titleCtrl.text.trim(),
+      subtitle: 'Announcement · $_audience',
+      time: 'Just now',
+      icon: Icons.campaign_rounded,
+      color: const Color(0xFF9333EA),
+      bgColor: const Color(0xFFF5F3FF),
+    );
+    final notif = NotificationData(
+      title: _titleCtrl.text.trim(),
+      subtitle: 'Announcement sent to $_audience',
+      time: 'Just now',
+      icon: Icons.campaign_rounded,
+      color: const Color(0xFF9333EA),
+    );
+    try {
+      await TransportService().sendNotification(
+          _titleCtrl.text.trim(), _msgCtrl.text.trim(), _audience);
+      widget.onAddAlert(alert);
+      widget.onAddNotification(notif);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showAppSnackBar(context, 'Announcement published to $_audience');
+    } catch (err) {
+      if (mounted) {
+        showAppSnackBar(context, 'Announcement failed: $err',
+            color: AppColors.danger);
+      }
+    }
+  }
 }

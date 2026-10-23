@@ -8,7 +8,7 @@ import '../theme/app_theme.dart';
 /// (Tenant Alpha fallback: 00000000-0000-0000-0000-000000000001).
 class TransportService {
   static const String _kDefaultInstitutionId =
-      '00000000-0000-0000-0000-000000000001';
+      'd0000000-0000-0000-0000-000000000001';
 
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -44,11 +44,42 @@ class TransportService {
     }
 
     final result = <RouteSummaryRow>[];
+    final today = DateTime.now().toIso8601String().split('T')[0];
     for (final r in routes) {
-      final vehicles = await _client
-          .from('vehicles')
-          .select('vehicle_number, driver_name')
-          .eq('route_id', r['id']);
+      List vehicles = [];
+      try {
+        vehicles = await _client
+            .from('vehicles')
+            .select('vehicle_number, driver_name')
+            .eq('route_id', r['id'])
+            .eq('institution_id', instId);
+      } catch (_) {
+        try {
+          vehicles = await _client
+              .from('vehicles')
+              .select('vehicle_number, driver_name')
+              .eq('route_id', r['id']);
+        } catch (_) {
+          vehicles = [];
+        }
+      }
+
+      String driverName =
+          vehicles.isNotEmpty ? (vehicles[0]['driver_name'] ?? '') : '';
+      if (driverName.isEmpty || driverName == '-') {
+        try {
+          final dRows = await _client
+              .from('drivers')
+              .select('full_name')
+              .eq('route_name', r['route_name'])
+              .limit(1);
+          if ((dRows as List).isNotEmpty) {
+            driverName = (dRows[0]['full_name'] as String?) ?? '-';
+          }
+        } catch (_) {}
+      }
+      if (driverName.isEmpty) driverName = '-';
+
       List studentCount = [];
       try {
         studentCount = await _client
@@ -66,17 +97,32 @@ class TransportService {
           studentCount = [];
         }
       }
+
+      int presentCount = studentCount.length;
+      try {
+        final attRows = await _client
+            .from('transport_attendance')
+            .select('present')
+            .eq('route_name', r['route_name'])
+            .eq('attendance_date', today);
+        if ((attRows as List).isNotEmpty) {
+          presentCount = attRows.where((a) => a['present'] == true).length;
+        }
+      } catch (_) {}
+
       result.add(RouteSummaryRow(
         route: r['route_name'] ?? '',
-        driver: vehicles.isNotEmpty ? (vehicles[0]['driver_name'] ?? '') : '-',
+        driver: driverName,
         vehicle:
             vehicles.isNotEmpty ? (vehicles[0]['vehicle_number'] ?? '') : '-',
         students: studentCount.length,
         status: r['status'] ?? 'Active',
         trips: '2 Trips',
-        attendancePresent: studentCount.length,
+        attendancePresent: presentCount,
         attendanceTotal: studentCount.length,
-        performance: 1.0,
+        performance: studentCount.isNotEmpty
+            ? (presentCount / studentCount.length).clamp(0.0, 1.0)
+            : 1.0,
       ));
     }
     return result;
@@ -257,24 +303,70 @@ class TransportService {
           .maybeSingle();
       if (route == null || route['id'] == null) return [];
 
-      final rows = await _client
-          .from('student_transport')
-          .select('students(full_name, name)')
-          .eq('route_id', route['id']);
+      List<String> names = [];
+      try {
+        final rows = await _client
+            .from('student_transport')
+            .select('students(full_name)')
+            .eq('route_id', route['id']);
 
-      return (rows as List)
-          .map((r) {
-            final student = r['students'];
-            if (student is Map) {
-              return (student['full_name'] ?? student['name'] ?? '') as String;
-            }
-            return '';
-          })
-          .where((s) => s.isNotEmpty)
-          .toSet()
-          .toList();
+        names = (rows as List)
+            .map((r) {
+              final student = r['students'];
+              if (student is Map) {
+                return (student['full_name'] as String?) ?? '';
+              }
+              return '';
+            })
+            .where((s) => s.isNotEmpty)
+            .toSet()
+            .toList();
+      } catch (_) {
+        // Fallback: fetch student IDs manually if relation join fails
+        try {
+          final stRows = await _client
+              .from('student_transport')
+              .select('student_id')
+              .eq('route_id', route['id']);
+          final sIds = (stRows as List)
+              .map((r) => r['student_id'] as String?)
+              .whereType<String>()
+              .toList();
+          if (sIds.isNotEmpty) {
+            final sRows = await _client
+                .from('students')
+                .select('full_name')
+                .inFilter('id', sIds);
+            names = (sRows as List)
+                .map((s) => (s['full_name'] as String?) ?? '')
+                .where((s) => s.isNotEmpty)
+                .toSet()
+                .toList();
+          }
+        } catch (_) {}
+      }
+
+      // If no students are explicitly allocated yet to this route,
+      // load active students for the institution so attendance can be marked.
+      if (names.isEmpty) {
+        try {
+          final sRows = await _client
+              .from('students')
+              .select('full_name')
+              .eq('institution_id', instId)
+              .eq('status', 'active')
+              .limit(30);
+          names = (sRows as List)
+              .map((s) => (s['full_name'] as String?) ?? '')
+              .where((s) => s.isNotEmpty)
+              .toSet()
+              .toList();
+        } catch (_) {}
+      }
+
+      return names;
     } catch (e) {
-      print('❌ fetchStudentsForRoute failed: $e');
+      debugPrint('fetchStudentsForRoute error: $e');
       return [];
     }
   }
@@ -477,7 +569,7 @@ class TransportService {
         'transactionsToday': feeRowsToday.length,
       };
     } catch (err) {
-      print('❌ Transport summary load error: $err');
+      debugPrint('Transport summary load error: $err');
       return {
         'totalStudents': 0,
         'pickedUp': 0,
@@ -532,7 +624,7 @@ class TransportService {
       try {
         feeRows = await _client
             .from('transport_fee_payments')
-            .select('student_name, amount')
+            .select('student_name, amount, payment_date')
             .eq('payment_date', today)
             .eq('institution_id', instId)
             .order('created_at', ascending: false)
@@ -541,7 +633,7 @@ class TransportService {
         try {
           feeRows = await _client
               .from('transport_fee_payments')
-              .select('student_name, amount')
+              .select('student_name, amount, payment_date')
               .eq('payment_date', today)
               .order('created_at', ascending: false)
               .limit(5);
@@ -550,11 +642,23 @@ class TransportService {
         }
       }
 
+      if (feeRows.isEmpty) {
+        try {
+          feeRows = await _client
+              .from('transport_fee_payments')
+              .select('student_name, amount, payment_date')
+              .eq('institution_id', instId)
+              .order('created_at', ascending: false)
+              .limit(5);
+        } catch (_) {}
+      }
+
       for (final r in feeRows) {
+        final pDate = r['payment_date'] as String?;
         result.add(AlertData(
           title: 'Fee payment received',
           subtitle: '₹${r['amount']} from ${r['student_name']}',
-          time: 'Today',
+          time: pDate == today ? 'Today' : (pDate ?? 'Recent'),
           icon: Icons.payments_rounded,
           color: AppColors.success,
           bgColor: AppColors.successSoft,
@@ -563,7 +667,7 @@ class TransportService {
 
       return result;
     } catch (err) {
-      print('❌ Alerts load error: $err');
+      debugPrint('Alerts load error: $err');
       return [];
     }
   }
@@ -599,7 +703,7 @@ class TransportService {
         );
       }).toList();
     } catch (e) {
-      print('❌ fetchTrips failed: $e');
+      debugPrint('fetchTrips failed: $e');
       return [];
     }
   }
@@ -647,7 +751,7 @@ class TransportService {
       result.sort((a, b) => b.date.compareTo(a.date));
       return result;
     } catch (e) {
-      print('❌ fetchFeeCollection failed: $e');
+      debugPrint('fetchFeeCollection failed: $e');
       return [];
     }
   }
@@ -683,7 +787,7 @@ class TransportService {
         );
       }).toList();
     } catch (e) {
-      print('❌ fetchNotifications failed: $e');
+      debugPrint('fetchNotifications failed: $e');
       return [];
     }
   }
@@ -725,7 +829,8 @@ class TransportService {
             ? '??'
             : name
                 .trim()
-                .split(' ')
+                .split(RegExp(r'\s+'))
+                .where((w) => w.isNotEmpty)
                 .map((w) => w[0])
                 .take(2)
                 .join()
@@ -744,7 +849,7 @@ class TransportService {
         );
       }).toList();
     } catch (e) {
-      print('❌ fetchMessages failed: $e');
+      debugPrint('fetchMessages failed: $e');
       return [];
     }
   }
@@ -753,7 +858,7 @@ class TransportService {
     try {
       await _client.from('notifications').update({'read': true}).eq('id', id);
     } catch (e) {
-      print('❌ markNotificationRead failed: $e');
+      debugPrint('markNotificationRead failed: $e');
     }
   }
 
@@ -763,7 +868,7 @@ class TransportService {
           .from('transport_messages')
           .update({'read': true}).eq('id', id);
     } catch (e) {
-      print('❌ markMessageRead failed: $e');
+      debugPrint('markMessageRead failed: $e');
     }
   }
 
@@ -785,7 +890,7 @@ class TransportService {
           .toSet()
           .toList();
     } catch (e) {
-      print('❌ fetchRouteNames failed: $e');
+      debugPrint('fetchRouteNames failed: $e');
       return [];
     }
   }
@@ -808,7 +913,7 @@ class TransportService {
           .toSet()
           .toList();
     } catch (e) {
-      print('❌ fetchDriverNames failed: $e');
+      debugPrint('fetchDriverNames failed: $e');
       return [];
     }
   }
@@ -831,7 +936,7 @@ class TransportService {
           .toSet()
           .toList();
     } catch (e) {
-      print('❌ fetchVehicleNumbers failed: $e');
+      debugPrint('fetchVehicleNumbers failed: $e');
       return [];
     }
   }

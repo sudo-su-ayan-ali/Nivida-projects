@@ -1888,6 +1888,59 @@
 #### For What:
 - Guarantees complete end-to-end functionality of student lifecycle operations in the Hostel Management ERP module.
 
+### 64. Transport Module: Fix Schema Columns, Attendance Loading, Error Handling, and Search Filtering
+
+#### What Was Done:
+- **Root Cause Identification:**
+  - Audited the Transport Management module (`lib/modules/transport/`):
+    1. **Schema Mismatch in `fetchStudentsForRoute` (PostgREST PGRST204 Exception)**:
+       - In `TransportService.fetchStudentsForRoute()`, the query executed `.select('students(full_name, name)')`. The PostgreSQL `students` table has a `full_name` column, but no `name` column. This threw an unhandled `PostgrestException` (PGRST204: Could not find the 'name' column of 'students' in the schema cache) on every route, causing student lists in "Mark Attendance" to always be empty.
+    2. **Uncaught RangeError on Split Messages**:
+       - In `TransportService.fetchMessages()`, name initials were parsed via `name.trim().split(' ').map((w) => w[0])`. Any extra whitespace caused empty string tokens `""`, causing `w[0]` to throw an unhandled `RangeError (index): Invalid value: Valid value range is empty: 0`.
+    3. **Missing try/catch in Dialog Form Submissions & Missing Post-Action Sync**:
+       - In `quick_action_dialogs.dart`, `addVehicle`, `addDriver`, `markAttendance`, `collectFee`, `scheduleTrip`, and `sendNotification` were called without try/catch blocks; database errors threw uncaught exceptions.
+       - In `dashboard_screen.dart`, quick action handlers for `Add Vehicle`, `Add Driver`, and `Mark Attendance` did not call `_loadRealData()` upon completion, leaving dashboard counters and tables stale after user actions.
+    4. **Unused `_loading` State & UI Flashing**:
+       - In `DashboardScreen`, `_loading` was defined and set, but never referenced in `build()`, triggering an analyzer warning and rendering empty/default widgets before data finished fetching.
+    5. **Static/Hardcoded Numbers in WelcomeBanner**:
+       - `WelcomeBanner` displayed hardcoded constants ("95.02% Attendance", "32 Routes Live", "1 Delay Reported") rather than reflecting actual operational data.
+    6. **Inoperable Search Field**:
+       - In `TopBar`, searching for a route, driver, or vehicle simply showed a transient SnackBar rather than filtering the data tables.
+    7. **Empty Table Broken Appearance**:
+       - `DataTableCard` and `Today's Alerts` had no empty state handling, rendering awkward blank spaces when zero rows were returned.
+- **Implementation & Remediation:**
+  1. In [`transport_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/data/transport_service.dart):
+     - Corrected default fallback institution ID to `'d0000000-0000-0000-0000-000000000001'`.
+     - Fixed `fetchStudentsForRoute()`: replaced `.select('students(full_name, name)')` with `.select('students(full_name)')`, added resilient manual join fallback on `student_transport.student_id`, and added fallback loading of active students for the tenant if allocations have not yet been assigned.
+     - Fixed `fetchMessages()`: tokenized sender names with `RegExp(r'\s+')` and filtered empty strings before extracting initials.
+     - Enhanced `fetchRouteSummary()`: wrapped vehicle queries in `try ... catch`, resolved driver names from `drivers` table when not linked to vehicle records, and dynamically counted today's actual attendance from `transport_attendance`.
+     - Enhanced `fetchAlerts()`: added fallback to recent fee payments if no transactions occurred today.
+     - Replaced production `print` statements with `debugPrint`.
+  2. In [`quick_action_dialogs.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/widgets/dialogs/quick_action_dialogs.dart):
+     - Added robust `try ... catch` blocks with error SnackBars across `_AddRouteDialog`, `_AddVehicleDialog`, `_AddDriverDialog`, `_MarkAttendanceDialog`, `_CollectFeesDialog`, `_TripScheduleDialog`, and `_AnnouncementDialog`.
+     - Made driver and vehicle selection optional in `_AddRouteDialog` when no drivers or vehicles are registered yet, preventing unhandled null dereferences (`_driver!['full_name']`).
+  3. In [`dashboard_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/screens/dashboard_screen.dart):
+     - Utilized `_loading` to render a centered progress indicator while initial data is being fetched.
+     - Added `_searchQuery` with dynamic `_filteredRoutes` and `_filteredTrips` getters, rendering a removable filter chip banner above the dashboard.
+     - Linked `showAddVehicleDialog`, `showAddDriverDialog`, and `showMarkAttendanceDialog` to invoke `_loadRealData()` upon completion.
+     - Passed live `activeRoutes`, `attendanceRate`, and `delayCount` to `WelcomeBanner`.
+     - Provided clean empty placeholder in alerts panel when no alerts exist for the day.
+  4. In [`data_table_card.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/widgets/data_table_card.dart):
+     - Added clean centered "No records found" empty state placeholder when `rows.isEmpty`.
+  5. In [`welcome_banner.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/widgets/welcome_banner.dart):
+     - Parameterized `WelcomeBanner` with `activeRoutes`, `attendanceRate`, and `delayCount` props to reflect live operational metrics.
+  6. In [`top_bar.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/transport/widgets/top_bar.dart):
+     - Dynamically displayed the authenticated user's email/name in `_ProfileCard` rather than hardcoded "Super Admin".
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/modules/transport/`: **0 errors, 0 warnings**.
+  - `flutter test`: **77/77 tests passed (100%)**.
+
+#### Why It Was Done:
+- To resolve crashes, unhandled exceptions, and schema errors in the Transport module, ensuring that adding vehicles, routes, drivers, marking attendance, and collecting fees functions seamlessly and updates the UI in real time.
+
+#### For What:
+- Guarantees complete operational reliability of the Transport Management module for the Principal and transport administration.
+
 ---
 
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*

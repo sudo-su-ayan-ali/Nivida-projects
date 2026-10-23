@@ -32,8 +32,34 @@ class DataTableCard extends StatelessWidget {
           child: Column(
             children: [
               _HeaderRow(columns: columns),
-                        for (int i = 0; i < rows.length; i++)
-                _BodyRow(cells: rows[i], columns: columns, isLast: i == rows.length - 1, index: i),
+              if (rows.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 36),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.inbox_outlined,
+                          size: 36, color: AppColors.textMuted),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No records found',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                for (int i = 0; i < rows.length; i++)
+                  _BodyRow(
+                      cells: rows[i],
+                      columns: columns,
+                      isLast: i == rows.length - 1,
+                      index: i),
             ],
           ),
         ),

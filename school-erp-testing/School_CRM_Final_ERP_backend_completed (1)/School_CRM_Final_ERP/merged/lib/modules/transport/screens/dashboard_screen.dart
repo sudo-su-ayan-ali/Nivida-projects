@@ -42,6 +42,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _service = TransportService();
   bool _loading = true;
   Map<String, dynamic> _summary = {};
+  String? _searchQuery;
+
+  List<RouteSummaryRow> get _filteredRoutes {
+    if (_searchQuery == null || _searchQuery!.trim().isEmpty) return _routes;
+    final q = _searchQuery!.trim().toLowerCase();
+    return _routes
+        .where((r) =>
+            r.route.toLowerCase().contains(q) ||
+            r.driver.toLowerCase().contains(q) ||
+            r.vehicle.toLowerCase().contains(q))
+        .toList();
+  }
+
+  List<TripRow> get _filteredTrips {
+    if (_searchQuery == null || _searchQuery!.trim().isEmpty) return _trips;
+    final q = _searchQuery!.trim().toLowerCase();
+    return _trips
+        .where((t) =>
+            t.route.toLowerCase().contains(q) ||
+            t.driver.toLowerCase().contains(q) ||
+            t.vehicle.toLowerCase().contains(q))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -166,7 +189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _loading = false;
       });
     } catch (err) {
-      print('❌ Transport dashboard load error: $err');
+      debugPrint('Transport dashboard load error: $err');
       if (mounted) {
         setState(() => _loading = false);
       }
@@ -184,12 +207,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             messages: _messages,
             academicYear: _academicYear,
             onAcademicYearChanged: (y) => setState(() => _academicYear = y),
-            onSearchSelected: (query) => showAppSnackBar(
-              context,
-              'Showing results for "$query"',
-              icon: Icons.search_rounded,
-              color: AppColors.primary,
-            ),
+            onSearchSelected: (query) => setState(() => _searchQuery = query),
             onViewAllNotifications: () => showAllAlertsDialog(context, _alerts),
             onViewAllMessages: () => showAppSnackBar(
               context,
@@ -209,14 +227,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return _buildBody(constraints.maxWidth);
-                },
-              ),
-            ),
+            child: _loading
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(48),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return _buildBody(constraints.maxWidth);
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
@@ -227,10 +252,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isWide = width > 1100;
     final isMedium = width > 760;
 
+    final totalStudents = (_summary['totalStudents'] as int?) ?? 0;
+    final pickedUp = (_summary['pickedUp'] as int?) ?? 0;
+    final attendanceRate = totalStudents > 0
+        ? ((pickedUp / totalStudents) * 100).toStringAsFixed(1)
+        : '100.0';
+    final activeRoutesKpi = _kpis.firstWhere(
+      (k) => k.title == 'Active Routes',
+      orElse: () => _kpis.first,
+    ).value;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const WelcomeBanner(),
+        WelcomeBanner(
+          activeRoutes: activeRoutesKpi,
+          attendanceRate: attendanceRate,
+          delayCount: _trips.where((t) => t.status == 'Delayed').length,
+        ),
+        if (_searchQuery != null && _searchQuery!.trim().isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Chip(
+                avatar: const Icon(Icons.filter_list_rounded, size: 16),
+                label: Text('Filter: "$_searchQuery"'),
+                deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                onDeleted: () => setState(() => _searchQuery = null),
+                backgroundColor: AppColors.primarySoft,
+                labelStyle: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 24),
         _buildKpiGrid(width),
         const SizedBox(height: 24),
@@ -391,9 +449,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       title: "Today's Alerts",
       actionLabel: 'View All',
       onAction: () => showAllAlertsDialog(context, _alerts),
-      child: Column(
-        children: [for (final alert in _alerts) AlertTile(data: alert)],
-      ),
+      child: _alerts.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'No alerts for today. All routes operating normally.',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ),
+            )
+          : Column(
+              children: [for (final alert in _alerts) AlertTile(data: alert)],
+            ),
     );
   }
 
@@ -415,7 +486,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildUpcomingTrips() {
-    final rows = _trips.map((t) {
+    final rows = _filteredTrips.map((t) {
       final isDrop = t.tripType == 'Drop';
       Color statusColor = AppColors.success;
       Color statusBg = AppColors.successSoft;
@@ -547,7 +618,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRouteSummary() {
-    final rows = _routes.map((r) {
+    final rows = _filteredRoutes.map((r) {
       return <Widget>[
         TableCellText(r.route, bold: true),
         DriverAvatarCell(name: r.driver, color: AppColors.info),
@@ -633,13 +704,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         break;
       case 'Add Vehicle':
-        showAddVehicleDialog(context);
+        showAddVehicleDialog(context).then((_) => _loadRealData());
         break;
       case 'Add Driver':
-        showAddDriverDialog(context);
+        showAddDriverDialog(context).then((_) => _loadRealData());
         break;
       case 'Mark Attendance':
-        showMarkAttendanceDialog(context);
+        showMarkAttendanceDialog(context).then((_) => _loadRealData());
         break;
       case 'Send Notification':
         showSendNotificationDialog(
