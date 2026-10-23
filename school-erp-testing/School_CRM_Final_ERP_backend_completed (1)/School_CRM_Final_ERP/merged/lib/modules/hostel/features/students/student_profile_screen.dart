@@ -80,8 +80,18 @@ Widget build(BuildContext context) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AppBreadcrumb(
-              items: ['Student Management', 'All Students', student.name],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                AppBreadcrumb(
+                  items: ['Student Management', 'All Students', student.name],
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => context.go('/students/edit/${student.id}'),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Edit Student'),
+                ),
+              ],
             ),
           const SizedBox(height: 16),
           AppCard(

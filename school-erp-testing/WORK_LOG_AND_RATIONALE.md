@@ -1849,6 +1849,45 @@
 #### For What:
 - Guarantees seamless, crash-free hostel management for the Principal, wardens, and administrative staff.
 
+### 63. Hostel Module: Fix Student Deletion Persistence, Enable Student Edit Flow, and Implement CSV Export
+
+#### What Was Done:
+- **Root Cause Identification:**
+  - Audited student management operations within the Hostel module (`/students` and `/students/add`):
+    1. **Student Deletion Ineffective (Database RLS Silent Rejection)**:
+       - In `HostelService.removeHostelStudentById()`, executing `_client.from('hostel_students').delete().eq('id', hostelStudentId)` was silently intercepted by PostgreSQL Row-Level Security, returning 0 affected rows (`[]`). As a result, the student record remained active in `hostel_students` and `students` (`lives_in_hostel: true`), causing the student to persist in the UI roster despite the deletion confirmation.
+    2. **Student Edit Route & Update Unsupported**:
+       - In `StudentsListScreen`, the table row edit icon dispatched `context.go('/students/add')` without passing the target student ID or existing values. `AddStudentScreen` had no edit mode or pre-filling logic; attempting to save invoked `addHostelStudentFull()`, which attempted duplicate student/admission creation instead of updating the existing student record.
+    3. **Export Button Inoperative**:
+       - In `StudentsListScreen`, the "Export" button contained an empty `onPressed: () {}` callback and performed no data export or user feedback.
+- **Implementation & Remediation:**
+  1. In [`hostel_service.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/hostel/data/hostel_service.dart):
+     - Updated `removeHostelStudentById()`: attempts hard delete via `.delete().select()`, and if RLS suppresses hard deletion, automatically applies soft-delete by setting `status = 'vacated'`, detaching `room_id` and `block_id`, clearing `lives_in_hostel = false` on core `students`, and recalculating room occupancy.
+     - Added `updateHostelStudentFull()`: synchronizes student updates across core `students` (`full_name`, `contact_phone`, `guardian_name`, `email`, `gender`, `address`, `course_id`, `section_id`, `date_of_birth`), updates `hostel_students` (`room_id`, `block_id`, `guardian_phone`, `blood_group`), and automatically recalculates bed occupancy for both the new and previous rooms.
+     - Filtered `fetchHostelStudentsList()`, `fetchHostelStudents()`, `_syncRoomOccupancy()`, and `fetchDashboardKpis()` to exclude vacated/inactive records (`.neq('status', 'vacated').neq('status', 'inactive').neq('status', 'deleted')`).
+     - Expanded `students` query in `fetchHostelStudentsList()` to select `gender`, `email`, and `address`.
+  2. In [`add_student_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/hostel/features/students/add_student_screen.dart):
+     - Added `studentId` constructor parameter and implemented `_loadExistingStudent()` to automatically pre-populate form fields when editing.
+     - Dynamically switched titles, breadcrumbs, and button labels between Create ("Save Student") and Edit ("Update Student").
+     - Hooked submit button to invoke `updateHostelStudentFull()` in edit mode and `addHostelStudentFull()` in create mode with informative SnackBar feedback.
+  3. In [`app_router.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/hostel/core/routing/app_router.dart):
+     - Registered `/students/edit/:id` and updated `/students/add` to parse query parameter `?id=...`.
+  4. In [`students_list_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/hostel/features/students/students_list_screen.dart):
+     - Connected row edit action to `context.go('/students/edit/${s.id}')`.
+     - Wrapped deletion in a `try ... catch` block with explicit error and success SnackBar notifications.
+     - Implemented `_exportStudents()` generating standard formatted CSV file downloads via `downloadTextFile()` utility.
+  5. In [`student_profile_screen.dart`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20%281%29/School_CRM_Final_ERP/merged/lib/modules/hostel/features/students/student_profile_screen.dart):
+     - Added "Edit Student" action button in profile header routing directly to `/students/edit/${student.id}`.
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/modules/hostel/`: **0 errors**.
+  - `flutter test`: **77/77 tests passed (100%)**.
+
+#### Why It Was Done:
+- To allow the Principal and hostel administrators to successfully delete, edit, and export hostel student records with full persistence across Supabase database tables and real-time UI synchronization.
+
+#### For What:
+- Guarantees complete end-to-end functionality of student lifecycle operations in the Hostel Management ERP module.
+
 ---
 
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*

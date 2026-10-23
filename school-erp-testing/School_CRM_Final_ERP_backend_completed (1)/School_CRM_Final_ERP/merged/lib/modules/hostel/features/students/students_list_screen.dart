@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../inventory/utils/export_helper.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../data/providers/app_providers.dart';
@@ -31,6 +32,25 @@ class _StudentsListScreenState extends ConsumerState<StudentsListScreen> {
   String statusFilter = 'All Status';
   int page = 1;
   final pageSize = 10;
+
+  void _exportStudents(List<Student> students) {
+    if (students.isEmpty) {
+      showAppSnackBar(context, 'No student records to export.');
+      return;
+    }
+    final buffer = StringBuffer();
+    buffer.writeln('Student ID,Full Name,Class,Section,Gender,Age,Phone,Guardian Name,Guardian Phone,Room,Block,Admission Date,Status');
+    for (final s in students) {
+      final admDate = DateFormat('yyyy-MM-dd').format(s.admissionDate);
+      buffer.writeln(
+        '"${s.id}","${s.name}","${s.className}","${s.section}","${s.gender}","${s.age}","${s.phone}","${s.guardianName}","${s.guardianPhone}","${s.room}","${s.block}","$admDate","${s.status}"',
+      );
+    }
+    final now = DateTime.now();
+    final filename = 'hostel_students_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.csv';
+    downloadTextFile(filename, buffer.toString());
+    showAppSnackBar(context, 'Exported ${students.length} students to $filename');
+  }
 
  @override
 Widget build(BuildContext context) {
@@ -80,7 +100,11 @@ Widget build(BuildContext context) {
                 ],
               ),
               Row(mainAxisSize: MainAxisSize.min, children: [
-                OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.download_rounded, size: 18), label: const Text('Export')),
+                OutlinedButton.icon(
+                  onPressed: () => _exportStudents(filtered),
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text('Export'),
+                ),
                 const SizedBox(width: 10),
                 PrimaryButton(label: 'Add Student', icon: Icons.person_add_alt_1_rounded, onPressed: () => context.go('/students/add')),
               ]),
@@ -150,17 +174,25 @@ Widget build(BuildContext context) {
                         StatusBadge(status: s.status),
                         RowActions(
                           onView: () => context.go('/students/${s.id}'),
-                          onEdit: () => context.go('/students/add'),
+                          onEdit: () => context.go('/students/edit/${s.id}'),
                           onDelete: () async {
-  final ok = await showConfirmDialog(context,
-      title: 'Delete Student', message: 'Remove ${s.name} from the hostel records? This cannot be undone.',
-      confirmLabel: 'Delete', danger: true);
-  if (ok) {
-    await HostelService().removeHostelStudentById(s.id);
-    ref.invalidate(studentsProvider);
-    if (context.mounted) showAppSnackBar(context, '${s.name} removed.');
-  }
-},
+                            final ok = await showConfirmDialog(
+                              context,
+                              title: 'Delete Student',
+                              message: 'Remove ${s.name} from the hostel records? This cannot be undone.',
+                              confirmLabel: 'Delete',
+                              danger: true,
+                            );
+                            if (ok) {
+                              try {
+                                await HostelService().removeHostelStudentById(s.id);
+                                ref.invalidate(studentsProvider);
+                                if (context.mounted) showAppSnackBar(context, '${s.name} removed from hostel.');
+                              } catch (e) {
+                                if (context.mounted) showAppSnackBar(context, 'Failed to remove student: $e', isError: true);
+                              }
+                            }
+                          },
                         ),
                       ];
                     },

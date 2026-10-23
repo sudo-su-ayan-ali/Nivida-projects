@@ -102,8 +102,13 @@ String _initials(String name) =>
     name.trim().isEmpty ? 'ST' : name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase();
 
 Future<List<Student>> fetchHostelStudentsList() async {
-  final hostelStudents = await _client.from('hostel_students').select();
-  final coreStudents = await _client.from('students').select('id, full_name, contact_phone, guardian_name, course_id, section_id, date_of_birth');
+  final hostelStudents = await _client
+      .from('hostel_students')
+      .select()
+      .neq('status', 'vacated')
+      .neq('status', 'inactive')
+      .neq('status', 'deleted');
+  final coreStudents = await _client.from('students').select('id, full_name, contact_phone, guardian_name, course_id, section_id, date_of_birth, gender, email, address');
   final courses = await _client.from('courses').select('id, name');
   final sections = await _client.from('sections').select('id, name');
   final rooms = await _client.from('rooms').select('id, room_number');
@@ -128,7 +133,7 @@ Map<String, dynamic> _findById(List rows, String? id) {
     int age = 16;
     final dobStr = core['date_of_birth'];
     if (dobStr != null) {
-      final dob = DateTime.tryParse(dobStr);
+      final dob = DateTime.tryParse(dobStr.toString());
       if (dob != null) {
         final now = DateTime.now();
         age = now.year - dob.year;
@@ -147,7 +152,7 @@ Map<String, dynamic> _findById(List rows, String? id) {
       photoInitials: _initials(name),
       className: course['name'] ?? '',
       section: section['name'] ?? '',
-      gender: '',
+      gender: (core['gender'] as String?)?.isNotEmpty == true ? core['gender'] : 'Male',
       age: age,
       phone: core['contact_phone'] ?? '',
       guardianName: core['guardian_name'] ?? '',
@@ -157,8 +162,8 @@ Map<String, dynamic> _findById(List rows, String? id) {
       status: hs['status'] ?? 'Active',
       admissionDate: admissionDate,
       bloodGroup: hs['blood_group'] ?? '',
-      address: '',
-      email: '',
+      address: core['address'] ?? '',
+      email: core['email'] ?? '',
     );
   }).toList();
 }
@@ -268,15 +273,153 @@ Future<void> addHostelStudentFull({
   await _syncRoomOccupancy(room['id']);
 }
 
-Future<void> removeHostelStudentById(String hostelStudentId) async {
-  final row = await _client
+Future<void> updateHostelStudentFull({
+  required String hostelStudentId,
+  required String name,
+  required String phone,
+  required String email,
+  required String gender,
+  required String guardianName,
+  required String guardianPhone,
+  required String address,
+  required String bloodGroup,
+  required String blockName,
+  required String roomNumber,
+  String? className,
+  String? sectionName,
+  String? dateOfBirth,
+}) async {
+  // 1) Find the hostel_student record to get student_id and previous room_id
+  final hsRow = await _client
       .from('hostel_students')
-      .select('room_id')
+      .select('student_id, room_id')
       .eq('id', hostelStudentId)
       .maybeSingle();
 
-  await _client.from('hostel_students').delete().eq('id', hostelStudentId);
+  if (hsRow == null) {
+    throw Exception('Hostel student record not found.');
+  }
 
+  final studentId = hsRow['student_id'] as String;
+  final oldRoomId = hsRow['room_id'] as String?;
+
+  // 2) Find the new room
+  final room = await _client
+      .from('rooms')
+      .select('id, block_id')
+      .eq('room_number', roomNumber)
+      .maybeSingle();
+
+  if (room == null) {
+    throw Exception('Room "$roomNumber" not found. Please enter a valid room number.');
+  }
+
+  final newRoomId = room['id'] as String;
+  final newBlockId = room['block_id'] as String;
+
+  // 3) Resolve course/section if provided
+  String? courseId;
+  String? sectionId;
+  if (className != null && className.isNotEmpty) {
+    try {
+      final c = await _client
+          .from('courses')
+          .select('id')
+          .ilike('name', className)
+          .limit(1)
+          .maybeSingle();
+      if (c != null && c['id'] != null) {
+        courseId = c['id'] as String;
+        if (sectionName != null && sectionName.isNotEmpty) {
+          final s = await _client
+              .from('sections')
+              .select('id')
+              .eq('course_id', courseId)
+              .ilike('name', sectionName)
+              .limit(1)
+              .maybeSingle();
+          if (s != null && s['id'] != null) {
+            sectionId = s['id'] as String;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 4) Update core students table
+  final studentUpdate = <String, dynamic>{
+    'full_name': name,
+    'contact_phone': phone,
+    'guardian_name': guardianName,
+    'lives_in_hostel': true,
+    'hostel_name': blockName,
+  };
+  if (email.isNotEmpty) studentUpdate['email'] = email;
+  if (gender.isNotEmpty) studentUpdate['gender'] = gender;
+  if (address.isNotEmpty) studentUpdate['address'] = address;
+  if (courseId != null) studentUpdate['course_id'] = courseId;
+  if (sectionId != null) studentUpdate['section_id'] = sectionId;
+  if (dateOfBirth != null && dateOfBirth.isNotEmpty) {
+    studentUpdate['date_of_birth'] = dateOfBirth;
+  }
+
+  await _client.from('students').update(studentUpdate).eq('id', studentId);
+
+  // 5) Update hostel_students table
+  await _client.from('hostel_students').update({
+    'room_id': newRoomId,
+    'block_id': newBlockId,
+    'guardian_phone': guardianPhone,
+    'blood_group': bloodGroup,
+    'status': 'active',
+  }).eq('id', hostelStudentId);
+
+  // 6) Sync room occupancies
+  await _syncRoomOccupancy(newRoomId);
+  if (oldRoomId != null && oldRoomId != newRoomId) {
+    await _syncRoomOccupancy(oldRoomId);
+  }
+}
+
+Future<void> removeHostelStudentById(String hostelStudentId) async {
+  final row = await _client
+      .from('hostel_students')
+      .select('student_id, room_id')
+      .eq('id', hostelStudentId)
+      .maybeSingle();
+
+  bool deleted = false;
+  try {
+    final res = await _client
+        .from('hostel_students')
+        .delete()
+        .eq('id', hostelStudentId)
+        .select();
+    if (res.isNotEmpty) {
+      deleted = true;
+    }
+  } catch (_) {}
+
+  if (!deleted) {
+    // If database RLS or foreign keys prevent hard DELETE, perform soft-delete
+    await _client.from('hostel_students').update({
+      'status': 'vacated',
+      'room_id': null,
+      'block_id': null,
+    }).eq('id', hostelStudentId);
+  }
+
+  // Update core student lives_in_hostel flag
+  if (row != null && row['student_id'] != null) {
+    try {
+      await _client.from('students').update({
+        'lives_in_hostel': false,
+        'hostel_name': null,
+      }).eq('id', row['student_id']);
+    } catch (_) {}
+  }
+
+  // Recalculate room occupancy
   if (row != null && row['room_id'] != null) {
     await _syncRoomOccupancy(row['room_id']);
   }
@@ -285,7 +428,10 @@ Future<void> removeHostelStudentById(String hostelStudentId) async {
   Future<List<Map<String, dynamic>>> fetchHostelStudents() async {
     return await _client
         .from('hostel_students')
-        .select('*, students(name), rooms(room_number), hostel_blocks(name)');
+        .select('*, students(name), rooms(room_number), hostel_blocks(name)')
+        .neq('status', 'vacated')
+        .neq('status', 'inactive')
+        .neq('status', 'deleted');
   }
 
   Future<void> addHostelStudent({
@@ -307,8 +453,7 @@ Future<void> removeHostelStudentById(String hostelStudentId) async {
   }
 
   Future<void> removeHostelStudent(String hostelStudentId, String roomId) async {
-    await _client.from('hostel_students').delete().eq('id', hostelStudentId);
-    await _syncRoomOccupancy(roomId);
+    await removeHostelStudentById(hostelStudentId);
   }
 
   // Room ka occupied count aur status recalculate karta hai
@@ -316,7 +461,10 @@ Future<void> removeHostelStudentById(String hostelStudentId) async {
     final students = await _client
         .from('hostel_students')
         .select('id')
-        .eq('room_id', roomId);
+        .eq('room_id', roomId)
+        .neq('status', 'vacated')
+        .neq('status', 'inactive')
+        .neq('status', 'deleted');
     final room = await _client
         .from('rooms')
         .select('capacity')
@@ -378,7 +526,12 @@ Future<List<Payment>> fetchHostelFeesList() async {
   // ---- Dashboard KPIs ----
   Future<Map<String, dynamic>> fetchDashboardKpis() async {
     final blocks = await _client.from('hostel_blocks').select('id');
-    final students = await _client.from('hostel_students').select('id');
+    final students = await _client
+        .from('hostel_students')
+        .select('id')
+        .neq('status', 'vacated')
+        .neq('status', 'inactive')
+        .neq('status', 'deleted');
     final rooms = await _client.from('rooms').select('capacity, occupied');
     final fees = await _client.from('hostel_fees').select('status');
 

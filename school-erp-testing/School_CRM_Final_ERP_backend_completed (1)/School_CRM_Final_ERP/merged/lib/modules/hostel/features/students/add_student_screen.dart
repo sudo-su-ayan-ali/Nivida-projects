@@ -14,7 +14,8 @@ import '../../shared/widgets/secondary_button.dart';
 import '../../shared/widgets/confirm_dialog.dart';
 
 class AddStudentScreen extends ConsumerStatefulWidget {
-  const AddStudentScreen({super.key});
+  final String? studentId;
+  const AddStudentScreen({super.key, this.studentId});
   @override
   ConsumerState<AddStudentScreen> createState() => _AddStudentScreenState();
 }
@@ -34,11 +35,50 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   String block = 'Block A - Aravali';
   String bloodGroup = 'O+';
   DateTime? dateOfBirth;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
     roomCtrl = TextEditingController(text: 'A-100');
+  }
+
+  void _loadExistingStudent() {
+    if (widget.studentId == null || _initialized) return;
+    final students = ref.read(studentsProvider).value;
+    if (students == null) return;
+    final s = students.where((st) => st.id == widget.studentId).firstOrNull;
+    if (s != null) {
+      _initialized = true;
+      name.text = s.name;
+      phone.text = s.phone;
+      email.text = s.email;
+      guardianName.text = s.guardianName;
+      guardianPhone.text = s.guardianPhone;
+      address.text = s.address;
+      roomCtrl.text = s.room;
+      if (s.gender.isNotEmpty && ['Male', 'Female', 'Other'].contains(s.gender)) {
+        gender = s.gender;
+      }
+      if (s.bloodGroup.isNotEmpty && ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].contains(s.bloodGroup)) {
+        bloodGroup = s.bloodGroup;
+      }
+      if (s.className.isNotEmpty && ['Class 9', 'Class 10', 'Class 11', 'Class 12'].contains(s.className)) {
+        className = s.className;
+      }
+      if (s.section.isNotEmpty && ['A', 'B', 'C'].contains(s.section)) {
+        section = s.section;
+      }
+      if (s.block.isNotEmpty) {
+        final options = ['Block A - Aravali', 'Block B - Nilgiri', 'Block C - Vindhya', 'Block D - Satpura'];
+        final matched = options.firstWhere(
+          (b) => b.toLowerCase().contains(s.block.toLowerCase()) || s.block.toLowerCase().contains(b.toLowerCase()),
+          orElse: () => block,
+        );
+        block = matched;
+      }
+      dateOfBirth = DateTime(DateTime.now().year - (s.age > 0 ? s.age : 16), 1, 1);
+    }
   }
 
   @override
@@ -56,6 +96,8 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = Responsive.isDesktop(context);
+    final isEditing = widget.studentId != null;
+    _loadExistingStudent();
 
     return SingleChildScrollView(
       child: Padding(
@@ -63,11 +105,11 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const AppBreadcrumb(items: ['Student Management', 'Add Student']),
+          AppBreadcrumb(items: ['Student Management', isEditing ? 'Edit Student' : 'Add Student']),
           const SizedBox(height: 10),
-          const Text('Add New Student', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+          Text(isEditing ? 'Edit Student' : 'Add New Student', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
           const SizedBox(height: 4),
-          const Text('Fill in the details below to admit a new student to the hostel.', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          Text(isEditing ? 'Update student details and hostel room assignment.' : 'Fill in the details below to admit a new student to the hostel.', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
           const SizedBox(height: AppSpacing.xl),
           Form(
             key: _formKey,
@@ -111,39 +153,65 @@ class _AddStudentScreenState extends ConsumerState<AddStudentScreen> {
                     SecondaryButton(label: 'Cancel', onPressed: () => context.go('/students')),
                     const SizedBox(width: 12),
                     PrimaryButton(
-                      label: 'Save Student',
+                      label: isEditing ? 'Update Student' : 'Save Student',
                       icon: Icons.check_rounded,
                     onPressed: () async {
   if (!(_formKey.currentState?.validate() ?? false)) return;
-  if (dateOfBirth == null) {
+  if (!isEditing && dateOfBirth == null) {
     showAppSnackBar(context, 'Please select the student\'s Date of Birth.');
     return;
   }
 
   try {
-    final dobStr =
-        '${dateOfBirth!.year.toString().padLeft(4, '0')}-${dateOfBirth!.month.toString().padLeft(2, '0')}-${dateOfBirth!.day.toString().padLeft(2, '0')}';
-    await HostelService().addHostelStudentFull(
-      name: name.text.trim(),
-      phone: phone.text.trim(),
-      email: email.text.trim(),
-      gender: gender,
-      guardianName: guardianName.text.trim(),
-      guardianPhone: guardianPhone.text.trim(),
-      address: address.text.trim(),
-      bloodGroup: bloodGroup,
-      blockName: block,
-      roomNumber: roomCtrl.text.trim(),
-      dateOfBirth: dobStr,
-    );
-    ref.invalidate(studentsProvider);
-    if (context.mounted) {
-      showAppSnackBar(context, 'Student ${name.text.trim()} added successfully.');
-      context.go('/students');
+    final dobStr = dateOfBirth != null
+        ? '${dateOfBirth!.year.toString().padLeft(4, '0')}-${dateOfBirth!.month.toString().padLeft(2, '0')}-${dateOfBirth!.day.toString().padLeft(2, '0')}'
+        : null;
+
+    if (isEditing) {
+      await HostelService().updateHostelStudentFull(
+        hostelStudentId: widget.studentId!,
+        name: name.text.trim(),
+        phone: phone.text.trim(),
+        email: email.text.trim(),
+        gender: gender,
+        guardianName: guardianName.text.trim(),
+        guardianPhone: guardianPhone.text.trim(),
+        address: address.text.trim(),
+        bloodGroup: bloodGroup,
+        blockName: block,
+        roomNumber: roomCtrl.text.trim(),
+        className: className,
+        sectionName: section,
+        dateOfBirth: dobStr,
+      );
+      ref.invalidate(studentsProvider);
+      if (context.mounted) {
+        showAppSnackBar(context, 'Student ${name.text.trim()} updated successfully.');
+        context.go('/students');
+      }
+    } else {
+      await HostelService().addHostelStudentFull(
+        name: name.text.trim(),
+        phone: phone.text.trim(),
+        email: email.text.trim(),
+        gender: gender,
+        guardianName: guardianName.text.trim(),
+        guardianPhone: guardianPhone.text.trim(),
+        address: address.text.trim(),
+        bloodGroup: bloodGroup,
+        blockName: block,
+        roomNumber: roomCtrl.text.trim(),
+        dateOfBirth: dobStr!,
+      );
+      ref.invalidate(studentsProvider);
+      if (context.mounted) {
+        showAppSnackBar(context, 'Student ${name.text.trim()} added successfully.');
+        context.go('/students');
+      }
     }
   } catch (e) {
     if (context.mounted) {
-      showAppSnackBar(context, 'Failed to add student: $e');
+      showAppSnackBar(context, 'Failed to ${isEditing ? "update" : "add"} student: $e', isError: true);
     }
   }
 },
