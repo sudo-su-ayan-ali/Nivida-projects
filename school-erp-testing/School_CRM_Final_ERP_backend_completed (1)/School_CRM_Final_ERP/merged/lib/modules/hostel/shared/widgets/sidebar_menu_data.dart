@@ -93,11 +93,11 @@ final List<SidebarItem> sidebarMenu = [
     SidebarChild('Maintenance Reports', '/reports'),
   ]),
   const SidebarItem('Settings', Icons.settings_rounded, children: [
-    SidebarChild('Hostel Settings', '/settings'),
-    SidebarChild('Academic Year', '/settings'),
-    SidebarChild('User Management', '/settings'),
-    SidebarChild('Roles & Permissions', '/settings'),
-    SidebarChild('Notifications', '/settings'),
-    SidebarChild('General Settings', '/settings'),
+    SidebarChild('Hostel Settings', '/settings?section=Hostel+Information'),
+    SidebarChild('Academic Year', '/settings?section=Academic+Year'),
+    SidebarChild('User Management', '/settings?section=User+Management'),
+    SidebarChild('Roles & Permissions', '/settings?section=Roles+%26+Permissions'),
+    SidebarChild('Notifications', '/settings?section=Notification+Settings'),
+    SidebarChild('General Settings', '/settings?section=General+Settings'),
   ]),
 ];

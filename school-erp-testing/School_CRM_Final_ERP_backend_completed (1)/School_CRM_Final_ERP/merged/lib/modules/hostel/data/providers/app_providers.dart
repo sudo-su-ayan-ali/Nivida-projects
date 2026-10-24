@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/notice.dart';
 import '../../models/staff.dart';
 import '../hostel_service.dart';
+import '../hostel_settings_service.dart';
 import '../../models/block.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -359,3 +360,37 @@ final attendanceProvider =
 /// ---------- Notifications (unread count demo) ----------
 final unreadNotificationsProvider = StateProvider<int>((ref) => 7);
 final unreadMessagesProvider = StateProvider<int>((ref) => 3);
+
+/// ---------- Hostel Settings ----------
+class HostelSettingsController extends StateNotifier<HostelSettings> {
+  final HostelSettingsService _service;
+  HostelSettingsController({HostelSettingsService? service, bool autoLoad = true})
+      : _service = service ?? HostelSettingsService(),
+        super(const HostelSettings()) {
+    if (autoLoad) {
+      loadSettings();
+    }
+  }
+
+  Future<void> loadSettings() async {
+    try {
+      final s = await _service.loadSettings();
+      state = s;
+    } catch (e) {
+      debugPrint('Failed to load hostel settings: $e');
+    }
+  }
+
+  Future<void> updateSettings(HostelSettings updated) async {
+    state = updated;
+    await _service.saveSettings(updated);
+  }
+
+  Future<void> resetToDefaults() async {
+    final def = await _service.resetDefaults();
+    state = def;
+  }
+}
+
+final hostelSettingsProvider =
+    StateNotifierProvider<HostelSettingsController, HostelSettings>((ref) => HostelSettingsController());

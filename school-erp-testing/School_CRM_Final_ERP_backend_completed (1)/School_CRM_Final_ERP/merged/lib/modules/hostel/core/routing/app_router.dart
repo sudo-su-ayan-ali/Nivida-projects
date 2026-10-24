@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -90,7 +89,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/notices', builder: (c, s) => const NoticesScreen()),
           GoRoute(path: '/staff', builder: (c, s) => const StaffScreen()),
           GoRoute(path: '/reports', builder: (c, s) => const ReportsScreen()),
-          GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
+          GoRoute(
+            path: '/settings',
+            builder: (c, s) => SettingsScreen(
+              initialSection:
+                  s.uri.queryParameters['section'] ?? s.uri.queryParameters['tab'],
+            ),
+          ),
         ],
       ),
     ],

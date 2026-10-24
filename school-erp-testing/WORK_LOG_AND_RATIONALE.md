@@ -2101,6 +2101,7 @@
 | **70. Fix Hostel Staff Management: Full CRUD Lifecycle, Reactive State & Supabase Persistence** | When Principal navigated to Staff from Quick Actions in the Hostel module, table row action buttons (`onView`, `onEdit`) were empty stub callbacks with no implementation, there was no Delete action, no View Profile dialog, no Edit Staff dialog, no Status toggle, and `staffProvider` was a bare `FutureProvider` with no mutation or reload capabilities. In addition, avatar initial generation crashed on non-standard whitespace. | Implemented `StaffController` as Riverpod `StateNotifier<List<StaffMember>>` with `reload()`, `updateStatus()`, and `removeStaff()`. Added `copyWith` on `StaffMember` and implemented `updateStaffMember`, `updateStaffStatus`, `deleteStaffMember`, and enhanced `createStaffMember` with `employeeId`, `status`, and `joiningDate` in `HostelService`. Overhauled `StaffScreen` with KPI stat cards (Total, Active, Wardens, Inactive), robust multi-field search (name, ID, role, phone, email), role & status dropdown filters, safe avatar initials parsing, View Profile modal, validated Edit Staff modal with Supabase persistence, Delete with confirmation dialog, and quick status toggling. 100% pass on end-to-end integration test and 78/78 tests in full suite. |
 | **71. Fix Staff Edit Button Hit-Testing & Role Assertion in Hostel Management** | When Principal clicked the Edit button on a staff row, the action button was unresponsive or failed to open the edit modal. The table column width for `Actions` was constricted to 100px while `RowActions` contained 4 icon buttons totaling ~192px, creating a RenderFlex overflow of 94px that clipped hit testing. Furthermore, staff members with custom or empty roles caused a Flutter `DropdownButtonFormField` assertion failure on build. | Added compact constraints and padding to `RowActions` in `app_data_table.dart` and expanded the Actions column to 160px with `minWidth: 1050`. Hardened `role` resolution in `_showEditStaffDialog` with case-insensitive fallback matching to prevent dropdown assertion crashes. Added `employeeId` field to Edit modal and backend update method. Verified with automated widget test `staff_edit_widget_test.dart` and 79/79 test suite pass. |
 | **72. Implement Hostel Reports: Interactive Data Preview, PDF Printing & CSV Downloads** | When Principal accessed the Reports section in the Hostel module, the cards were static with mock PDF and CSV buttons that only showed a toast and performed no real file generation or export. There was no way to preview reports on screen, the "Custom Date Range" button was an empty no-op callback, and the screen lacked search capabilities. | Created `HostelReportService` supporting live data retrieval across all 11 hostel report modules (Students, Occupancy, Attendance, Leaves, Fee Collections, Outstanding Dues, Dining, Complaints, Maintenance, Visitors, Staff), real CSV generation and download via `FileSaver`, and landscape PDF generation and system print preview via `pdf` and `Printing`. Overhauled `ReportsScreen` with an interactive live data preview modal, real-time report search, date range picker integration, and progress indicators. 100% pass on 82/82 tests in full suite. |
+| **73. Implement Hostel Settings & Configuration System with Multi-Section Persistence** | When Principal clicked on Settings in Quick Actions or the sidebar, every section displayed identical static dummy fields ('Hostel Name', 'Contact Email', etc.), clicking 'Save Changes' was an empty stub that only showed a snackbar without storing anything, switching sections caused input state inconsistencies, and sidebar sub-links failed to open their respective tabs. | Implemented `HostelSettings` model and `HostelSettingsService` with local `SharedPreferences` caching and central Supabase `school_settings` synchronization. Created Riverpod `hostelSettingsProvider` (`HostelSettingsController`) keeping app topbar headers reactive. Completely overhauled `SettingsScreen` supporting all 10 specialized sections (General, Hostel Info, Academic Year, Rooms, Fees, Mess, Notifications, User Management, Roles & Permissions, Appearance) with deep-linking query parameters, input validation, 'Reset Section' dialog, 'Discard Changes', and 'Save All Settings'. 100% pass on 90/90 tests in full suite. |
 
 ---
 
@@ -2266,7 +2267,54 @@
 
 ---
 
+### Entry 73: Complete Hostel Settings & Configuration System with Multi-Section Persistence
+- **Date & Context:** 2026-10-24
+- **Root Cause & Issues Identified:**
+  1. **Static Dummy Fields Across All Sections**:
+     - When the Principal accessed `/settings` and clicked between any of the 10 configuration sections (General, Hostel Info, Academic Year, Rooms, Fees, Mess, Notifications, User Management, Roles & Permissions, Appearance), all sections displayed the exact same 4 static mock fields ('Hostel Name', 'Contact Email', 'Contact Phone', 'Address').
+  2. **Zero Persistence / Fake Save Handler**:
+     - The `Save Changes` button was an empty stub that merely displayed a `SnackBar` without writing to local storage or Supabase. Refreshing or switching sections wiped out all inputted text.
+  3. **Non-Functional Sub-Links**:
+     - Sidebar sub-menu items (`Hostel Settings`, `Academic Year`, `User Management`, `Roles & Permissions`, `Notifications`, `General Settings`) only linked to bare `/settings` without section selectors or query routing.
+  4. **State Desynchronization with App Topbar**:
+     - Modifying hostel name or academic year did not update the app's topbar headers (`selectedHostelProvider` and `selectedAcademicYearProvider`).
+- **Key Changes Implemented:**
+  1. **Configuration Model & Dual-Layer Persistence (`hostel_settings_service.dart`)**:
+     - Created `HostelSettings` data class encapsulating configuration across all 10 domain sections with strongly-typed properties, default configurations, `toJson()`, `fromJson()`, and `copyWith()`.
+     - Built `HostelSettingsService` with instant offline-first `SharedPreferences` caching (`hostel_settings_v2`) and backend synchronization to Supabase `school_settings` (`toggles.hostel_config` and system fields).
+  2. **Reactive State Management (`app_providers.dart`)**:
+     - Added `HostelSettingsController` via `hostelSettingsProvider` (`StateNotifierProvider<HostelSettingsController, HostelSettings>`).
+     - Automatically synchronized `selectedHostelProvider` and `selectedAcademicYearProvider` when configuration changes are committed.
+  3. **Comprehensive Settings UI (`settings_screen.dart`)**:
+     - Implemented customized form layouts for all 10 sections:
+       - **General Settings**: Institution Name, Academic Year dropdown, Time Zone, Date Format, Currency, Language, Session Inactivity Timeout, Maintenance Mode switch.
+       - **Hostel Information**: Hostel Name, Capacity, Official Email, Phone, Chief Warden, Emergency Helpline, Campus Address, Rules & Regulations Summary.
+       - **Academic Year**: Active Session, Academic Term, Admission Status, Session Start & End date pickers, Auto-Archive Prior Year toggle.
+       - **Room Settings**: Default Capacity, Default Monthly Rent, Auto-Allocation Strategy, Inspection Frequency, Evening Curfew, Room Change Allowed toggle, Overnight Guest toggle.
+       - **Fee Settings**: Currency, Base Fee, Caution Deposit, Due Day of Month, Grace Period Days, Late Penalty per Day, Payment Gateway toggle, Auto Invoicing toggle.
+       - **Mess Settings**: Mess Active switch, Meal Plan Type, Breakfast/Lunch/Dinner Timings, Guest Meal Rate, Veg/Diet Tracking switch, Cutoff Hours.
+       - **Notification Settings**: Automated Email/SMS/WhatsApp toggles, Gate Check-Out alert, Curfew Absence alert, Fee Due reminder, Complaint Resolution notice.
+       - **User Management**: Active Staff Roster overview with role badges, status chips, direct shortcut to `/staff`, 2FA requirement toggle, Idle lockout threshold.
+       - **Roles & Permissions**: Access Matrix overview card across Principal, Wardens, Guards, and Accounts with security policy toggles.
+       - **Appearance**: Theme Mode selector (Light/Dark/System), Visual Brand Color Chips (Emerald, Navy, Purple, Indigo, Crimson), Compact Table Rows toggle, High Contrast toggle, Collapsed Sidebar toggle.
+     - Added 'Reset Section' with confirmation dialog and 'Discard Changes' action.
+     - Added deep-linking query support (`/settings?section=...`) and updated `sidebar_menu_data.dart`.
+- **Verification & Quality Gates:**
+  - Automated tests in `test/settings_verification_test.dart`: **8/8 Passed**.
+  - `flutter analyze lib/modules/hostel`: **0 errors**.
+  - Full test suite `flutter test`: **90/90 tests passed (100%)**.
+  - Production build `flutter build web --release`: **Successfully compiled `build/web`**.
+
+#### Why It Was Done:
+- To replace the static placeholder settings page with a fully interactive, multi-section configuration suite with Supabase synchronization and local persistence for institutional administrators.
+
+#### For What:
+- Guarantees complete operational hostel management, customization, and policy control for the Principal.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
+
 
 
 
