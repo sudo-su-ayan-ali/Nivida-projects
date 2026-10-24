@@ -160,13 +160,17 @@ class RowActions extends StatelessWidget {
             icon: const Icon(Icons.visibility_outlined, size: 18, color: AppColors.textSecondary),
             onPressed: onView,
             tooltip: 'View',
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             splashRadius: 18,
           ),
         if (onEdit != null)
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+            icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.primary),
             onPressed: onEdit,
             tooltip: 'Edit',
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             splashRadius: 18,
           ),
         if (onDelete != null)
@@ -174,11 +178,15 @@ class RowActions extends StatelessWidget {
             icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
             onPressed: onDelete,
             tooltip: 'Delete',
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             splashRadius: 18,
           ),
         if (moreItems != null)
           PopupMenuButton(
             icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textSecondary),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             itemBuilder: (_) => moreItems!.cast(),
           ),
       ],

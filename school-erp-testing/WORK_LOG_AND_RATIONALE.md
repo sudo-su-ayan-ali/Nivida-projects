@@ -2099,6 +2099,7 @@
 
 | **69. Fix Hostel Notices Lifecycle: Dynamic State Management, Multi-Tenant Persistence & Filtering** | When Principal navigated to Notices in the Hostel module, the screen relied on an unmanaged FutureProvider with no error handling or loading states. Furthermore, the "Create Notice" action only popped a toast and discarded inputs without persisting to `hostel_notices`, and there was no way to filter, search, archive, or delete announcements. | Implemented `NoticesController` as Riverpod `StateNotifier<List<Notice>>` with `reload()`, `updateStatus()`, and `removeNotice()`. Added full backend CRUD (`fetchNotices`, `createNotice`, `updateNoticeStatus`, `deleteNotice`) in `HostelService`. Overhauled `NoticesScreen` with real-time search, category/status filtering, empty state views, popup action menus (Archive/Activate/Delete with confirmation), and live validated Supabase notice publishing. Verified live in Supabase: 100% pass on create, retrieve, update, and delete. All 77 tests passing. |
 | **70. Fix Hostel Staff Management: Full CRUD Lifecycle, Reactive State & Supabase Persistence** | When Principal navigated to Staff from Quick Actions in the Hostel module, table row action buttons (`onView`, `onEdit`) were empty stub callbacks with no implementation, there was no Delete action, no View Profile dialog, no Edit Staff dialog, no Status toggle, and `staffProvider` was a bare `FutureProvider` with no mutation or reload capabilities. In addition, avatar initial generation crashed on non-standard whitespace. | Implemented `StaffController` as Riverpod `StateNotifier<List<StaffMember>>` with `reload()`, `updateStatus()`, and `removeStaff()`. Added `copyWith` on `StaffMember` and implemented `updateStaffMember`, `updateStaffStatus`, `deleteStaffMember`, and enhanced `createStaffMember` with `employeeId`, `status`, and `joiningDate` in `HostelService`. Overhauled `StaffScreen` with KPI stat cards (Total, Active, Wardens, Inactive), robust multi-field search (name, ID, role, phone, email), role & status dropdown filters, safe avatar initials parsing, View Profile modal, validated Edit Staff modal with Supabase persistence, Delete with confirmation dialog, and quick status toggling. 100% pass on end-to-end integration test and 78/78 tests in full suite. |
+| **71. Fix Staff Edit Button Hit-Testing & Role Assertion in Hostel Management** | When Principal clicked the Edit button on a staff row, the action button was unresponsive or failed to open the edit modal. The table column width for `Actions` was constricted to 100px while `RowActions` contained 4 icon buttons totaling ~192px, creating a RenderFlex overflow of 94px that clipped hit testing. Furthermore, staff members with custom or empty roles caused a Flutter `DropdownButtonFormField` assertion failure on build. | Added compact constraints and padding to `RowActions` in `app_data_table.dart` and expanded the Actions column to 160px with `minWidth: 1050`. Hardened `role` resolution in `_showEditStaffDialog` with case-insensitive fallback matching to prevent dropdown assertion crashes. Added `employeeId` field to Edit modal and backend update method. Verified with automated widget test `staff_edit_widget_test.dart` and 79/79 test suite pass. |
 
 ---
 
@@ -2181,6 +2182,38 @@
 
 #### For What:
 - Restores complete, operational Staff Management in the Hostel module for Principal and administrative staff.
+
+---
+
+### Entry 71: Fix Staff Edit Button Hit-Testing & Role Assertion in Hostel Management
+- **Date & Context:** 2026-10-24
+- **Root Cause & Issues Identified:**
+  1. **RenderFlex Overflow & Clipped Hit-Testing**:
+     - `RowActions` contained 4 icon buttons (`onView`, `onEdit`, `onDelete`, `moreItems`) taking up ~192px of horizontal space. The `Actions` column in `staff_screen.dart` was constrained to `width: 100`, resulting in a RenderFlex overflow of 56 to 94 pixels. In Flutter, hit-testing on overflowed children outside the parent's layout bounds is rejected, making the edit and delete buttons unresponsive to clicks.
+  2. **Dropdown Role Assertion Failure**:
+     - If a staff member had an empty role string (`""`) or a legacy role string with varying casing, `initialValue: role` failed the `DropdownButtonFormField` assertion `items.where((item) => item.value == value).length == 1`, throwing a fatal runtime exception when building the edit modal.
+  3. **Missing Employee ID in Edit Form**:
+     - The edit modal omitted the `employeeId` field, preventing administrators from correcting or viewing employee ID during updates.
+- **Implementation & Remediation:**
+  1. **Compact RowActions Constraints in `app_data_table.dart`**:
+     - Updated `RowActions` icon buttons with `padding: const EdgeInsets.all(4)` and `constraints: const BoxConstraints(minWidth: 32, minHeight: 32)`.
+  2. **Actions Column Expansion in `staff_screen.dart`**:
+     - Expanded `AppTableColumn('Actions', width: 160)` and set table `minWidth: 1050`, completely eliminating layout overflow and ensuring 100% responsive hit-testing on all action buttons.
+  3. **Resilient Role Resolution & Edit Modal Hardening**:
+     - Added case-insensitive role matching against `availableRoles` with fallback to `'Warden'` if empty, guaranteeing the dropdown value is always valid.
+     - Added `empIdCtrl` to view/edit `Employee ID` in the Edit dialog and passed it to `HostelService().updateStaffMember()`.
+- **Verification & Quality Gates:**
+  - Automated widget test `test/staff_edit_widget_test.dart`: **Passed (verified tapping edit button across multiple staff rows, opening modal, inspecting pre-filled values, and saving without errors)**.
+  - Integration test `test/principal_staff_verification_test.dart`: **Passed**.
+  - `flutter analyze lib/modules/hostel`: **0 errors**.
+  - `flutter test`: **79/79 tests passed (100%)**.
+  - `flutter build web --release`: **Successfully built `build/web`**.
+
+#### Why It Was Done:
+- To eliminate hit-test clipping on table row actions and prevent dropdown assertion crashes so that clicking the Edit button on any staff member reliably opens the edit dialog and saves changes.
+
+#### For What:
+- Restores smooth, responsive staff editing for the Principal and hostel administrators.
 
 ---
 

@@ -230,7 +230,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                     )
                   else
                     AppDataTable(
-                      minWidth: 960,
+                      minWidth: 1050,
                       columns: const [
                         AppTableColumn('Staff', width: 220),
                         AppTableColumn('Employee ID', width: 130),
@@ -238,7 +238,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                         AppTableColumn('Phone', width: 130),
                         AppTableColumn('Joining Date', width: 120),
                         AppTableColumn('Status', width: 100),
-                        AppTableColumn('Actions', width: 100),
+                        AppTableColumn('Actions', width: 160),
                       ],
                       rowCount: filtered.length,
                       rowBuilder: (i) {
@@ -430,8 +430,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
     final nameCtrl = TextEditingController(text: s.name);
     final phoneCtrl = TextEditingController(text: s.phone);
     final emailCtrl = TextEditingController(text: s.email);
-    String role = s.role;
-    String status = s.status.toLowerCase() == 'inactive' ? 'Inactive' : 'Active';
+    final empIdCtrl = TextEditingController(text: s.employeeId);
     bool saving = false;
 
     final availableRoles = [
@@ -444,9 +443,23 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
       'Security Guard',
       'Other',
     ];
-    if (!availableRoles.contains(role) && role.isNotEmpty) {
-      availableRoles.add(role);
+
+    String role = s.role.trim();
+    if (role.isEmpty) {
+      role = 'Warden';
+    } else {
+      final match = availableRoles.firstWhere(
+        (r) => r.toLowerCase() == role.toLowerCase(),
+        orElse: () => '',
+      );
+      if (match.isNotEmpty) {
+        role = match;
+      } else {
+        availableRoles.add(role);
+      }
     }
+
+    String status = s.status.trim().toLowerCase() == 'inactive' ? 'Inactive' : 'Active';
 
     showAppDialog(
       context,
@@ -465,7 +478,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
               initialValue: role,
               decoration: const InputDecoration(labelText: 'Role *', border: OutlineInputBorder()),
               items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-              onChanged: (v) => setDialogState(() => role = v!),
+              onChanged: (v) => setDialogState(() => role = v ?? 'Warden'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -480,11 +493,16 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
               decoration: const InputDecoration(labelText: 'Email Address', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
+            TextField(
+              controller: empIdCtrl,
+              decoration: const InputDecoration(labelText: 'Employee ID', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: status,
               decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
               items: const ['Active', 'Inactive'].map((st) => DropdownMenuItem(value: st, child: Text(st))).toList(),
-              onChanged: (v) => setDialogState(() => status = v!),
+              onChanged: (v) => setDialogState(() => status = v ?? 'Active'),
             ),
             const SizedBox(height: 20),
             Row(
@@ -510,6 +528,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                               role: role,
                               phone: phoneCtrl.text.trim(),
                               email: emailCtrl.text.trim(),
+                              employeeId: empIdCtrl.text.trim(),
                               status: status,
                             );
                             await ref.read(staffProvider.notifier).reload();

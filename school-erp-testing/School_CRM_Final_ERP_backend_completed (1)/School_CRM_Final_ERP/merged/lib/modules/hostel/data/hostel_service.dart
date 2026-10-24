@@ -836,6 +836,7 @@ Future<void> updateStaffMember({
   required String role,
   required String phone,
   required String email,
+  String? employeeId,
   String? status,
 }) async {
   final payload = <String, dynamic>{
@@ -844,6 +845,9 @@ Future<void> updateStaffMember({
     'phone': phone.trim(),
     'email': email.trim(),
   };
+  if (employeeId != null && employeeId.trim().isNotEmpty) {
+    payload['employee_id'] = employeeId.trim();
+  }
   if (status != null && status.trim().isNotEmpty) {
     payload['status'] = status.trim();
   }
