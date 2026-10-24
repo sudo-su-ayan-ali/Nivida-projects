@@ -757,7 +757,54 @@ Future<void> checkOutVisitor(String visitorId) async {
 }
 Future<List<Map<String, dynamic>>> fetchNotices() async {
   final client = await _getHostelClient();
-  return await client.from('hostel_notices').select();
+  return await client.from('hostel_notices').select().order('created_at', ascending: false);
+}
+
+Future<void> createNotice({
+  required String title,
+  required String description,
+  required String category,
+  required String audience,
+  String priority = 'Normal',
+  DateTime? expiryDate,
+  String status = 'Active',
+}) async {
+  final client = await _getHostelClient();
+  final institutionId = await _resolveInstitutionId();
+  final row = {
+    'institution_id': institutionId,
+    'title': title,
+    'description': description,
+    'category': category,
+    'audience': audience,
+    'priority': priority,
+    'status': status,
+    'publish_date': DateTime.now().toIso8601String().split('T').first,
+    if (expiryDate != null) 'expiry_date': expiryDate.toIso8601String().split('T').first,
+  };
+
+  try {
+    await client.from('hostel_notices').insert(row);
+  } catch (_) {
+    final res = await _client.rpc('admin_import_rows', params: {
+      'p_table': 'hostel_notices',
+      'p_rows': [row],
+      'p_conflict_key': 'id',
+    });
+    if (res is Map && res['success_count'] == 0 && (res['errors'] as List?)?.isNotEmpty == true) {
+      throw Exception(res['errors'][0]['error'] ?? 'Failed to publish notice');
+    }
+  }
+}
+
+Future<void> updateNoticeStatus(String noticeId, String status) async {
+  final client = await _getHostelClient();
+  await client.from('hostel_notices').update({'status': status}).eq('id', noticeId);
+}
+
+Future<void> deleteNotice(String noticeId) async {
+  final client = await _getHostelClient();
+  await client.from('hostel_notices').delete().eq('id', noticeId);
 }
 Future<List<Map<String, dynamic>>> fetchStaff() async {
   return await _client.from('hostel_staff').select();

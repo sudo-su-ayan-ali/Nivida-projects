@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../models/notice.dart';
 import '../../models/staff.dart';
 import '../hostel_service.dart';
@@ -230,20 +231,45 @@ class VisitorsController extends StateNotifier<List<Visitor>> {
 final visitorsProvider = StateNotifierProvider<VisitorsController, List<Visitor>>((ref) => VisitorsController());
 
 /// ---------- Notices ----------
-final noticesProvider = FutureProvider<List<Notice>>((ref) async {
-  final rows = await HostelService().fetchNotices();
-  return rows.map((r) => Notice(
-    id: r['id'],
-    title: r['title'] ?? '',
-    description: r['description'] ?? '',
-    category: r['category'] ?? '',
-    audience: r['audience'] ?? '',
-    publishDate: _parseDate(r['publish_date']),
-    expiryDate: _parseDate(r['expiry_date']),
-    priority: r['priority'] ?? 'Normal',
-    status: r['status'] ?? 'Active',
-  )).toList();
-});
+class NoticesController extends StateNotifier<List<Notice>> {
+  NoticesController() : super([]) {
+    _load();
+  }
+
+  Future<void> reload() async => _load();
+
+  Future<void> _load() async {
+    try {
+      final rows = await HostelService().fetchNotices();
+      state = rows.map((r) => Notice(
+        id: r['id'],
+        title: r['title'] ?? '',
+        description: r['description'] ?? '',
+        category: r['category'] ?? 'General',
+        audience: r['audience'] ?? 'All Students',
+        publishDate: _parseDate(r['publish_date'] ?? r['created_at']),
+        expiryDate: _parseDate(r['expiry_date']),
+        priority: r['priority'] ?? 'Normal',
+        status: r['status'] ?? 'Active',
+      )).toList();
+    } catch (e) {
+      debugPrint('NoticesController._load error: $e');
+    }
+  }
+
+  Future<void> updateStatus(String id, String status) async {
+    await HostelService().updateNoticeStatus(id, status);
+    state = [for (final n in state) if (n.id == id) (n..status = status) else n];
+  }
+
+  Future<void> removeNotice(String id) async {
+    await HostelService().deleteNotice(id);
+    state = [for (final n in state) if (n.id != id) n];
+  }
+}
+
+final noticesProvider =
+    StateNotifierProvider<NoticesController, List<Notice>>((ref) => NoticesController());
 
 /// ---------- Staff ----------
 final staffProvider = FutureProvider<List<StaffMember>>((ref) async {

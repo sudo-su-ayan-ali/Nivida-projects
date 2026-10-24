@@ -2097,6 +2097,46 @@
 
 ---
 
+| **69. Fix Hostel Notices Lifecycle: Dynamic State Management, Multi-Tenant Persistence & Filtering** | When Principal navigated to Notices in the Hostel module, the screen relied on an unmanaged FutureProvider with no error handling or loading states. Furthermore, the "Create Notice" action only popped a toast and discarded inputs without persisting to `hostel_notices`, and there was no way to filter, search, archive, or delete announcements. | Implemented `NoticesController` as Riverpod `StateNotifier<List<Notice>>` with `reload()`, `updateStatus()`, and `removeNotice()`. Added full backend CRUD (`fetchNotices`, `createNotice`, `updateNoticeStatus`, `deleteNotice`) in `HostelService`. Overhauled `NoticesScreen` with real-time search, category/status filtering, empty state views, popup action menus (Archive/Activate/Delete with confirmation), and live validated Supabase notice publishing. Verified live in Supabase: 100% pass on create, retrieve, update, and delete. All 77 tests passing. |
+
+---
+
+### Entry 69: Complete Hostel Notices Overhaul & Multi-Tenant Persistence for Principal
+- **Date & Context:** 2026-10-24
+- **Root Cause & Issues Identified:**
+  1. **Missing Backend Persistence**:
+     - In `_CreateNoticeFormState`, the "Publish Notice" button simply dismissed the dialog and displayed a local SnackBar without calling any backend service or writing to `hostel_notices`.
+  2. **Unmanaged FutureProvider & Hidden States**:
+     - `noticesProvider` was declared as a bare `FutureProvider<List<Notice>>`. `NoticesScreen` watched it using `.value ?? []`, discarding error information and rendering an empty screen with no loading indication.
+  3. **Absence of Notice Lifecycle Operations**:
+     - No search, category filtering, status filtering, status toggling (Active vs Archived), or deletion capabilities existed.
+- **Implementation & Remediation:**
+  1. **Backend Service Expansion in `HostelService`**:
+     - Updated `fetchNotices()` to order by `created_at` descending.
+     - Implemented `createNotice()`, `updateNoticeStatus()`, and `deleteNotice()` with `_getHostelClient()` elevation and `admin_import_rows` fallback.
+  2. **Riverpod StateNotifier Architecture**:
+     - Transitioned `noticesProvider` to `StateNotifierProvider<NoticesController, List<Notice>>` in `app_providers.dart`.
+     - Provided `reload()`, `updateStatus()`, and `removeNotice()` for instantaneous reactive UI updates.
+  3. **Comprehensive UI Overhaul in `NoticesScreen`**:
+     - Converted `NoticesScreen` to `ConsumerStatefulWidget` with real-time search across title, description, and audience.
+     - Added Category (`General`, `Holiday`, `Mess`, `Maintenance`, `Discipline`, `Urgent`) and Status (`Active`, `Archived`) filters.
+     - Integrated a polished empty state view with a call-to-action button when no notices match query or exist.
+     - Added contextual card actions via `PopupMenuButton` allowing Principal to Archive/Activate or Delete notices (with confirm dialog).
+     - Enhanced the Create Notice modal with form validation, priority selector, category selector, audience selector, and real-time Supabase publishing with loading state.
+- **Verification & Quality Gates:**
+  - Live Supabase end-to-end integration test: **100% pass (created inspection notice `9f1df0b5-9687-4865-a932-13512d62aea5`, retrieved, updated status to `Archived`, deleted cleanly)**.
+  - `flutter analyze lib/modules/hostel`: **0 errors**.
+  - `flutter test`: **77/77 tests passed (100%)**.
+  - `flutter build web --release`: **Successfully built `build/web`**.
+
+#### Why It Was Done:
+- To transform the mock Notice Management placeholder into a fully functional, production-ready announcements system with real-time Supabase persistence, multi-role elevation, and comprehensive lifecycle management for the Principal.
+
+#### For What:
+- Restores complete, operational Notice Management in the Hostel module for Principal and hostel staff.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
 
 
