@@ -272,19 +272,59 @@ final noticesProvider =
     StateNotifierProvider<NoticesController, List<Notice>>((ref) => NoticesController());
 
 /// ---------- Staff ----------
-final staffProvider = FutureProvider<List<StaffMember>>((ref) async {
-  final rows = await HostelService().fetchStaff();
-  return rows.map((r) => StaffMember(
-    id: r['id'],
-    name: r['name'] ?? '',
-    employeeId: r['employee_id'] ?? '',
-    role: r['role'] ?? '',
-    phone: r['phone'] ?? '',
-    email: r['email'] ?? '',
-    joiningDate: _parseDate(r['joining_date']),
-    status: r['status'] ?? 'Active',
-  )).toList();
-});
+class StaffController extends StateNotifier<List<StaffMember>> {
+  StaffController() : super([]) {
+    reload();
+  }
+
+  bool _loading = false;
+  bool get isLoading => _loading;
+
+  Future<void> reload() async {
+    _loading = true;
+    try {
+      final rows = await HostelService().fetchStaff();
+      state = rows.map((r) {
+        String rawStatus = (r['status']?.toString() ?? 'Active').trim();
+        String normalizedStatus = rawStatus.toLowerCase() == 'active'
+            ? 'Active'
+            : (rawStatus.isEmpty
+                ? 'Active'
+                : '${rawStatus[0].toUpperCase()}${rawStatus.substring(1).toLowerCase()}');
+        return StaffMember(
+          id: r['id']?.toString() ?? '',
+          name: r['name']?.toString() ?? '',
+          employeeId: r['employee_id']?.toString() ?? '',
+          role: r['role']?.toString() ?? 'Staff',
+          phone: r['phone']?.toString() ?? '',
+          email: r['email']?.toString() ?? '',
+          joiningDate: _parseDate(r['joining_date']),
+          status: normalizedStatus,
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('Error loading staff: $e');
+    } finally {
+      _loading = false;
+    }
+  }
+
+  Future<void> updateStatus(String id, String newStatus) async {
+    await HostelService().updateStaffStatus(id, newStatus);
+    state = [
+      for (final s in state)
+        if (s.id == id) s.copyWith(status: newStatus) else s
+    ];
+  }
+
+  Future<void> removeStaff(String id) async {
+    await HostelService().deleteStaffMember(id);
+    state = state.where((s) => s.id != id).toList();
+  }
+}
+
+final staffProvider =
+    StateNotifierProvider<StaffController, List<StaffMember>>((ref) => StaffController());
 
 /// ---------- Attendance ----------
 class AttendanceController extends StateNotifier<List<AttendanceRecord>> {

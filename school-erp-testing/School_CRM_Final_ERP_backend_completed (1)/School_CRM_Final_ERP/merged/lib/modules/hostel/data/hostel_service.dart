@@ -806,8 +806,75 @@ Future<void> deleteNotice(String noticeId) async {
   final client = await _getHostelClient();
   await client.from('hostel_notices').delete().eq('id', noticeId);
 }
+
 Future<List<Map<String, dynamic>>> fetchStaff() async {
-  return await _client.from('hostel_staff').select();
+  try {
+    final client = await _getHostelClient();
+    final rows = await client
+        .from('hostel_staff')
+        .select()
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(rows);
+  } catch (e) {
+    debugPrint('HostelService.fetchStaff elevated failed: $e, falling back to _client');
+    try {
+      final rows = await _client
+          .from('hostel_staff')
+          .select()
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(rows);
+    } catch (e2) {
+      debugPrint('HostelService.fetchStaff fallback failed: $e2');
+      return [];
+    }
+  }
+}
+
+Future<void> updateStaffMember({
+  required String id,
+  required String name,
+  required String role,
+  required String phone,
+  required String email,
+  String? status,
+}) async {
+  final payload = <String, dynamic>{
+    'name': name.trim(),
+    'role': role.trim(),
+    'phone': phone.trim(),
+    'email': email.trim(),
+  };
+  if (status != null && status.trim().isNotEmpty) {
+    payload['status'] = status.trim();
+  }
+
+  try {
+    final client = await _getHostelClient();
+    await client.from('hostel_staff').update(payload).eq('id', id);
+  } catch (e) {
+    debugPrint('HostelService.updateStaffMember elevated failed: $e, retrying with _client');
+    await _client.from('hostel_staff').update(payload).eq('id', id);
+  }
+}
+
+Future<void> updateStaffStatus(String id, String status) async {
+  try {
+    final client = await _getHostelClient();
+    await client.from('hostel_staff').update({'status': status.trim()}).eq('id', id);
+  } catch (e) {
+    debugPrint('HostelService.updateStaffStatus elevated failed: $e, retrying with _client');
+    await _client.from('hostel_staff').update({'status': status.trim()}).eq('id', id);
+  }
+}
+
+Future<void> deleteStaffMember(String id) async {
+  try {
+    final client = await _getHostelClient();
+    await client.from('hostel_staff').delete().eq('id', id);
+  } catch (e) {
+    debugPrint('HostelService.deleteStaffMember elevated failed: $e, retrying with _client');
+    await _client.from('hostel_staff').delete().eq('id', id);
+  }
 }
 
 // ---- Documents ----
@@ -874,18 +941,32 @@ Future<void> createStaffMember({
   required String role,
   required String phone,
   required String email,
+  String? employeeId,
+  String? status,
+  DateTime? joiningDate,
 }) async {
   final institutionId = await _resolveInstitutionId();
-  final employeeId = 'EMP${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-  await _client.from('hostel_staff').insert({
+  final empId = (employeeId != null && employeeId.trim().isNotEmpty)
+      ? employeeId.trim()
+      : 'HST-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+  final payload = {
     'institution_id': institutionId,
-    'name': name,
-    'employee_id': employeeId,
-    'role': role,
-    'phone': phone,
-    'email': email,
-    'status': 'Active',
-  });
+    'name': name.trim(),
+    'employee_id': empId,
+    'role': role.trim(),
+    'phone': phone.trim(),
+    'email': email.trim(),
+    'status': status ?? 'Active',
+    'joining_date': (joiningDate ?? DateTime.now()).toIso8601String().split('T').first,
+  };
+
+  try {
+    final client = await _getHostelClient();
+    await client.from('hostel_staff').insert(payload);
+  } catch (e) {
+    debugPrint('HostelService.createStaffMember elevated failed: $e, retrying with _client');
+    await _client.from('hostel_staff').insert(payload);
+  }
 }
 
 Future<void> createComplaint({

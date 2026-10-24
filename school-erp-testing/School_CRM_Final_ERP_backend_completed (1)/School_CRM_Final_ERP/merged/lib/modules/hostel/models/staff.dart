@@ -18,4 +18,26 @@ class StaffMember {
     required this.joiningDate,
     required this.status,
   });
+
+  StaffMember copyWith({
+    String? id,
+    String? name,
+    String? employeeId,
+    String? role,
+    String? phone,
+    String? email,
+    DateTime? joiningDate,
+    String? status,
+  }) {
+    return StaffMember(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      employeeId: employeeId ?? this.employeeId,
+      role: role ?? this.role,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      joiningDate: joiningDate ?? this.joiningDate,
+      status: status ?? this.status,
+    );
+  }
 }

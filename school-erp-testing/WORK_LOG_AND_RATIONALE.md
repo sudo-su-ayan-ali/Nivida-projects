@@ -2098,6 +2098,7 @@
 ---
 
 | **69. Fix Hostel Notices Lifecycle: Dynamic State Management, Multi-Tenant Persistence & Filtering** | When Principal navigated to Notices in the Hostel module, the screen relied on an unmanaged FutureProvider with no error handling or loading states. Furthermore, the "Create Notice" action only popped a toast and discarded inputs without persisting to `hostel_notices`, and there was no way to filter, search, archive, or delete announcements. | Implemented `NoticesController` as Riverpod `StateNotifier<List<Notice>>` with `reload()`, `updateStatus()`, and `removeNotice()`. Added full backend CRUD (`fetchNotices`, `createNotice`, `updateNoticeStatus`, `deleteNotice`) in `HostelService`. Overhauled `NoticesScreen` with real-time search, category/status filtering, empty state views, popup action menus (Archive/Activate/Delete with confirmation), and live validated Supabase notice publishing. Verified live in Supabase: 100% pass on create, retrieve, update, and delete. All 77 tests passing. |
+| **70. Fix Hostel Staff Management: Full CRUD Lifecycle, Reactive State & Supabase Persistence** | When Principal navigated to Staff from Quick Actions in the Hostel module, table row action buttons (`onView`, `onEdit`) were empty stub callbacks with no implementation, there was no Delete action, no View Profile dialog, no Edit Staff dialog, no Status toggle, and `staffProvider` was a bare `FutureProvider` with no mutation or reload capabilities. In addition, avatar initial generation crashed on non-standard whitespace. | Implemented `StaffController` as Riverpod `StateNotifier<List<StaffMember>>` with `reload()`, `updateStatus()`, and `removeStaff()`. Added `copyWith` on `StaffMember` and implemented `updateStaffMember`, `updateStaffStatus`, `deleteStaffMember`, and enhanced `createStaffMember` with `employeeId`, `status`, and `joiningDate` in `HostelService`. Overhauled `StaffScreen` with KPI stat cards (Total, Active, Wardens, Inactive), robust multi-field search (name, ID, role, phone, email), role & status dropdown filters, safe avatar initials parsing, View Profile modal, validated Edit Staff modal with Supabase persistence, Delete with confirmation dialog, and quick status toggling. 100% pass on end-to-end integration test and 78/78 tests in full suite. |
 
 ---
 
@@ -2134,6 +2135,52 @@
 
 #### For What:
 - Restores complete, operational Notice Management in the Hostel module for Principal and hostel staff.
+
+---
+
+### Entry 70: Complete Hostel Staff Overhaul & Supabase Persistence for Principal
+- **Date & Context:** 2026-10-24
+- **Root Cause & Issues Identified:**
+  1. **Stubbed Action Handlers in Table Rows**:
+     - In `staff_screen.dart`, `RowActions(onView: () {}, onEdit: () {})` had empty no-op callbacks. Clicking "View" or "Edit" on any staff member did nothing. There was no "Delete" action or status toggle button.
+  2. **Missing Backend Mutation Endpoints**:
+     - `HostelService` only had `fetchStaff()` and a rudimentary `createStaffMember()`. It lacked `updateStaffMember()`, `updateStaffStatus()`, and `deleteStaffMember()`.
+  3. **Static Unmanaged FutureProvider**:
+     - `staffProvider` was a bare `FutureProvider<List<StaffMember>>`. Any update required `ref.invalidate(staffProvider)` which emptied the screen causing severe UI flicker.
+  4. **Unsafe Initials Parsing**:
+     - Avatar initials used `s.name.split(' ').map((e) => e[0])` which throws runtime `RangeError` if a name has consecutive spaces or trailing whitespace.
+  5. **Missing Filtering & KPI Telemetry**:
+     - The screen lacked status filters (`Active` vs `Inactive`), multi-field search, empty state views, and high-level staff statistics.
+- **Implementation & Remediation:**
+  1. **Backend Service Expansion in `HostelService`**:
+     - Updated `fetchStaff()` to sort by `created_at` descending and use `_getHostelClient()` with fallback.
+     - Added `updateStaffMember()`, `updateStaffStatus()`, and `deleteStaffMember()`.
+     - Enhanced `createStaffMember()` to accept optional custom `employeeId`, `status`, and `joiningDate`.
+  2. **Riverpod StateNotifier Architecture**:
+     - Added `copyWith` to `StaffMember` model.
+     - Transformed `staffProvider` into `StateNotifierProvider<StaffController, List<StaffMember>>` providing `reload()`, `updateStatus()`, and `removeStaff()`.
+  3. **Comprehensive UI Overhaul in `StaffScreen`**:
+     - Added KPI Stat Cards (Total Staff, Active Staff, Wardens, Inactive Staff).
+     - Enhanced multi-field search (searches name, employee ID, role, phone, and email).
+     - Added Role and Status (`All Statuses`, `Active`, `Inactive`) filters with a reset button.
+     - Added safe initials extraction with regex whitespace splitting.
+     - Built **View Staff Profile** dialog with full contact and employment details.
+     - Built validated **Edit Staff Member** dialog with role, status, phone, email updates persisting directly to Supabase.
+     - Implemented **Delete Staff Member** with destructive confirmation dialog and real-time state removal.
+     - Added contextual popup menu to quickly toggle between `Active` and `Inactive` status.
+     - Enhanced **Add Staff** dialog with validation, custom employee ID support, status selection, and joining date persistence.
+     - Added friendly empty state view with call-to-action button when no staff members match filter criteria.
+- **Verification & Quality Gates:**
+  - Live Supabase end-to-end integration test: **100% pass (created staff member with custom ID, verified in list, updated role and phone, toggled status to `Inactive`, and deleted cleanly from Supabase)**.
+  - `flutter analyze lib/modules/hostel`: **0 errors**.
+  - `flutter test`: **78/78 tests passed (100%)**.
+  - `flutter build web --release`: **Successfully built `build/web`**.
+
+#### Why It Was Done:
+- To transform the static Staff Management placeholder into a fully functional, production-ready staff management system with real-time Supabase persistence, multi-role elevation, KPI telemetry, and complete lifecycle management for the Principal.
+
+#### For What:
+- Restores complete, operational Staff Management in the Hostel module for Principal and administrative staff.
 
 ---
 
