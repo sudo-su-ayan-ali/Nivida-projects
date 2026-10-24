@@ -273,8 +273,8 @@ final noticesProvider =
 
 /// ---------- Staff ----------
 class StaffController extends StateNotifier<List<StaffMember>> {
-  StaffController() : super([]) {
-    reload();
+  StaffController({bool autoLoad = true}) : super([]) {
+    if (autoLoad) reload();
   }
 
   bool _loading = false;

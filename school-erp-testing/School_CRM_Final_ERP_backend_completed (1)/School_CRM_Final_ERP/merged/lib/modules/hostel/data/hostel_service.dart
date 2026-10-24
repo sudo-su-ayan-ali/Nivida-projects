@@ -8,7 +8,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/block.dart';
 
 class HostelService {
-  final _client = Supabase.instance.client;
+  SupabaseClient get _client {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      String envUrl = 'https://inzszxiaqdxcxbywuvnc.supabase.co';
+      String envKey = 'sb_publishable_R8mOI627dtrL5tPQyBMBkA_iffOau66';
+      if (dotenv.isInitialized) {
+        envUrl = dotenv.env['SUPABASE_URL'] ?? envUrl;
+        envKey = dotenv.env['SUPABASE_ANON_KEY'] ?? envKey;
+      }
+      return SupabaseClient(envUrl, envKey);
+    }
+  }
 
   Future<String> _resolveInstitutionId() async {
     try {

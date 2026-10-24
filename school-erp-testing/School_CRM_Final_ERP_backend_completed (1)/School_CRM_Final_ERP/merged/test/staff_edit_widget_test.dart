@@ -6,7 +6,7 @@ import 'package:edusmart_school_erp_flutter/modules/hostel/models/staff.dart';
 import 'package:edusmart_school_erp_flutter/modules/hostel/data/providers/app_providers.dart';
 
 class MockStaffController extends StaffController {
-  MockStaffController(List<StaffMember> initial) : super() {
+  MockStaffController(List<StaffMember> initial) : super(autoLoad: false) {
     state = initial;
   }
 }

@@ -2100,6 +2100,7 @@
 | **69. Fix Hostel Notices Lifecycle: Dynamic State Management, Multi-Tenant Persistence & Filtering** | When Principal navigated to Notices in the Hostel module, the screen relied on an unmanaged FutureProvider with no error handling or loading states. Furthermore, the "Create Notice" action only popped a toast and discarded inputs without persisting to `hostel_notices`, and there was no way to filter, search, archive, or delete announcements. | Implemented `NoticesController` as Riverpod `StateNotifier<List<Notice>>` with `reload()`, `updateStatus()`, and `removeNotice()`. Added full backend CRUD (`fetchNotices`, `createNotice`, `updateNoticeStatus`, `deleteNotice`) in `HostelService`. Overhauled `NoticesScreen` with real-time search, category/status filtering, empty state views, popup action menus (Archive/Activate/Delete with confirmation), and live validated Supabase notice publishing. Verified live in Supabase: 100% pass on create, retrieve, update, and delete. All 77 tests passing. |
 | **70. Fix Hostel Staff Management: Full CRUD Lifecycle, Reactive State & Supabase Persistence** | When Principal navigated to Staff from Quick Actions in the Hostel module, table row action buttons (`onView`, `onEdit`) were empty stub callbacks with no implementation, there was no Delete action, no View Profile dialog, no Edit Staff dialog, no Status toggle, and `staffProvider` was a bare `FutureProvider` with no mutation or reload capabilities. In addition, avatar initial generation crashed on non-standard whitespace. | Implemented `StaffController` as Riverpod `StateNotifier<List<StaffMember>>` with `reload()`, `updateStatus()`, and `removeStaff()`. Added `copyWith` on `StaffMember` and implemented `updateStaffMember`, `updateStaffStatus`, `deleteStaffMember`, and enhanced `createStaffMember` with `employeeId`, `status`, and `joiningDate` in `HostelService`. Overhauled `StaffScreen` with KPI stat cards (Total, Active, Wardens, Inactive), robust multi-field search (name, ID, role, phone, email), role & status dropdown filters, safe avatar initials parsing, View Profile modal, validated Edit Staff modal with Supabase persistence, Delete with confirmation dialog, and quick status toggling. 100% pass on end-to-end integration test and 78/78 tests in full suite. |
 | **71. Fix Staff Edit Button Hit-Testing & Role Assertion in Hostel Management** | When Principal clicked the Edit button on a staff row, the action button was unresponsive or failed to open the edit modal. The table column width for `Actions` was constricted to 100px while `RowActions` contained 4 icon buttons totaling ~192px, creating a RenderFlex overflow of 94px that clipped hit testing. Furthermore, staff members with custom or empty roles caused a Flutter `DropdownButtonFormField` assertion failure on build. | Added compact constraints and padding to `RowActions` in `app_data_table.dart` and expanded the Actions column to 160px with `minWidth: 1050`. Hardened `role` resolution in `_showEditStaffDialog` with case-insensitive fallback matching to prevent dropdown assertion crashes. Added `employeeId` field to Edit modal and backend update method. Verified with automated widget test `staff_edit_widget_test.dart` and 79/79 test suite pass. |
+| **72. Implement Hostel Reports: Interactive Data Preview, PDF Printing & CSV Downloads** | When Principal accessed the Reports section in the Hostel module, the cards were static with mock PDF and CSV buttons that only showed a toast and performed no real file generation or export. There was no way to preview reports on screen, the "Custom Date Range" button was an empty no-op callback, and the screen lacked search capabilities. | Created `HostelReportService` supporting live data retrieval across all 11 hostel report modules (Students, Occupancy, Attendance, Leaves, Fee Collections, Outstanding Dues, Dining, Complaints, Maintenance, Visitors, Staff), real CSV generation and download via `FileSaver`, and landscape PDF generation and system print preview via `pdf` and `Printing`. Overhauled `ReportsScreen` with an interactive live data preview modal, real-time report search, date range picker integration, and progress indicators. 100% pass on 82/82 tests in full suite. |
 
 ---
 
@@ -2214,6 +2215,54 @@
 
 #### For What:
 - Restores smooth, responsive staff editing for the Principal and hostel administrators.
+
+---
+
+### Entry 72: Complete Hostel Reports Engine: Interactive Preview, Real CSV & Landscape PDF Export
+- **Date & Context:** 2026-10-24
+- **Root Cause & Issues Identified:**
+  1. **Mock Export Handlers**:
+     - In `reports_screen.dart`, clicking the "PDF" or "CSV" buttons on any of the 11 report cards only called `ScaffoldMessenger.showSnackBar('Exporting ...')` without fetching database records or saving/exporting any files.
+  2. **No On-Screen Data Preview**:
+     - Administrators had no way to view, inspect, or verify report data on screen before exporting.
+  3. **Non-Functional Date Range Picker**:
+     - The `Custom Date Range` button had an empty `onPressed: () {}` callback and didn't trigger any date picker or apply temporal filters.
+  4. **Missing Report Filter / Search**:
+     - No search bar existed to locate specific report categories or topics among the report modules.
+- **Implementation & Remediation:**
+  1. **Built `HostelReportService` (`lib/modules/hostel/data/hostel_report_service.dart`)**:
+     - Created live data aggregators across all 11 hostel operational domains:
+       - Student Demographics & Allocations
+       - Room Occupancy & Bed Vacancy Breakdown
+       - Daily Attendance Records & Check-in Timestamps
+       - Leave Requests & Warden Approvals
+       - Fee Collections & Payment Methods
+       - Pending / Outstanding Hostel Dues
+       - Weekly Mess & Dining Menu
+       - Resident Complaints Log
+       - Maintenance Work Orders & Priorities
+       - Visitor Registry & Verification
+       - Staff & Warden Roster
+     - Implemented `exportCsv()` converting datasets to standard CSV format and downloading via `FileSaver.instance.saveFile`.
+     - Implemented `exportPdf()` generating multi-page landscape PDFs with institutional header, metadata, structured tables, and page pagination via `Printing.layoutPdf`.
+  2. **Enhanced `ReportsScreen` (`lib/modules/hostel/features/reports/reports_screen.dart`)**:
+     - Added an interactive **Report Preview Dialog** with live record counts, metadata chips, scrollable data table, and instant CSV/PDF export options.
+     - Added a live **Search Field** to filter report modules by keyword in real time.
+     - Implemented `showDateRangePicker` integration for the **Custom Date Range** button with active date chips and reset capabilities.
+     - Added KPI Stat Cards for Report Modules, Export Formats, Session, and Scope.
+     - Added progress spinners to PDF and CSV action buttons during file generation.
+- **Verification & Quality Gates:**
+  - Automated report builder test `test/reports_verification_test.dart`: **Passed (CSV & PDF generation verified)**.
+  - Automated screen & search widget test `test/reports_screen_test.dart`: **Passed (UI rendering, search filtering, and action buttons verified)**.
+  - `flutter analyze lib/modules/hostel`: **0 errors**.
+  - `flutter test`: **82/82 tests passed (100%)**.
+  - `flutter build web --release`: **Successfully built `build/web`**.
+
+#### Why It Was Done:
+- To transform the mock Reports section into a fully functional reporting and analytics suite with live preview, real CSV file downloads, and printable landscape PDFs for administrative audit and operational reviews.
+
+#### For What:
+- Restores complete, operational Reports & Analytics within the Hostel module for the Principal and management.
 
 ---
 
