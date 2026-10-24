@@ -214,7 +214,7 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
                         category: category,
                         description: descCtrl.text.trim(),
                       );
-                      ref.invalidate(maintenanceProvider);
+                      await ref.read(maintenanceProvider.notifier).reload();
                       if (context.mounted) {
                         Navigator.pop(ctx);
                         showAppSnackBar(context, 'Maintenance request submitted.');

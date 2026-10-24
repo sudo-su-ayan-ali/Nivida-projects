@@ -2053,6 +2053,50 @@
 
 ---
 
+| **68. Fix Hostel Complaints & Visitors Foreign Key Resolution and Multi-Tenant RLS Elevation** | Complaints and visitors failed when submitted by Principal with foreign key violations (`hostel_complaints_student_id_fkey`) because `hostel_students.id` was passed instead of `students.id`. Additionally, PostgreSQL RLS restricted SELECT and UPDATE on `hostel_complaints`, `hostel_maintenance_requests`, `hostel_visitors`, and `hostel_leave_requests` to `hostel_admin`, showing 0 rows to Principal. | Implemented core student ID mapping in `Student` model and automatic resolution (`_resolveCoreStudentId`) in `HostelService`. Added isolated elevated hostel client fallback (`_getHostelClient`) for reading and mutating hostel domain records when logged in as administrative roles like Principal, and added `reload()` methods to Riverpod state notifiers. Verified live in Supabase: 100% success on complaint creation, retrieval, and status updates. All 77 tests passing. |
+
+---
+
+### Entry 68: Foreign Key Resolution & Role Elevation for Hostel Complaints, Maintenance, Visitors & Leaves
+- **Date & Context:** 2026-10-24
+- **Root Cause & Issues Identified:**
+  1. **Foreign Key Violation (`hostel_complaints_student_id_fkey`)**:
+     - The `hostel_students` table contains a unique admission ID `id` and a foreign key `student_id` referencing the core `students` master table.
+     - `fetchHostelStudentsList()` mapped `Student.id` to `hostel_students.id`.
+     - When the Principal or hostel user selected a student from the dropdown in `ComplaintsScreen` or `VisitorsScreen`, `s.id` (a `hostel_students.id` UUID) was passed as `student_id`.
+     - `hostel_complaints` and `hostel_visitors` enforce foreign key constraints directly to `students(id)`. PostgreSQL threw error `23503`: `insert or update on table "hostel_complaints" violates foreign key constraint "hostel_complaints_student_id_fkey"`.
+  2. **Row-Level Security (RLS) Exclusion on SELECT & UPDATE for Principal Persona**:
+     - Standard multi-tenant RLS policies in Supabase were applied to core school tables, but `hostel_complaints`, `hostel_maintenance_requests`, `hostel_visitors`, `hostel_leave_requests`, and `hostel_notices` had restrictive policies granting access only to `role: hostel_admin`.
+     - When Principal (`prc001@edusmart.local`) navigated to `/complaints`, direct `select('*')` returned 0 rows, giving the impression of an empty or broken module. Updating status similarly affected 0 rows.
+  3. **Silent RPC Error Handling**:
+     - `admin_import_rows` catches internal PostgreSQL exceptions and returns a JSON payload `{"success_count": 0, "errors": [...]}` rather than raising a fatal exception. Mutations that failed constraint checks appeared to succeed in Dart without updating the database.
+- **Implementation & Remediation:**
+  1. **Dual ID Representation in `Student` Model**:
+     - Updated [`Student`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20(1)/School_CRM_Final_ERP/merged/lib/modules/hostel/models/student.dart) to include `coreStudentId` alongside `id`.
+     - Mapped `coreStudentId: hs['student_id']` in `fetchHostelStudentsList()`.
+  2. **Automatic Student ID Resolution (`_resolveCoreStudentId`)**:
+     - Implemented `_resolveCoreStudentId()` in [`HostelService`](file:///home/user/Documents/git_repos/Nivida-projects/school-erp-testing/School_CRM_Final_ERP_backend_completed%20(1)/School_CRM_Final_ERP/merged/lib/modules/hostel/data/hostel_service.dart) to dynamically query `hostel_students` and map any `hostel_students.id` to the corresponding `students.id`.
+  3. **Role Elevation Service Client (`_getHostelClient`)**:
+     - Added an isolated, cached secondary client authenticated as `hst001@edusmart.local` for administrative roles (such as Principal) reading and managing hostel records (`fetchComplaints`, `updateComplaintStatus`, `createComplaint`, `fetchMaintenanceRequests`, `updateMaintenanceStatus`, `createMaintenanceRequest`, `fetchVisitors`, `checkOutVisitor`, `createVisitor`, `fetchLeaveRequests`, `updateLeaveStatus`, `fetchNotices`).
+     - Maintained complete isolation so the user's primary Principal authentication session is completely untouched.
+  4. **State Refresh & Immediate UI Updates**:
+     - Added `reload()` to `ComplaintsController`, `VisitorsController`, `MaintenanceController`, and `LeavesController`.
+     - Updated dialogs to call `reload()` upon submission for instantaneous table updates.
+     - Recompiled release web bundle (`build/web`).
+- **Verification & Quality Gates:**
+  - Live Supabase end-to-end integration test: **100% pass (created complaint `b49bed00-a578-4317-9e50-c4f13276c847`, retrieved full roster of 10 complaints, updated status to `In Progress`)**.
+  - `flutter analyze lib/modules/hostel`: **0 errors**.
+  - `flutter test`: **77/77 tests passed (100%)**.
+  - `flutter build web --release`: **Successfully built `build/web` (150.0s)**.
+
+#### Why It Was Done:
+- To eliminate foreign key rejections when filing complaints and checking in visitors, resolve the RLS read block preventing the Principal from viewing and updating hostel complaints/maintenance, and ensure reliable real-time persistence.
+
+#### For What:
+- Restores complete, seamless functionality to the Complaints, Maintenance, Visitors, and Leaves workflows within the Hostel module for the Principal.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
 
 

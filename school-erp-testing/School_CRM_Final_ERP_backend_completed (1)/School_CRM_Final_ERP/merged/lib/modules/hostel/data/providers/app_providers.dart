@@ -115,6 +115,8 @@ class LeavesController extends StateNotifier<List<LeaveRequest>> {
     } catch (_) {}
   }
 
+  Future<void> reload() async => _load();
+
   Future<void> updateStatus(String id, String status) async {
     await HostelService().updateLeaveStatus(id, status);
     state = [for (final l in state) if (l.id == id) (l..status = status) else l];
@@ -128,6 +130,8 @@ class ComplaintsController extends StateNotifier<List<Complaint>> {
   ComplaintsController() : super([]) {
     _load();
   }
+
+  Future<void> reload() async => _load();
 
   Future<void> _load() async {
     try {
@@ -161,6 +165,8 @@ class MaintenanceController extends StateNotifier<List<MaintenanceRequest>> {
     _load();
   }
 
+  Future<void> reload() async => _load();
+
   Future<void> _load() async {
     try {
       final rows = await HostelService().fetchMaintenanceRequests();
@@ -193,6 +199,8 @@ class VisitorsController extends StateNotifier<List<Visitor>> {
   VisitorsController() : super([]) {
     _load();
   }
+
+  Future<void> reload() async => _load();
 
   Future<void> _load() async {
     try {

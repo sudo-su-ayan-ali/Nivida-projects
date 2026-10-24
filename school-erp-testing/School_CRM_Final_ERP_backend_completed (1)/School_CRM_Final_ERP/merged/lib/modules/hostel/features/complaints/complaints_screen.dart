@@ -156,7 +156,7 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
       return;
     }
 
-    String selectedStudentId = students.first.id;
+    String selectedStudentId = students.first.coreStudentId ?? students.first.id;
     String category = 'Mess';
     final textCtrl = TextEditingController();
     bool saving = false;
@@ -172,7 +172,10 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
             DropdownButtonFormField<String>(
               value: selectedStudentId,
               decoration: const InputDecoration(labelText: 'Student', border: OutlineInputBorder()),
-              items: students.map((s) => DropdownMenuItem<String>(value: s.id, child: Text('${s.name} (${s.room})'))).toList(),
+              items: students.map((s) => DropdownMenuItem<String>(
+                value: s.coreStudentId ?? s.id,
+                child: Text('${s.name} (${s.room})'),
+              )).toList(),
               onChanged: (v) => setState(() => selectedStudentId = v!),
             ),
             const SizedBox(height: 12),
@@ -207,7 +210,7 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                         category: category,
                         complaintText: textCtrl.text.trim(),
                       );
-                      ref.invalidate(complaintsProvider);
+                      await ref.read(complaintsProvider.notifier).reload();
                       if (context.mounted) {
                         Navigator.pop(ctx);
                         showAppSnackBar(context, 'Complaint submitted successfully.');

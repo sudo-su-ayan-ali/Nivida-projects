@@ -1,5 +1,6 @@
 class Student {
   final String id;
+  final String? coreStudentId;
   final String name;
   final String photoInitials;
   final String className;
@@ -19,6 +20,7 @@ class Student {
 
   const Student({
     required this.id,
+    this.coreStudentId,
     required this.name,
     required this.photoInitials,
     required this.className,

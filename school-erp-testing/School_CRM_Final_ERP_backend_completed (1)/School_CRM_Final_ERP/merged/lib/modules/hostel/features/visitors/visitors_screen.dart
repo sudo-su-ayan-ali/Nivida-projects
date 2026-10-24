@@ -143,7 +143,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
       return;
     }
 
-    String selectedStudentId = students.first.id;
+    String selectedStudentId = students.first.coreStudentId ?? students.first.id;
     final visitorCtrl = TextEditingController();
     final relationCtrl = TextEditingController(text: 'Father');
     final phoneCtrl = TextEditingController();
@@ -160,7 +160,10 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
             DropdownButtonFormField<String>(
               value: selectedStudentId,
               decoration: const InputDecoration(labelText: 'Visiting Student', border: OutlineInputBorder()),
-              items: students.map((s) => DropdownMenuItem<String>(value: s.id, child: Text('${s.name} (${s.room})'))).toList(),
+              items: students.map((s) => DropdownMenuItem<String>(
+                value: s.coreStudentId ?? s.id,
+                child: Text('${s.name} (${s.room})'),
+              )).toList(),
               onChanged: (v) => setState(() => selectedStudentId = v!),
             ),
             const SizedBox(height: 12),
@@ -191,7 +194,7 @@ class _VisitorsScreenState extends ConsumerState<VisitorsScreen> {
                         relation: relationCtrl.text.trim(),
                         phone: phoneCtrl.text.trim(),
                       );
-                      ref.invalidate(visitorsProvider);
+                      await ref.read(visitorsProvider.notifier).reload();
                       if (context.mounted) {
                         Navigator.pop(ctx);
                         showAppSnackBar(context, 'Visitor "${visitorCtrl.text.trim()}" checked in successfully.');
