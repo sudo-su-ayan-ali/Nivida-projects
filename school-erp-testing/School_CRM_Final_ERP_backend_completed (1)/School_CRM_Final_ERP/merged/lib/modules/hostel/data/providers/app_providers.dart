@@ -329,33 +329,146 @@ final staffProvider =
 
 /// ---------- Attendance ----------
 class AttendanceController extends StateNotifier<List<AttendanceRecord>> {
+  String _selectedDate = DateTime.now().toIso8601String().split('T').first;
+  bool _isLoading = false;
+
   AttendanceController() : super([]) {
     _load();
   }
 
-  Future<void> _load() async {
-    try {
-      final rows = await HostelService().fetchAttendanceToday();
-      state = rows.map((r) => AttendanceRecord(
-        id: r['id'],
-        studentName: r['students']?['full_name'] ?? '',
-        room: r['rooms']?['room_number'] ?? '',
-        block: '',
-        status: r['status'] ?? 'Not Marked',
-        checkInTime: r['check_in_time'] ?? '',
-        markedBy: r['marked_by'] ?? '',
-      )).toList();
-    } catch (_) {}
+  String get selectedDate => _selectedDate;
+  bool get isLoading => _isLoading;
+
+  String _normalizeStatus(dynamic val) {
+    if (val == null) return 'Not Marked';
+    final s = val.toString().trim();
+    if (s.isEmpty) return 'Not Marked';
+    final lower = s.toLowerCase();
+    if (lower == 'present') return 'Present';
+    if (lower == 'absent') return 'Absent';
+    if (lower == 'late') return 'Late';
+    if (lower == 'leave') return 'Leave';
+    if (lower == 'not marked' || lower == 'not_marked') return 'Not Marked';
+    return '${s[0].toUpperCase()}${s.substring(1)}';
   }
 
-  Future<void> mark(String id, String status) async {
-    await HostelService().markAttendance(id, status);
-    state = [for (final a in state) if (a.id == id) (a..status = status) else a];
+  Future<void> setDate(String dateStr) async {
+    _selectedDate = dateStr;
+    await _load();
+  }
+
+  Future<void> reload() async {
+    await _load();
+  }
+
+  Future<void> _load() async {
+    _isLoading = true;
+    try {
+      final rows = await HostelService().fetchAttendanceForDate(_selectedDate);
+      if (rows.isEmpty && _selectedDate == DateTime.now().toIso8601String().split('T').first) {
+        await HostelService().initializeAttendanceForDate(_selectedDate);
+        final freshRows = await HostelService().fetchAttendanceForDate(_selectedDate);
+        state = freshRows.map(_mapRecord).toList();
+      } else {
+        state = rows.map(_mapRecord).toList();
+      }
+    } catch (e) {
+      debugPrint('Error loading attendance for $_selectedDate: $e');
+    } finally {
+      _isLoading = false;
+    }
+  }
+
+  AttendanceRecord _mapRecord(Map<String, dynamic> r) {
+    return AttendanceRecord(
+      id: r['id']?.toString() ?? '',
+      studentName: r['students']?['full_name'] ?? 'Student',
+      room: r['rooms']?['room_number'] ?? 'N/A',
+      block: r['block_name'] ?? '',
+      status: _normalizeStatus(r['status']),
+      checkInTime: r['check_in_time'] ?? '--',
+      markedBy: r['marked_by'] ?? '--',
+    );
+  }
+
+  Future<void> mark(String id, String status, {String? checkInTime, String? markedBy}) async {
+    final normStatus = _normalizeStatus(status);
+    final now = DateTime.now();
+    final defaultTime =
+        "${now.hour % 12 == 0 ? 12 : now.hour % 12}:${now.minute.toString().padLeft(2, '0')} ${now.hour >= 12 ? 'PM' : 'AM'}";
+    final timeToSave = checkInTime ?? (normStatus == 'Present' || normStatus == 'Late' ? defaultTime : '--');
+    final byToSave = markedBy ?? 'Principal / Warden';
+
+    // Optimistic state update
+    state = [
+      for (final a in state)
+        if (a.id == id)
+          AttendanceRecord(
+            id: a.id,
+            studentName: a.studentName,
+            room: a.room,
+            block: a.block,
+            status: normStatus,
+            checkInTime: timeToSave,
+            markedBy: byToSave,
+          )
+        else
+          a
+    ];
+
+    try {
+      await HostelService().markAttendance(
+        id,
+        normStatus,
+        checkInTime: timeToSave == '--' ? null : timeToSave,
+        markedBy: byToSave,
+      );
+    } catch (e) {
+      debugPrint('Error marking attendance: $e');
+    }
+  }
+
+  Future<void> markAll(String status, {String? markedBy}) async {
+    final normStatus = _normalizeStatus(status);
+    final now = DateTime.now();
+    final defaultTime =
+        "${now.hour % 12 == 0 ? 12 : now.hour % 12}:${now.minute.toString().padLeft(2, '0')} ${now.hour >= 12 ? 'PM' : 'AM'}";
+    final timeToSave = normStatus == 'Present' || normStatus == 'Late' ? defaultTime : '--';
+    final byToSave = markedBy ?? 'Principal / Warden';
+
+    final ids = state.map((a) => a.id).toList();
+
+    state = [
+      for (final a in state)
+        AttendanceRecord(
+          id: a.id,
+          studentName: a.studentName,
+          room: a.room,
+          block: a.block,
+          status: normStatus,
+          checkInTime: timeToSave,
+          markedBy: byToSave,
+        )
+    ];
+
+    try {
+      await HostelService().markAllAttendance(
+        attendanceIds: ids,
+        status: normStatus,
+        markedBy: byToSave,
+      );
+    } catch (e) {
+      debugPrint('Error batch marking attendance: $e');
+    }
   }
 }
 
 final attendanceProvider =
     StateNotifierProvider<AttendanceController, List<AttendanceRecord>>((ref) => AttendanceController());
+
+final attendanceDatesProvider = FutureProvider<List<String>>((ref) async {
+  return await HostelService().fetchAttendanceDates();
+});
 
 /// ---------- Notifications (unread count demo) ----------
 final unreadNotificationsProvider = StateProvider<int>((ref) => 7);

@@ -659,12 +659,149 @@ Future<List<Payment>> fetchHostelFeesList() async {
       'paidFees': paidFees,
     };
   }
+  Future<List<Map<String, dynamic>>> fetchAttendanceForDate(String dateStr) async {
+    final client = await _getHostelClient();
+    final rows = await client
+        .from('hostel_attendance')
+        .select('*, students(full_name), rooms(room_number, block_id)')
+        .eq('attendance_date', dateStr);
+
+    final blocks = await client.from('hostel_blocks').select('id, name');
+    final blockMap = {for (final b in blocks) b['id'].toString(): b['name'].toString()};
+
+    return rows.map<Map<String, dynamic>>((r) {
+      final room = r['rooms'];
+      final blockId = room != null ? room['block_id']?.toString() : null;
+      final blockName = blockId != null ? (blockMap[blockId] ?? '') : '';
+      return {
+        ...r,
+        'block_name': blockName,
+      };
+    }).toList();
+  }
+
   Future<List<Map<String, dynamic>>> fetchAttendanceToday() async {
-  return await _client
-      .from('hostel_attendance')
-      .select('*, students(full_name), rooms(room_number)')
-      .eq('attendance_date', DateTime.now().toIso8601String().split('T').first);
-}
+    final todayStr = DateTime.now().toIso8601String().split('T').first;
+    var rows = await fetchAttendanceForDate(todayStr);
+
+    // If no records exist yet for today, auto-initialize from active resident students
+    if (rows.isEmpty) {
+      await initializeAttendanceForDate(todayStr);
+      rows = await fetchAttendanceForDate(todayStr);
+    }
+    return rows;
+  }
+
+  Future<List<String>> fetchAttendanceDates() async {
+    try {
+      final client = await _getHostelClient();
+      final rows = await client
+          .from('hostel_attendance')
+          .select('attendance_date')
+          .order('attendance_date', ascending: false);
+      final seen = <String>{};
+      final dates = <String>[];
+      for (final r in rows) {
+        final d = r['attendance_date']?.toString();
+        if (d != null && d.isNotEmpty && !seen.contains(d)) {
+          seen.add(d);
+          dates.add(d);
+        }
+      }
+      final today = DateTime.now().toIso8601String().split('T').first;
+      if (!dates.contains(today)) {
+        dates.insert(0, today);
+      }
+      return dates;
+    } catch (e) {
+      debugPrint('Error fetching attendance dates: $e');
+      return [DateTime.now().toIso8601String().split('T').first];
+    }
+  }
+
+  Future<void> initializeAttendanceForDate(String dateStr) async {
+    try {
+      final client = await _getHostelClient();
+      final institutionId = await _resolveInstitutionId();
+
+      final students = await client
+          .from('hostel_students')
+          .select('student_id, room_id, status')
+          .neq('status', 'vacated')
+          .neq('status', 'deleted');
+
+      final existing = await client
+          .from('hostel_attendance')
+          .select('student_id')
+          .eq('attendance_date', dateStr);
+      final existingStudentIds = existing.map((e) => e['student_id']?.toString()).toSet();
+
+      final List<Map<String, dynamic>> toInsert = [];
+      for (final s in students) {
+        final stId = s['student_id']?.toString();
+        if (stId != null && stId.isNotEmpty && !existingStudentIds.contains(stId)) {
+          toInsert.add({
+            'student_id': stId,
+            'room_id': s['room_id'],
+            'status': 'Not Marked',
+            'attendance_date': dateStr,
+            'institution_id': institutionId,
+          });
+        }
+      }
+
+      if (toInsert.isNotEmpty) {
+        await client.from('hostel_attendance').insert(toInsert);
+      }
+    } catch (e) {
+      debugPrint('Error initializing attendance for date $dateStr: $e');
+    }
+  }
+
+  Future<void> markAttendance(
+    String attendanceId,
+    String status, {
+    String? checkInTime,
+    String? markedBy,
+  }) async {
+    final client = await _getHostelClient();
+    final now = DateTime.now();
+    final defaultTime =
+        "${now.hour % 12 == 0 ? 12 : now.hour % 12}:${now.minute.toString().padLeft(2, '0')} ${now.hour >= 12 ? 'PM' : 'AM'}";
+
+    final Map<String, dynamic> updatePayload = {
+      'status': status,
+      'check_in_time': checkInTime ?? (status == 'Present' || status == 'Late' ? defaultTime : null),
+      'marked_by': markedBy ?? 'Principal / Warden',
+    };
+
+    await client.from('hostel_attendance').update(updatePayload).eq('id', attendanceId);
+  }
+
+  Future<void> markAllAttendance({
+    required List<String> attendanceIds,
+    required String status,
+    String? markedBy,
+  }) async {
+    final client = await _getHostelClient();
+    final now = DateTime.now();
+    final defaultTime =
+        "${now.hour % 12 == 0 ? 12 : now.hour % 12}:${now.minute.toString().padLeft(2, '0')} ${now.hour >= 12 ? 'PM' : 'AM'}";
+
+    final Map<String, dynamic> updatePayload = {
+      'status': status,
+      'check_in_time': status == 'Present' || status == 'Late' ? defaultTime : null,
+      'marked_by': markedBy ?? 'Principal / Warden',
+    };
+
+    for (final id in attendanceIds) {
+      try {
+        await client.from('hostel_attendance').update(updatePayload).eq('id', id);
+      } catch (e) {
+        debugPrint('Error batch updating attendance row $id: $e');
+      }
+    }
+  }
 
   static SupabaseClient? _cachedHostelClient;
 
@@ -717,9 +854,7 @@ Future<List<Payment>> fetchHostelFeesList() async {
     return studentId;
   }
 
-Future<void> markAttendance(String attendanceId, String status) async {
-  await _client.from('hostel_attendance').update({'status': status}).eq('id', attendanceId);
-}
+
 Future<List<Map<String, dynamic>>> fetchLeaveRequests() async {
   final client = await _getHostelClient();
   return await client

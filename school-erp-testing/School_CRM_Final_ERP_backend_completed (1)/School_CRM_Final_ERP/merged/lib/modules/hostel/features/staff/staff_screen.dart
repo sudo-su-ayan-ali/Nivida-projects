@@ -344,86 +344,89 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
     );
   }
 
-  void _showViewStaffDialog(BuildContext context, StaffMember s) {
+  Future<void> _showViewStaffDialog(BuildContext context, StaffMember s) async {
     final df = DateFormat('d MMM yyyy');
-    showAppDialog(
+    final shouldEdit = await showAppDialog<bool>(
       context,
       title: 'Staff Profile',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Column(
-              children: [
-                AppAvatar(initials: _getInitials(s.name), size: 60),
-                const SizedBox(height: 12),
-                Text(
-                  s.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+      content: Builder(
+        builder: (dialogCtx) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Column(
+                children: [
+                  AppAvatar(initials: _getInitials(s.name), size: 60),
+                  const SizedBox(height: 12),
+                  Text(
+                    s.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        s.role,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          s.role,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    StatusBadge(status: s.status),
-                  ],
+                      const SizedBox(width: 8),
+                      StatusBadge(status: s.status),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 12),
+            _detailRow(Icons.badge_outlined, 'Employee ID', s.employeeId.isEmpty ? 'N/A' : s.employeeId),
+            const SizedBox(height: 12),
+            _detailRow(Icons.phone_outlined, 'Phone', s.phone.isEmpty ? 'N/A' : s.phone),
+            const SizedBox(height: 12),
+            _detailRow(Icons.email_outlined, 'Email', s.email.isEmpty ? 'N/A' : s.email),
+            const SizedBox(height: 12),
+            _detailRow(Icons.calendar_today_outlined, 'Joining Date', df.format(s.joiningDate)),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SecondaryButton(
+                  label: 'Close',
+                  onPressed: () => Navigator.of(dialogCtx).pop(false),
+                ),
+                const SizedBox(width: 10),
+                PrimaryButton(
+                  label: 'Edit Staff',
+                  icon: Icons.edit_rounded,
+                  onPressed: () => Navigator.of(dialogCtx).pop(true),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 20),
-          const Divider(),
-          const SizedBox(height: 12),
-          _detailRow(Icons.badge_outlined, 'Employee ID', s.employeeId.isEmpty ? 'N/A' : s.employeeId),
-          const SizedBox(height: 12),
-          _detailRow(Icons.phone_outlined, 'Phone', s.phone.isEmpty ? 'N/A' : s.phone),
-          const SizedBox(height: 12),
-          _detailRow(Icons.email_outlined, 'Email', s.email.isEmpty ? 'N/A' : s.email),
-          const SizedBox(height: 12),
-          _detailRow(Icons.calendar_today_outlined, 'Joining Date', df.format(s.joiningDate)),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              SecondaryButton(
-                label: 'Close',
-                onPressed: () => Navigator.pop(context),
-              ),
-              const SizedBox(width: 10),
-              PrimaryButton(
-                label: 'Edit Staff',
-                icon: Icons.edit_rounded,
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showEditStaffDialog(context, s);
-                },
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
+
+    if (shouldEdit == true && context.mounted) {
+      _showEditStaffDialog(context, s);
+    }
   }
 
   void _showEditStaffDialog(BuildContext context, StaffMember s) {
