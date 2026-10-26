@@ -3,13 +3,21 @@ import '../controller/settings_controller.dart';
 import '../theme/app_colors.dart';
 import 'setting_field.dart';
 
-const _academicYears = ['2022 - 2023', '2023 - 2024', '2024 - 2025', '2025 - 2026'];
+const _academicYears = [
+  '2023 - 2024',
+  '2024 - 2025',
+  '2025 - 2026',
+  '2026 - 2027',
+  '2027 - 2028',
+];
+
 const _timeZones = [
   '(GMT+05:30) Asia/Kolkata',
   '(GMT+00:00) UTC',
   '(GMT-05:00) America/New_York',
   '(GMT+01:00) Europe/London',
 ];
+
 const _dateFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
 const _languages = ['English', 'Hindi', 'Spanish', 'French'];
 const _currencies = [
@@ -43,6 +51,7 @@ class GeneralSettingsForm extends StatelessWidget {
         onChanged: (v) => controller.updateDraftField('orgName', v),
       ),
       SettingField(
+        key: ValueKey('academicYear-${controller.formGeneration}'),
         icon: Icons.calendar_today_rounded,
         label: 'Academic Year / Session',
         value: draft.academicYear,
@@ -51,6 +60,7 @@ class GeneralSettingsForm extends StatelessWidget {
         onChanged: (v) => controller.updateDraftField('academicYear', v),
       ),
       SettingField(
+        key: ValueKey('timeZone-${controller.formGeneration}'),
         icon: Icons.public_rounded,
         label: 'Time Zone',
         value: draft.timeZone,
@@ -59,6 +69,7 @@ class GeneralSettingsForm extends StatelessWidget {
         onChanged: (v) => controller.updateDraftField('timeZone', v),
       ),
       SettingField(
+        key: ValueKey('dateFormat-${controller.formGeneration}'),
         icon: Icons.event_note_rounded,
         label: 'Date Format',
         value: draft.dateFormat,
@@ -67,6 +78,7 @@ class GeneralSettingsForm extends StatelessWidget {
         onChanged: (v) => controller.updateDraftField('dateFormat', v),
       ),
       SettingField(
+        key: ValueKey('language-${controller.formGeneration}'),
         icon: Icons.translate_rounded,
         label: 'Language',
         value: draft.language,
@@ -75,6 +87,7 @@ class GeneralSettingsForm extends StatelessWidget {
         onChanged: (v) => controller.updateDraftField('language', v),
       ),
       SettingField(
+        key: ValueKey('currency-${controller.formGeneration}'),
         icon: Icons.currency_rupee_rounded,
         label: 'Currency',
         value: draft.currency,
@@ -83,6 +96,7 @@ class GeneralSettingsForm extends StatelessWidget {
         onChanged: (v) => controller.updateDraftField('currency', v),
       ),
       SettingField(
+        key: ValueKey('theme-${controller.formGeneration}'),
         icon: Icons.contrast_rounded,
         label: 'Theme',
         value: draft.theme,
@@ -91,6 +105,7 @@ class GeneralSettingsForm extends StatelessWidget {
         onChanged: (v) => controller.updateDraftField('theme', v),
       ),
       SettingField(
+        key: ValueKey('itemsPerPage-${controller.formGeneration}'),
         icon: Icons.view_list_rounded,
         label: 'Items Per Page',
         value: draft.itemsPerPage,
@@ -207,7 +222,7 @@ class GeneralSettingsForm extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('Reset to Default?'),
         content: const Text(
-            'This will restore all General System Settings fields to their default values.'),
+            'This will restore all General System Settings fields to Tenant Alpha default values.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

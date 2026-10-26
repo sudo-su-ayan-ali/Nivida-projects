@@ -2453,6 +2453,48 @@
 
 ---
 
+### Entry 77: Settings Module Deep Audit, Full Sub-View Implementations, Tenant Scoping & Backup Integration
+**Date:** 2026-10-26  
+**Author:** Antigravity (Google DeepMind Advanced Agentic Coding)
+
+#### What Was Changed:
+- **Multi-Tenant Database Scoping & Upsert (`settings_service.dart`)**:
+  - Implemented `_resolveInstitutionId()` to automatically bind to the authenticated Principal's institution UUID with fallback to Tenant Alpha (`00000000-0000-0000-0000-000000000001`).
+  - Scoped `fetchSettings()` query to `.eq('institution_id', instId).maybeSingle()`, preventing cross-tenant leakage or RLS failures.
+  - Re-architected `saveSettings()` to extract table-level columns (`org_name`, `academic_year`, `is_dark_mode`, `updated_at`, `institution_id`) and store non-column preferences inside `toggles` JSONB, preventing PostgreSQL "column does not exist" schema rejections.
+  - Added conflict resolution targeting `institution_id` on upsert.
+- **Settings Controller Full Lifecycle (`settings_controller.dart`)**:
+  - Maintained initial in-memory defaults for backward test compatibility, while dynamically resolving and formatting Tenant Alpha configurations (`EduSmart International Academy (Tenant Alpha)`, `2026 - 2027`) upon `load()`.
+  - Added bidirectional toggle mapping between backend keys (`email`, `sms`, `whatsapp`, `biometric`, `maintenance`, `auto_backup`, `activity_logging`, `session_timeout`) and Flutter display labels.
+  - Added `searchQuery` state, `setSearchQuery()`, and `clearSearch()`.
+  - Added `clearNotifications()` to clear notification counter to 0.
+  - Integrated `runFullBackup()` directly connecting to `ErpBackupService().exportAllToExcel()` with table export progress reporting and automatic `.xlsx` downloads.
+- **Dedicated Interactive Sub-Views for All 6 Categories**:
+  - **Security Settings (`security_settings_view.dart`)**: 2FA enforcement switch, session inactivity timeout, comprehensive audit logging toggle, maintenance mode, password policy selectors (length, expiry, symbols), campus IP geofence, and active Principal session inspector with remote revoke action.
+  - **Users & Roles Directory (`roles_settings_view.dart`)**: Full RBAC directory listing all 14 standardized educational roles (Super Admin through Front Desk) with user counts, active Principal badge, search filter, and granular permission inspection modal.
+  - **Backup & Disaster Recovery (`backup_settings_view.dart`)**: Automated nightly backup toggle, retention policy dropdown, destination storage selector, checksum verification, verified snapshot history table, and manual full database export trigger via `ErpBackupService`.
+  - **Notifications Center (`notifications_settings_view.dart`)**: Communication channels (Email SMTP, SMS gateway, WhatsApp API), automated event triggers (absences, fees, exams, payroll, low stock), gateway health indicators, and interactive "Send Test Notification" flow.
+  - **Appearance & Personalization (`appearance_settings_view.dart`)**: Side-by-side Daylight Light Theme and Midnight Dark Theme selectors, 5 brand accent palettes (EduSmart Blue, Emerald Green, Royal Violet, Sunset Amber, Ocean Cyan), interface font scaling (90%, 100%, 110%), table row density, and live component preview.
+- **Settings Page & Header Interactive Polish (`main.dart`, `settings_header.dart`, `setting_field.dart`, `save_settings_bar.dart`)**:
+  - Added live search results view in `main.dart` displaying matching categories and live toggle switches with jump-to-category shortcuts.
+  - Wired header search input with clear `(X)` button.
+  - Updated header profile to display `Dr. Robert Jenkins (Principal)` with 'P' avatar, opening a comprehensive Principal credentials dialog.
+  - Replaced static notification snackbar with a full Notification Center modal showing recent operational alerts and "Mark all read" action.
+  - Resolved `Row` flex overflow in `setting_field.dart` and `backup_settings_view.dart` by wrapping labels in `Expanded`.
+  - Added "Export Backup (.xlsx)" shortcut button in `save_settings_bar.dart`.
+- **Comprehensive Testing & Verification**:
+  - Created `test/settings_comprehensive_test.dart` with 15 unit and widget tests covering defaults, remote loading, dirty tracking, save/discard, category switching, search filtering, and view transitions (**15/15 passed**).
+  - Executed entire Flutter test suite across all 20 test files: **120/120 passed (100%)**.
+  - Executed QA contract tests (`pytest QA&VAPT/QA/tests`): **63/63 passed (100%)**.
+
+#### Why It Was Done:
+- To transform the Settings section from static placeholders and "coming soon" toasts into a fully functional, multi-tenant administrative control center for the Principal.
+
+#### For What:
+- Guarantees Principal `Dr. Robert Jenkins` can configure institution identity, govern RBAC permissions, audit security policies, manage multi-channel alerts, customize UI themes, and trigger complete ERP Excel backups reliably.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
 
 

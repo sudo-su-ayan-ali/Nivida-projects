@@ -9,7 +9,7 @@ class SaveSettingsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = controller.isDarkMode;
-    final isNarrow = MediaQuery.of(context).size.width < 720;
+    final isNarrow = MediaQuery.of(context).size.width < 780;
 
     return Container(
       width: double.infinity,
@@ -23,10 +23,11 @@ class SaveSettingsBar extends StatelessWidget {
       ),
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
         runSpacing: 16,
         children: [
           SizedBox(
-            width: isNarrow ? double.infinity : MediaQuery.of(context).size.width * 0.5,
+            width: isNarrow ? double.infinity : MediaQuery.of(context).size.width * 0.45,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -47,7 +48,7 @@ class SaveSettingsBar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Save your knowledge, keep your system secure',
+                        'Save your configuration, keep Tenant Alpha secure',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -58,7 +59,7 @@ class SaveSettingsBar extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Changes made here will be applied across the entire ERP platform.',
+                        'Changes made here are saved directly to school settings and isolated to your tenant.',
                         style: TextStyle(
                           fontSize: 12.5,
                           color: dark
@@ -72,12 +73,13 @@ class SaveSettingsBar extends StatelessWidget {
               ],
             ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
             children: [
               OutlinedButton.icon(
                 onPressed: controller.discardChanges,
-                icon: const Icon(Icons.refresh_rounded, size: 16),
+                icon: const Icon(Icons.undo_rounded, size: 16),
                 label: const Text('Discard Changes'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor:
@@ -87,28 +89,43 @@ class SaveSettingsBar extends StatelessWidget {
                   ),
                   backgroundColor: dark ? AppColors.cardWhiteDark : Colors.white,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                   textStyle: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600),
+                      fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () => controller.runFullBackup(),
+                icon: const Icon(Icons.download_rounded, size: 16, color: AppColors.primaryBlue),
+                label: const Text('Export Backup (.xlsx)'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryBlue,
+                  side: const BorderSide(color: AppColors.primaryBlue),
+                  backgroundColor: dark ? AppColors.cardWhiteDark : Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  textStyle: const TextStyle(
+                      fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
+              ),
               ElevatedButton.icon(
                 onPressed: () => controller.saveSettings(),
                 icon: const Icon(Icons.save_rounded, size: 16),
-                label: const Text('Save Settings'),
+                label: const Text('Save Changes'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
                   foregroundColor: Colors.white,
-                  elevation: 0,
+                  backgroundColor: AppColors.primaryBlue,
+                  elevation: 2,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                   textStyle: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700),
+                      fontSize: 12.5, fontWeight: FontWeight.w700),
                 ),
               ),
             ],

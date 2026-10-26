@@ -27,6 +27,15 @@ class SettingField extends StatelessWidget {
     final fieldBg = dark ? const Color(0xFF11172A) : Colors.white;
     final borderColor = dark ? AppColors.cardBorderDark : AppColors.cardBorder;
 
+    final effectiveOptions = options == null
+        ? null
+        : (options!.contains(value)
+            ? options!
+            : (value.isNotEmpty ? [...options!, value] : options!));
+    final effectiveValue = options == null
+        ? value
+        : (effectiveOptions!.contains(value) ? value : effectiveOptions.first);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -36,12 +45,15 @@ class SettingField extends StatelessWidget {
                 size: 15,
                 color: dark ? AppColors.textSecondaryDark : AppColors.textSecondary),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: labelColor,
+            Expanded(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: labelColor,
+                ),
               ),
             ),
           ],
@@ -55,7 +67,7 @@ class SettingField extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: borderColor),
           ),
-          child: options == null
+          child: effectiveOptions == null
               ? TextFormField(
                   initialValue: value,
                   onChanged: onChanged,
@@ -67,7 +79,7 @@ class SettingField extends StatelessWidget {
                 )
               : DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: options!.contains(value) ? value : options!.first,
+                    value: effectiveValue,
                     isExpanded: true,
                     icon: Icon(Icons.keyboard_arrow_down_rounded,
                         size: 20,
@@ -77,7 +89,7 @@ class SettingField extends StatelessWidget {
                     style: TextStyle(fontSize: 13.5, color: labelColor),
                     dropdownColor: dark ? AppColors.cardWhiteDark : Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    items: options!
+                    items: effectiveOptions
                         .map((o) => DropdownMenuItem(value: o, child: Text(o)))
                         .toList(),
                     onChanged: (v) {
