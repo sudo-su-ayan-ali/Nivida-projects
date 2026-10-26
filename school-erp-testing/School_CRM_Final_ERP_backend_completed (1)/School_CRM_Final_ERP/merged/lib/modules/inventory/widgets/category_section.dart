@@ -14,9 +14,20 @@ class CategorySection extends StatelessWidget {
     final categories = appState.liveCategories;
     final columns = Responsive.gridColumns(context, mobile: 2, tablet: 3, desktop: 3);
 
-  return SectionCard(
-  title: 'Category Wise Items',
-  child: Column(
+    final isFiltered = appState.categoryFilter != 'All Categories';
+
+    return SectionCard(
+      title: 'Category Wise Items',
+      actionLabel: isFiltered ? 'View All' : null,
+      onAction: isFiltered
+          ? () {
+              appState.setCategoryFilter('All Categories');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Showing all categories')),
+              );
+            }
+          : null,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (categories.isEmpty)

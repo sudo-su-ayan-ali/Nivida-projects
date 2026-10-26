@@ -13,10 +13,20 @@ class AlertsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = AppScope.of(context);
     final alerts = appState.liveAlerts;
+    final isFiltered = appState.statusFilter != 'All Status';
 
-   return SectionCard(
-  title: 'Inventory Alerts',
-  child: Column(
+    return SectionCard(
+      title: 'Inventory Alerts',
+      actionLabel: isFiltered ? 'Clear Filter' : null,
+      onAction: isFiltered
+          ? () {
+              appState.setStatusFilter('All Status');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Cleared alert status filter')),
+              );
+            }
+          : null,
+      child: Column(
         children: [
           for (var i = 0; i < alerts.length; i++) ...[
             _AlertTile(

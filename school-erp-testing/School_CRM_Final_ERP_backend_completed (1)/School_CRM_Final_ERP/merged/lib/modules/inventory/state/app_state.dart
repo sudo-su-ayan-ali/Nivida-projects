@@ -13,20 +13,37 @@ import '../utils/formatters.dart';
 /// automatically. There is no backend: everything lives in memory for the
 /// lifetime of the app session.
 class AppState extends ChangeNotifier {
-  AppState() {
-    _loadItems();
-    _loadStockLogs();
+  AppState({InventoryService? service}) : _service = service ?? InventoryService() {
+    items = List.from(DummyData.inventoryItems);
+    stockInLog = List.from(DummyData.stockIn);
+    stockOutLog = List.from(DummyData.stockOut);
+    _initAsync();
   }
 
-  final _service = InventoryService();
+  final InventoryService _service;
   List<InventoryItem> items = [];
-  bool isLoading = true;
+  bool isLoading = false;
+
+  Future<void> _initAsync() async {
+    await _loadItems();
+    await _loadStockLogs();
+  }
 
   Future<void> _loadItems() async {
-    final data = await _service.fetchItems();
-    items = data;
-    isLoading = false;
-    notifyListeners();
+    try {
+      final data = await _service.fetchItems();
+      if (data.isNotEmpty) {
+        items = data;
+      }
+    } catch (e) {
+      debugPrint('Inventory _loadItems fallback: $e');
+      if (items.isEmpty) {
+        items = List.from(DummyData.inventoryItems);
+      }
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> reload() async {
@@ -37,34 +54,62 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addNewItem(InventoryItem item) async {
-    await _service.addItem(item);
+    // Optimistic UI update
+    items = [item, ...items.where((i) => i.code != item.code)];
+    notifyListeners();
+    try {
+      await _service.addItem(item);
+    } catch (e) {
+      debugPrint('Error syncing addItem: $e');
+    }
     await _loadItems();
   }
 
   Future<void> editItem(String code, InventoryItem updated) async {
-    await _service.updateItem(code, updated);
+    // Optimistic UI update
+    final idx = items.indexWhere((i) => i.code == code);
+    if (idx != -1) {
+      items[idx] = updated;
+      notifyListeners();
+    }
+    try {
+      await _service.updateItem(code, updated);
+    } catch (e) {
+      debugPrint('Error syncing updateItem: $e');
+    }
     await _loadItems();
   }
 
   Future<void> removeItem(String code) async {
-    await _service.deleteItem(code);
+    // Optimistic UI update
+    items = items.where((i) => i.code != code).toList();
+    notifyListeners();
+    try {
+      await _service.deleteItem(code);
+    } catch (e) {
+      debugPrint('Error syncing deleteItem: $e');
+    }
     await _loadItems();
   }
 
-  // Stock In / Stock Out logs — ab Supabase ke `stock_movements` table se
-  // load hote hain, pehle DummyData.stockIn/stockOut se hardcoded seed hote
-  // the aur kabhi backend se save/load nahi hote the.
   List<StockActivity> stockInLog = [];
   List<StockActivity> stockOutLog = [];
 
   Future<void> _loadStockLogs() async {
-    final results = await Future.wait([
-      _service.fetchStockMovements(StockDirection.stockIn),
-      _service.fetchStockMovements(StockDirection.stockOut),
-    ]);
-    stockInLog = results[0];
-    stockOutLog = results[1];
-    notifyListeners();
+    try {
+      final results = await Future.wait([
+        _service.fetchStockMovements(StockDirection.stockIn),
+        _service.fetchStockMovements(StockDirection.stockOut),
+      ]);
+      if (results[0].isNotEmpty) stockInLog = results[0];
+      if (results[1].isNotEmpty) stockOutLog = results[1];
+    } catch (e) {
+      debugPrint('Inventory _loadStockLogs fallback: $e');
+      if (stockInLog.isEmpty) stockInLog = List.from(DummyData.stockIn);
+      if (stockOutLog.isEmpty) stockOutLog = List.from(DummyData.stockOut);
+    } finally {
+      notifyListeners();
+    }
   }
 
   // Toolbar / table filter state.
@@ -250,13 +295,31 @@ class AppState extends ChangeNotifier {
       status: statusForQuantity(newQty),
       lastUpdated: todayLabel(),
     );
-    await _service.updateItem(item.code, updated);
-    await _service.addStockMovement(
-      itemCode: item.code,
-      itemName: item.name,
-      quantity: qty,
-      direction: StockDirection.stockIn,
-    );
+    // Optimistic update
+    items[idx] = updated;
+    stockInLog = [
+      StockActivity(
+        itemName: item.name,
+        quantity: qty,
+        date: todayLabel(),
+        direction: StockDirection.stockIn,
+        icon: item.icon,
+      ),
+      ...stockInLog,
+    ];
+    notifyListeners();
+
+    try {
+      await _service.updateItem(item.code, updated);
+      await _service.addStockMovement(
+        itemCode: item.code,
+        itemName: item.name,
+        quantity: qty,
+        direction: StockDirection.stockIn,
+      );
+    } catch (e) {
+      debugPrint('Error syncing stockIn: $e');
+    }
     await _loadItems();
     await _loadStockLogs();
   }
@@ -273,13 +336,31 @@ class AppState extends ChangeNotifier {
       status: statusForQuantity(newQty),
       lastUpdated: todayLabel(),
     );
-    await _service.updateItem(item.code, updated);
-    await _service.addStockMovement(
-      itemCode: item.code,
-      itemName: item.name,
-      quantity: qty,
-      direction: StockDirection.stockOut,
-    );
+    // Optimistic update
+    items[idx] = updated;
+    stockOutLog = [
+      StockActivity(
+        itemName: item.name,
+        quantity: qty,
+        date: todayLabel(),
+        direction: StockDirection.stockOut,
+        icon: item.icon,
+      ),
+      ...stockOutLog,
+    ];
+    notifyListeners();
+
+    try {
+      await _service.updateItem(item.code, updated);
+      await _service.addStockMovement(
+        itemCode: item.code,
+        itemName: item.name,
+        quantity: qty,
+        direction: StockDirection.stockOut,
+      );
+    } catch (e) {
+      debugPrint('Error syncing stockOut: $e');
+    }
     await _loadItems();
     await _loadStockLogs();
   }

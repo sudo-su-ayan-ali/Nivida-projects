@@ -250,21 +250,23 @@ class _ItemRow extends StatelessWidget {
   }
 
   Future<void> _editItem(BuildContext context, AppState appState, InventoryItem item) async {
-  final result = await showDialog(context: context, builder: (_) => AddEditItemDialog(existing: item));
-  if (result == null || !context.mounted) return;
-  await appState.editItem(item.code, result);
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${result.name} updated')));
-}
+    final result = await showDialog(context: context, builder: (_) => AddEditItemDialog(existing: item));
+    if (result == null || !context.mounted) return;
+    await appState.editItem(item.code, result);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${result.name} updated')));
+  }
 
- Future<void> _deleteItem(BuildContext context, AppState appState, InventoryItem item) async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (_) => ConfirmDeleteDialog(itemName: item.name),
-  );
-  if (confirmed != true || !context.mounted) return;
-  await appState.removeItem(item.code);
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.name} deleted')));
-}
+  Future<void> _deleteItem(BuildContext context, AppState appState, InventoryItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => ConfirmDeleteDialog(itemName: item.name),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await appState.removeItem(item.code);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.name} deleted')));
+  }
 }
 
 class _StatusPill extends StatelessWidget {

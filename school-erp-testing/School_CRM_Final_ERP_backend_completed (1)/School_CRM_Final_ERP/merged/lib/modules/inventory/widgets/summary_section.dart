@@ -104,14 +104,15 @@ class SummarySection extends StatelessWidget {
     );
   }
 
-  void _generateReport(BuildContext context, AppState appState) {
+  Future<void> _generateReport(BuildContext context, AppState appState) async {
     final csv = buildInventoryCsv(appState.items);
-    final downloaded = downloadTextFile('inventory_summary_report.csv', csv);
+    final downloaded = await downloadTextFile('inventory_summary_report.csv', csv);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(downloaded
             ? 'Report generated — inventory_summary_report.csv downloaded'
-            : 'Report generated for ${appState.items.length} items (download available on Flutter Web)'),
+            : 'Report generated for ${appState.items.length} items'),
       ),
     );
   }

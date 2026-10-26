@@ -53,7 +53,8 @@ class QuickActionsSection extends StatelessWidget {
   Future<void> _addItem(BuildContext context, AppState appState) async {
     final item = await showDialog(context: context, builder: (_) => const AddEditItemDialog());
     if (item == null || !context.mounted) return;
-   await appState.addNewItem(item);
+    await appState.addNewItem(item);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.name} added to inventory')));
   }
 
@@ -79,17 +80,19 @@ class QuickActionsSection extends StatelessWidget {
     final name = await showDialog<String>(context: context, builder: (_) => const AddSupplierDialog());
     if (name == null || name.isEmpty || !context.mounted) return;
     appState.addSupplier();
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Supplier "$name" added')));
   }
 
-  void _exportReport(BuildContext context, AppState appState) {
+  Future<void> _exportReport(BuildContext context, AppState appState) async {
     final csv = buildInventoryCsv(appState.items);
-    final downloaded = downloadTextFile('inventory_report.csv', csv);
+    final downloaded = await downloadTextFile('inventory_report.csv', csv);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(downloaded
             ? 'Report exported — inventory_report.csv downloaded'
-            : 'Report generated for ${appState.items.length} items (download available on Flutter Web)'),
+            : 'Report generated for ${appState.items.length} items'),
       ),
     );
   }

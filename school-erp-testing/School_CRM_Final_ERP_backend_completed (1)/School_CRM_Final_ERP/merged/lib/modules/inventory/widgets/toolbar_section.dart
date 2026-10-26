@@ -138,17 +138,19 @@ class _ToolbarSectionState extends State<ToolbarSection> {
     final item = await showDialog(context: context, builder: (_) => const AddEditItemDialog());
     if (item == null || !context.mounted) return;
     await appState.addNewItem(item);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.name} added to inventory')));
   }
 
-  void _exportReport(BuildContext context, AppState appState) {
+  Future<void> _exportReport(BuildContext context, AppState appState) async {
     final csv = buildInventoryCsv(appState.filteredItems);
-    final downloaded = downloadTextFile('inventory_report.csv', csv);
+    final downloaded = await downloadTextFile('inventory_report.csv', csv);
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(downloaded
             ? 'Report exported — inventory_report.csv downloaded'
-            : 'Export is only downloadable on Flutter Web in this demo (${appState.filteredItems.length} rows generated)'),
+            : 'Report generated for ${appState.filteredItems.length} rows'),
       ),
     );
   }

@@ -16,9 +16,11 @@ class StockActivitySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final recent = items.take(4).toList();
 
-   return SectionCard(
-  title: title,
-  child: recent.isEmpty
+    return SectionCard(
+      title: title,
+      actionLabel: items.length > 4 ? 'View All' : null,
+      onAction: items.length > 4 ? () => _showFullLog(context) : null,
+      child: recent.isEmpty
           ? const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Text('No activity yet', style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5)),
@@ -46,7 +48,7 @@ class StockActivitySection extends StatelessWidget {
               ? const Center(child: Text('No activity yet', style: TextStyle(color: AppColors.textSecondary)))
               : ListView.separated(
                   itemCount: items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 20),
+                  separatorBuilder: (_, _) => const Divider(height: 20),
                   itemBuilder: (_, i) => _ActivityTile(activity: items[i]),
                 ),
         ),

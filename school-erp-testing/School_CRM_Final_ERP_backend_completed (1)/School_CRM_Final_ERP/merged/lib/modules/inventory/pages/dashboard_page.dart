@@ -59,18 +59,19 @@ class DashboardPage extends StatelessWidget {
                   // its own natural (different) height instead, which is
                   // safe and still looks clean since each card has its own
                   // shadow/border.
-                 if (isDesktop)
-  _AnimatedSection(
-    delay: 120,
-    child: const _EqualHeightRow(
-      flexes: [3, 4, 3],
-      children: [
-        InventoryOverviewSection(),
-        CategorySection(),
-        AlertsSection(),
-      ],
-    ),
-  )
+                  if (isDesktop)
+                    _AnimatedSection(
+                      delay: 120,
+                      child: const _EqualHeightRow(
+                        flexes: [3, 4, 3],
+                        spacing: 16,
+                        children: [
+                          InventoryOverviewSection(),
+                          CategorySection(),
+                          AlertsSection(),
+                        ],
+                      ),
+                    )
                   else
                     _AnimatedSection(
                       delay: 120,

@@ -4,7 +4,17 @@ import '../models/inventory_models.dart';
 import '../theme/app_theme.dart';
 
 class InventoryService {
-  SupabaseClient get _client => Supabase.instance.client;
+  final SupabaseClient? _clientInstance;
+  InventoryService({SupabaseClient? client}) : _clientInstance = client;
+
+  SupabaseClient get _client {
+    if (_clientInstance != null) return _clientInstance;
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      throw StateError('Supabase client is not initialized.');
+    }
+  }
 
   Future<String> _resolveInstitutionId() async {
     try {

@@ -26,6 +26,14 @@ class _StockMoveDialogState extends State<StockMoveDialog> {
   InventoryItem? _selected;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.items.isNotEmpty) {
+      _selected = widget.items.first;
+    }
+  }
+
+  @override
   void dispose() {
     _qtyCtrl.dispose();
     super.dispose();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../state/app_scope.dart';
 import '../theme/app_theme.dart';
 
@@ -170,37 +171,67 @@ class _NotificationsButton extends StatelessWidget {
 class _ProfileMenu extends StatelessWidget {
   const _ProfileMenu();
 
+  String _getUserInitial() {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user?.email != null && user!.email!.isNotEmpty) {
+        return user.email![0].toUpperCase();
+      }
+    } catch (_) {}
+    return 'P'; // Principal
+  }
+
+  String _getUserDisplay() {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user?.email != null) {
+        return user!.email!.split('@').first;
+      }
+    } catch (_) {}
+    return 'Principal (Dr. Robert Jenkins)';
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       tooltip: 'Account',
       offset: const Offset(0, 52),
-      itemBuilder: (context) => const [
+      itemBuilder: (context) => [
         PopupMenuItem(
-          value: 'profile',
-          child: Row(children: [Icon(Icons.person_outline_rounded, size: 18), SizedBox(width: 10), Text('Profile')]),
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_getUserDisplay(), style: const TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Logged in as Principal', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            ],
+          ),
         ),
-        PopupMenuItem(
-          value: 'settings',
-          child: Row(children: [Icon(Icons.settings_outlined, size: 18), SizedBox(width: 10), Text('Settings')]),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'status',
+          child: Row(children: [Icon(Icons.inventory_rounded, size: 18), SizedBox(width: 10), Text('Inventory Status')]),
         ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'logout',
-          child: Row(children: [
-            Icon(Icons.logout_rounded, size: 18, color: AppColors.red),
-            SizedBox(width: 10),
-            Text('Logout', style: TextStyle(color: AppColors.red)),
-          ]),
+        const PopupMenuItem(
+          value: 'refresh',
+          child: Row(children: [Icon(Icons.sync_rounded, size: 18), SizedBox(width: 10), Text('Sync Data')]),
         ),
       ],
-      onSelected: (value) {
-        final messages = {
-          'profile': 'Profile page is not part of this frontend-only demo',
-          'settings': 'Settings page is not part of this frontend-only demo',
-          'logout': 'Logout is not wired to a backend in this demo',
-        };
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(messages[value] ?? '')));
+      onSelected: (value) async {
+        if (value == 'status') {
+          final state = AppScope.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Total SKUs: ${state.totalSkuCount} · Value: ₹${state.totalValue.toStringAsFixed(0)}')),
+          );
+        } else if (value == 'refresh') {
+          final state = AppScope.of(context);
+          await state.reload();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Inventory data re-synchronized')),
+            );
+          }
+        }
       },
       child: Container(
         height: 44,
@@ -210,16 +241,16 @@ class _ProfileMenu extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
               radius: 15,
               backgroundColor: AppColors.primary,
-              child: Text('A', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              child: Text(_getUserInitial(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
-            SizedBox(width: 4),
-            Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textMuted),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textMuted),
           ],
         ),
       ),

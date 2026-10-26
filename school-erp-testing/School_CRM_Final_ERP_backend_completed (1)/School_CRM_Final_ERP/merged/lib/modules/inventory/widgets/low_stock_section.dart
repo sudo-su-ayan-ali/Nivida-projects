@@ -13,8 +13,17 @@ class LowStockSection extends StatelessWidget {
     final lowStock = appState.liveLowStock;
 
     return SectionCard(
-  title: 'Low Stock Items',
-  child: lowStock.isEmpty
+      title: 'Low Stock Items',
+      actionLabel: lowStock.isNotEmpty ? 'View in Table' : null,
+      onAction: lowStock.isNotEmpty
+          ? () {
+              appState.setStatusFilter('Low Stock');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Filtered table by Low Stock items')),
+              );
+            }
+          : null,
+      child: lowStock.isEmpty
           ? const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Text('No low stock items right now 🎉',

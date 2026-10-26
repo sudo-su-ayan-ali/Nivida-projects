@@ -60,6 +60,13 @@ class InventoryOverviewSection extends StatelessWidget {
 
     return SectionCard(
       title: 'Inventory Overview',
+      actionLabel: 'Reset Filters',
+      onAction: () {
+        appState.clearFilters();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All inventory filters reset')),
+        );
+      },
       child: LayoutBuilder(
         builder: (context, constraints) {
           const spacing = 12.0;

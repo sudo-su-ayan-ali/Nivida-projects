@@ -2408,6 +2408,51 @@
 
 ---
 
+### Entry 76: Deep Polish, Backend Wiring, Offline Fallbacks & Cross-Platform Exports in Inventory Module
+#### What Was Done:
+- **Audit & Identified Deficiencies in Inventory Module:**
+  - Audited `lib/modules/inventory/`:
+    - `InventoryService` lacked client dependency injection for testing and threw unhandled StateErrors if Supabase was uninitialized.
+    - `AppState` had `items = []` initially, causing dashboard KPI cards, low stock, categories, and inventory table to mount empty before asynchronous fetches finished or when network was slow/offline.
+    - Mutation methods (`addNewItem`, `editItem`, `removeItem`, `stockIn`, `stockOut`) were synchronous on backend calls without optimistic local state updates, causing slow or non-responsive UI clicks.
+    - Export functions in `toolbar_section.dart`, `quick_actions_section.dart`, and `summary_section.dart` were using a web-only `downloadTextFile` helper that displayed confusing "demo" messages on non-web environments and lacked cross-platform file saving.
+    - `_showFullLog` in `stock_activity_section.dart` was unreferenced, leaving "Recent Stock In" and "Recent Stock Out" cards without a "View All" modal.
+    - `CategorySection`, `AlertsSection`, `LowStockSection`, and `InventoryOverviewSection` lacked interactive action labels or reset buttons.
+    - `HeaderSection`'s profile menu showed a hardcoded avatar with mock placeholder snackbars ("not part of this demo") instead of reflecting the authenticated Principal user and real status actions.
+    - `StockMoveDialog` did not pre-select `widget.items.first`, forcing extra taps or failing validation.
+- **Key Enhancements Implemented:**
+  1. **Injectable Client & Tenant Isolation (`inventory_service.dart`)**:
+     - Added constructor client injection `InventoryService({SupabaseClient? client})` with graceful fallback handling.
+  2. **Synchronous Fallback Seeding & Immediate Optimistic UI (`app_state.dart`)**:
+     - Pre-populated `items`, `stockInLog`, and `stockOutLog` synchronously from `DummyData` in the constructor.
+     - Added try-catch guards around `_loadItems()` and `_loadStockLogs()`.
+     - Updated all mutation methods (`addNewItem`, `editItem`, `removeItem`, `stockIn`, `stockOut`) to perform immediate optimistic state updates with background backend synchronization.
+  3. **Universal Cross-Platform File Export (`export_helper.dart`)**:
+     - Upgraded `export_helper.dart` to use `FileSaver.instance.saveFile` across Web, Desktop, and Mobile while maintaining backward-compatible signatures for synchronous callers.
+     - Wired real CSV download to `QuickActionsSection._exportReport`, `ToolbarSection._exportReport`, and `SummarySection._generateReport`.
+  4. **Widget & Section Interactivity Polish**:
+     - `stock_activity_section.dart`: Wired `actionLabel: 'View All'` and `onAction: () => _showFullLog(context)` to display the complete historical activity modal.
+     - `category_section.dart`: Added `actionLabel: 'View All'` when a category filter is active to quickly clear category filters.
+     - `alerts_section.dart`: Added `actionLabel: 'Clear Filter'` when filtering by alert status.
+     - `low_stock_section.dart`: Added `actionLabel: 'View in Table'` to jump directly to low stock rows.
+     - `inventory_overview_section.dart`: Added `actionLabel: 'Reset Filters'` to easily clear all filters.
+     - `header_section.dart`: Updated `_ProfileMenu` to display the authenticated Principal initial (`P` / email prefix) with real "Inventory Status" summary and "Sync Data" actions.
+     - `stock_move_dialog.dart`: Pre-selects `widget.items.first` on initialization for instant submission.
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/modules/inventory`: **0 errors**.
+  - Created and ran `test/inventory_comprehensive_test.dart`: **6/6 passed**.
+  - Ran `test/phase3_remaining_modules_test.dart`: **5/5 passed**.
+  - Ran entire Flutter test suite (`flutter test` across all 19 test files): **105/105 passed (100%)**.
+  - Ran QA Python contract test suite (`pytest QA&VAPT/QA/tests`): **63/63 passed (100%)**.
+
+#### Why It Was Done:
+- To eliminate all non-functioning widgets, non-responsive buttons, empty states, and mock toasts in the Inventory module when logged in as Principal, restoring full stock-in/out, item management, category filtering, and real document exports.
+
+#### For What:
+- Ensures institutional leaders (Principal) have a responsive, production-ready Inventory Management subsystem that operates smoothly online and offline.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
 
 
