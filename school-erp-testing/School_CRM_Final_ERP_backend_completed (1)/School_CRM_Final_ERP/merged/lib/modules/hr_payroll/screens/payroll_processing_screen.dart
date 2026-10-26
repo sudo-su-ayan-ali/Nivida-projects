@@ -9,7 +9,8 @@ import '../widgets/common.dart';
 const months = ['January 2024', 'February 2024', 'March 2024', 'April 2024', 'May 2024', 'June 2024'];
 
 class PayrollProcessingScreen extends StatefulWidget {
-  const PayrollProcessingScreen({super.key});
+  final Map<String, dynamic> args;
+  const PayrollProcessingScreen({super.key, this.args = const {}});
 
   @override
   State<PayrollProcessingScreen> createState() => _PayrollProcessingScreenState();
@@ -18,6 +19,37 @@ class PayrollProcessingScreen extends StatefulWidget {
 class _PayrollProcessingScreenState extends State<PayrollProcessingScreen> {
   String _month = 'May 2024';
   String _department = 'All Departments';
+  bool _handledArgs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.args['month'] is String) {
+      _month = widget.args['month'] as String;
+    }
+    if (widget.args['department'] is String) {
+      _department = widget.args['department'] as String;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_handledArgs && widget.args['openProcess'] == true) {
+      _handledArgs = true;
+      final state = context.read<AppState>();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _process(state));
+    }
+  }
+
+  @override
+  void didUpdateWidget(PayrollProcessingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.args['openProcess'] == true && oldWidget.args != widget.args) {
+      final state = context.read<AppState>();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _process(state));
+    }
+  }
 
   Future<void> _process(AppState state) async {
     final confirmed = await showConfirmDialog(

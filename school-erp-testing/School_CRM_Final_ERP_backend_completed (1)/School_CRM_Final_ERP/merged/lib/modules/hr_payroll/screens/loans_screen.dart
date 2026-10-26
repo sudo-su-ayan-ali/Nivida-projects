@@ -10,22 +10,45 @@ import '../widgets/common.dart';
 const _uuid = Uuid();
 
 class LoansScreen extends StatefulWidget {
-  const LoansScreen({super.key});
+  final Map<String, dynamic> args;
+  const LoansScreen({super.key, this.args = const {}});
 
   @override
   State<LoansScreen> createState() => _LoansScreenState();
 }
 
 class _LoansScreenState extends State<LoansScreen> {
-  Future<void> _openForm() async {
+  bool _handledArgs = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_handledArgs && (widget.args['openNew'] == true || widget.args['openAdvance'] == true)) {
+      _handledArgs = true;
+      final defaultType = widget.args['type'] as String? ?? 'Salary Advance';
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openForm(defaultType: defaultType));
+    }
+  }
+
+  @override
+  void didUpdateWidget(LoansScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.args['openNew'] == true || widget.args['openAdvance'] == true) &&
+        oldWidget.args != widget.args) {
+      final defaultType = widget.args['type'] as String? ?? 'Salary Advance';
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openForm(defaultType: defaultType));
+    }
+  }
+
+  Future<void> _openForm({String defaultType = 'Salary Advance'}) async {
     final state = context.read<AppState>();
     final result = await showDialog<LoanAdvance>(
       context: context,
-      builder: (_) => _LoanDialog(employees: state.employees),
+      builder: (_) => _LoanDialog(employees: state.employees, initialType: defaultType),
     );
     if (result != null) {
       state.addLoan(result);
-      showAppToast(context, 'Loan/advance recorded');
+      if (mounted) showAppToast(context, 'Loan/advance recorded');
     }
   }
 
@@ -69,7 +92,8 @@ class _LoansScreenState extends State<LoansScreen> {
 
 class _LoanDialog extends StatefulWidget {
   final List<Employee> employees;
-  const _LoanDialog({required this.employees});
+  final String initialType;
+  const _LoanDialog({required this.employees, this.initialType = 'Salary Advance'});
 
   @override
   State<_LoanDialog> createState() => _LoanDialogState();
@@ -77,10 +101,19 @@ class _LoanDialog extends StatefulWidget {
 
 class _LoanDialogState extends State<_LoanDialog> {
   Employee? _employee;
-  String _type = 'Salary Advance';
+  late String _type;
   final _amount = TextEditingController();
   final _interest = TextEditingController(text: '0');
   final _tenure = TextEditingController(text: '6');
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.initialType;
+    if (widget.employees.isNotEmpty) {
+      _employee = widget.employees.first;
+    }
+  }
 
   double get _amountV => double.tryParse(_amount.text) ?? 0;
   double get _interestV => double.tryParse(_interest.text) ?? 0;
@@ -162,7 +195,16 @@ class _LoanDialogState extends State<_LoanDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         ElevatedButton(
           onPressed: () {
-            if (_employee == null || _amountV <= 0) return;
+            if (_employee == null) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Please select an employee')));
+              return;
+            }
+            if (_amountV <= 0) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Please enter a valid loan amount')));
+              return;
+            }
             Navigator.pop(
               context,
               LoanAdvance(

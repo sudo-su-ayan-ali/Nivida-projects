@@ -35,6 +35,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
+  @override
+  void didUpdateWidget(AttendanceScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.args['openMark'] == true && oldWidget.args != widget.args) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openMarkAttendance());
+    }
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -228,6 +236,14 @@ class _MarkAttendanceDialogState extends State<_MarkAttendanceDialog> {
   final _checkOut = TextEditingController(text: '05:00');
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.employees.isNotEmpty) {
+      _employee = widget.employees.first;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -279,7 +295,11 @@ class _MarkAttendanceDialogState extends State<_MarkAttendanceDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         ElevatedButton(
           onPressed: () {
-            if (_employee == null) return;
+            if (_employee == null) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Please select an employee')));
+              return;
+            }
             Navigator.pop(
               context,
               AttendanceRecord(

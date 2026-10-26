@@ -7,7 +7,8 @@ import '../theme.dart';
 import '../widgets/common.dart';
 
 class HrReportsScreen extends StatefulWidget {
-  const HrReportsScreen({super.key});
+  final Map<String, dynamic> args;
+  const HrReportsScreen({super.key, this.args = const {}});
 
   @override
   State<HrReportsScreen> createState() => _HrReportsScreenState();
@@ -24,6 +25,28 @@ class _HrReportsScreenState extends State<HrReportsScreen> {
     'Department Report',
     'Joining / Exit Report',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.args['reportType'] is String &&
+        _reportTypes.contains(widget.args['reportType'])) {
+      _reportType = widget.args['reportType'] as String;
+    }
+    if (widget.args['department'] is String) {
+      _department = widget.args['department'] as String;
+    }
+  }
+
+  @override
+  void didUpdateWidget(HrReportsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.args['reportType'] is String &&
+        widget.args['reportType'] != oldWidget.args['reportType'] &&
+        _reportTypes.contains(widget.args['reportType'])) {
+      setState(() => _reportType = widget.args['reportType'] as String);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +163,8 @@ class _HrReportsScreenState extends State<HrReportsScreen> {
 }
 
 class PayrollReportsScreen extends StatefulWidget {
-  const PayrollReportsScreen({super.key});
+  final Map<String, dynamic> args;
+  const PayrollReportsScreen({super.key, this.args = const {}});
 
   @override
   State<PayrollReportsScreen> createState() => _PayrollReportsScreenState();
@@ -149,6 +173,25 @@ class PayrollReportsScreen extends StatefulWidget {
 class _PayrollReportsScreenState extends State<PayrollReportsScreen> {
   String _reportType = 'Monthly Payroll';
   final _reportTypes = const ['Monthly Payroll', 'Salary Report', 'Deduction Report', 'Tax Report', 'Payslip Report'];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.args['reportType'] is String &&
+        _reportTypes.contains(widget.args['reportType'])) {
+      _reportType = widget.args['reportType'] as String;
+    }
+  }
+
+  @override
+  void didUpdateWidget(PayrollReportsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.args['reportType'] is String &&
+        widget.args['reportType'] != oldWidget.args['reportType'] &&
+        _reportTypes.contains(widget.args['reportType'])) {
+      setState(() => _reportType = widget.args['reportType'] as String);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

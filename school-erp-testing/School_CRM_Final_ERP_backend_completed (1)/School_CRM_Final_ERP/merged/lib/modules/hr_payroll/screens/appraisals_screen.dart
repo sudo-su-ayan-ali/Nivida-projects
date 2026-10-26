@@ -120,6 +120,14 @@ class _AppraisalDialogState extends State<_AppraisalDialog> {
   final _employeeFeedback = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.employees.isNotEmpty) {
+      _employee = widget.employees.first;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -154,7 +162,11 @@ class _AppraisalDialogState extends State<_AppraisalDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         ElevatedButton(
           onPressed: () {
-            if (_employee == null) return;
+            if (_employee == null) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Please select an employee')));
+              return;
+            }
             Navigator.pop(
               context,
               Appraisal(

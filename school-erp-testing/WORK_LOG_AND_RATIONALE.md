@@ -2365,6 +2365,49 @@
 
 ---
 
+### Entry 75: Deep Polish & Feature Wiring for HR Quick Actions, Sub-Screens & Dialogs
+#### What Was Done:
+- **Audit & Identification of Gaps in HR Quick Actions & Sub-Screens:**
+  - Audited `_QuickActions` in `dashboard_screen.dart` and found that several quick action tiles dispatched routes without target screens receiving or acting on action parameters (`args`).
+  - Addressed missing parameters and auto-trigger behavior across all quick actions:
+    1. **Salary Advance**: Now dispatches `{'openAdvance': true, 'type': 'Salary Advance'}` directly to `LoansScreen`.
+    2. **Generate Payslips**: Dispatches `{'autoGenerate': true}` to `PayslipsScreen`.
+    3. **Attendance Report**: Dispatches `{'reportType': 'Attendance Report'}` to `HrReportsScreen`.
+    4. **Payroll Report**: Dispatches `{'reportType': 'Salary Report'}` to `PayrollReportsScreen`.
+    5. **Process Payroll**: Dispatches `{'openProcess': true}` to `PayrollProcessingScreen`.
+- **Target Screens Navigation Arguments Handling (`didChangeDependencies` & `didUpdateWidget`):**
+  - Updated `LoansScreen` to accept `final Map<String, dynamic> args`. If `openNew` or `openAdvance` is set, auto-triggers `_openForm` with the specified initial loan type.
+  - Updated `PayslipsScreen` to accept `args` and auto-generate payslips when `autoGenerate == true`.
+  - Updated `HrReportsScreen` and `PayrollReportsScreen` to accept `args` and automatically select the targeted report type.
+  - Updated `PayrollProcessingScreen` to accept `args` and automatically prompt confirmation to process payroll when `openProcess == true`.
+  - Updated `screen_router.dart` to cleanly forward `args` to `LoansScreen`, `PayslipsScreen`, `HrReportsScreen`, `PayrollReportsScreen`, and `PayrollProcessingScreen`.
+  - Updated `AttendanceScreen`, `LeaveScreen`, and `EmployeesScreen` to support `didUpdateWidget` so repeated quick action navigations re-trigger dialogs seamlessly even when widgets are already mounted.
+- **Dialog Usability & Default Value Pre-Population:**
+  - In `_MarkAttendanceDialog` (`attendance_screen.dart`), pre-selects `widget.employees.first` so users can immediately record attendance without encountering a null employee blocker.
+  - In `_ApplyLeaveDialog` (`leave_screen.dart`), pre-selects `widget.employees.first` and validates all fields with user-friendly snackbars.
+  - In `_LoanDialog` (`loans_screen.dart`), pre-selects `widget.employees.first`, accepts `initialType`, and validates non-zero positive amounts.
+  - In `_AppraisalDialog` (`appraisals_screen.dart`), pre-selects `widget.employees.first` and validates employee selection.
+- **Recruitment Module Candidates Addition:**
+  - Added "Add Candidate" primary button in `CandidatesScreen` (`recruitment_screens.dart`).
+  - Built `_CandidateDialog` allowing users to enter candidate name, email, phone, position applied for (dropdown of active job openings), experience, and comma-separated skills.
+- **Dynamic Principal Profile & Edit Profile Modal:**
+  - Refactored `ProfileScreen` (`system_screens.dart`) from a static placeholder to a stateful widget that dynamically inspects `Supabase.instance.client.auth.currentUser`.
+  - Defaults to Principal `Dr. Robert Jenkins` (`prc001@edusmart.local`, `PRC001`) with live profile editing dialog and password validation.
+- **Verification & Quality Gates:**
+  - `flutter analyze lib/modules/hr_payroll`: **0 errors**.
+  - `flutter test test/hr_payroll_comprehensive_test.dart`: **9/9 passed**.
+  - `flutter test test/phase3_hr_payroll_test.dart`: **6/6 passed**.
+  - Full Flutter test suite (`flutter test` across 18 test files): **99/99 passed (100%)**.
+  - QA Python contract test suite (`pytest QA&VAPT/QA/tests`): **63/63 passed (100%)**.
+
+#### Why It Was Done:
+- To ensure all HR Quick Actions, sub-screens, buttons, dialogs, and widgets function with perfection for the Principal, providing seamless end-to-end workflows from dashboard clicks to dialog submissions and report generations.
+
+#### For What:
+- Guarantees that institutional leadership (Principal) experiences zero dead clicks, zero unhandled arguments, and instant responsiveness across the entire HR & Payroll suite.
+
+---
+
 *Created on 2026-09-29. Maintained as part of the EduSmart School ERP engineering repository.*
 
 

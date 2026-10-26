@@ -8,7 +8,8 @@ import '../widgets/common.dart';
 import 'payroll_processing_screen.dart' show months;
 
 class PayslipsScreen extends StatefulWidget {
-  const PayslipsScreen({super.key});
+  final Map<String, dynamic> args;
+  const PayslipsScreen({super.key, this.args = const {}});
 
   @override
   State<PayslipsScreen> createState() => _PayslipsScreenState();
@@ -17,7 +18,24 @@ class PayslipsScreen extends StatefulWidget {
 class _PayslipsScreenState extends State<PayslipsScreen> {
   Employee? _employee;
   String _month = 'May 2024';
-  bool _generated = false;
+  late bool _generated;
+
+  @override
+  void initState() {
+    super.initState();
+    _generated = widget.args['autoGenerate'] == true;
+    if (widget.args['month'] is String) {
+      _month = widget.args['month'] as String;
+    }
+  }
+
+  @override
+  void didUpdateWidget(PayslipsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.args['autoGenerate'] == true && oldWidget.args != widget.args) {
+      setState(() => _generated = true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

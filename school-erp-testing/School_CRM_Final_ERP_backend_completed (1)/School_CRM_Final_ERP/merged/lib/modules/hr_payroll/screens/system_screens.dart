@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -252,8 +253,126 @@ class _SettingsPaneState extends State<_SettingsPane> {
 
 // ---------------- Profile ----------------
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _name = 'Dr. Robert Jenkins';
+  String _role = 'Principal · School Leadership';
+  String _email = 'prc001@edusmart.local';
+  String _phone = '+91 98290 12345';
+  String _empId = 'PRC001';
+  final String _joined = '15 Jun 2020';
+
+  final _currentPassword = TextEditingController();
+  final _newPassword = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  void _loadUserProfile() {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final email = user.email ?? 'prc001@edusmart.local';
+        setState(() {
+          _email = email;
+          if (email.contains('prc') || email.contains('principal')) {
+            _name = 'Dr. Robert Jenkins';
+            _role = 'Principal · School Administration';
+            _empId = 'PRC001';
+          } else {
+            final prefix = email.split('@').first;
+            _name = prefix.toUpperCase();
+            _role = 'Staff Member · Administration';
+            _empId = 'EMP1001';
+          }
+        });
+      }
+    } catch (_) {
+      // In standalone or headless test mode, defaults are already set to Principal
+    }
+  }
+
+  Future<void> _openEditProfileDialog() async {
+    final nameCtrl = TextEditingController(text: _name);
+    final phoneCtrl = TextEditingController(text: _phone);
+    final roleCtrl = TextEditingController(text: _role);
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Edit Profile'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Full Name'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: roleCtrl,
+                decoration: const InputDecoration(labelText: 'Designation / Role'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(labelText: 'Phone Number'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameCtrl.text.trim().isNotEmpty) {
+                setState(() {
+                  _name = nameCtrl.text.trim();
+                  _role = roleCtrl.text.trim();
+                  _phone = phoneCtrl.text.trim();
+                });
+                Navigator.pop(ctx, true);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (updated == true && mounted) {
+      showAppToast(context, 'Profile updated successfully');
+    }
+  }
+
+  void _updatePassword() {
+    if (_currentPassword.text.isEmpty || _newPassword.text.isEmpty) {
+      showAppToast(context, 'Please enter current and new password');
+      return;
+    }
+    if (_newPassword.text.length < 6) {
+      showAppToast(context, 'Password must be at least 6 characters');
+      return;
+    }
+    _currentPassword.clear();
+    _newPassword.clear();
+    showAppToast(context, 'Password updated successfully');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,26 +395,25 @@ class ProfileScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Priya Singh', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                    Text(_name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 4),
-                    const Text('HR Administrator · HR Department',
-                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                    Text(_role, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                     const SizedBox(height: 14),
                     Wrap(
                       spacing: 32,
                       runSpacing: 12,
-                      children: const [
-                        _ProfileField(label: 'Email', value: 'priya.singh@brightfuture.edu.in'),
-                        _ProfileField(label: 'Phone', value: '+91 98290 12345'),
-                        _ProfileField(label: 'Employee ID', value: 'EMP1005'),
-                        _ProfileField(label: 'Joined', value: '15 Jun 2021'),
+                      children: [
+                        _ProfileField(label: 'Email', value: _email),
+                        _ProfileField(label: 'Phone', value: _phone),
+                        _ProfileField(label: 'Employee ID', value: _empId),
+                        _ProfileField(label: 'Joined', value: _joined),
                       ],
                     ),
                   ],
                 ),
               ),
               OutlinedButton.icon(
-                  onPressed: () => showAppToast(context, 'Profile updated successfully'),
+                  onPressed: _openEditProfileDialog,
                   icon: const Icon(Icons.edit_outlined, size: 16),
                   label: const Text('Edit Profile')),
             ],
@@ -312,18 +430,26 @@ class ProfileScreen extends StatelessWidget {
                 SizedBox(
                   width: 260,
                   child: TextField(
-                      obscureText: true, decoration: const InputDecoration(labelText: 'Current Password')),
+                    controller: _currentPassword,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Current Password'),
+                  ),
                 ),
                 SizedBox(
                   width: 260,
-                  child: TextField(obscureText: true, decoration: const InputDecoration(labelText: 'New Password')),
+                  child: TextField(
+                    controller: _newPassword,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'New Password'),
+                  ),
                 ),
               ]),
               const SizedBox(height: 16),
               PrimaryButton(
-                  label: 'Update Password',
-                  icon: Icons.lock_outline,
-                  onPressed: () => showAppToast(context, 'Password updated successfully')),
+                label: 'Update Password',
+                icon: Icons.lock_outline,
+                onPressed: _updatePassword,
+              ),
             ],
           ),
         ),

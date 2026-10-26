@@ -46,13 +46,13 @@ Widget buildScreen(String route, Map<String, dynamic> args, Navigate onNavigate)
     case Routes.salaryStructure:
       return const SalaryStructureScreen();
     case Routes.payroll:
-      return const PayrollProcessingScreen();
+      return PayrollProcessingScreen(args: args);
     case Routes.allowances:
       return const AllowancesScreen();
     case Routes.loans:
-      return const LoansScreen();
+      return LoansScreen(args: args);
     case Routes.payslips:
-      return const PayslipsScreen();
+      return PayslipsScreen(args: args);
     case Routes.tax:
       return const TaxScreen();
     case Routes.jobs:
@@ -64,9 +64,9 @@ Widget buildScreen(String route, Map<String, dynamic> args, Navigate onNavigate)
     case Routes.offers:
       return const OffersScreen();
     case Routes.hrReports:
-      return const HrReportsScreen();
+      return HrReportsScreen(args: args);
     case Routes.payrollReports:
-      return const PayrollReportsScreen();
+      return PayrollReportsScreen(args: args);
     case Routes.aiAnalytics:
       return const AiAnalyticsScreen();
     case Routes.notifications:

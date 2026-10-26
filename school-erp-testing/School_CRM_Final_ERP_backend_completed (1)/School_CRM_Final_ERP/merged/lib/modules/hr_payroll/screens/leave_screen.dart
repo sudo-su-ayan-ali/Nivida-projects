@@ -34,6 +34,14 @@ class _LeaveScreenState extends State<LeaveScreen> {
     }
   }
 
+  @override
+  void didUpdateWidget(LeaveScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.args['openApply'] == true && oldWidget.args != widget.args) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openApply());
+    }
+  }
+
   Future<void> _openApply() async {
     final state = context.read<AppState>();
     final result = await showDialog<LeaveRequest>(
@@ -199,6 +207,14 @@ class _ApplyLeaveDialogState extends State<_ApplyLeaveDialog> {
   DateTime _start = DateTime.now();
   DateTime _end = DateTime.now().add(const Duration(days: 1));
   final _reason = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.employees.isNotEmpty) {
+      _employee = widget.employees.first;
+    }
+  }
 
   Future<void> _pickDate(bool isStart) async {
     final picked = await showDatePicker(

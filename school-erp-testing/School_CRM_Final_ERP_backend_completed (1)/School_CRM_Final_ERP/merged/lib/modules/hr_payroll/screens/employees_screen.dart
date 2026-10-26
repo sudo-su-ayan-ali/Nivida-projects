@@ -39,6 +39,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  @override
+  void didUpdateWidget(EmployeesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.args['openAdd'] == true && oldWidget.args != widget.args) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openAdd());
+    }
+  }
+
   Future<void> _openAdd() async {
     final state = context.read<AppState>();
     final result = await showEmployeeFormDialog(

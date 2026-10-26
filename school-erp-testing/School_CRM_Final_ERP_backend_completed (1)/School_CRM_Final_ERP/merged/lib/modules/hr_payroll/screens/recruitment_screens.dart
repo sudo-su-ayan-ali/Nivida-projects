@@ -195,13 +195,37 @@ class _JobDialogState extends State<_JobDialog> {
 class CandidatesScreen extends StatelessWidget {
   const CandidatesScreen({super.key});
 
+  Future<void> _openAddCandidate(BuildContext context) async {
+    final state = context.read<AppState>();
+    final result = await showDialog<Candidate>(
+      context: context,
+      builder: (_) => _CandidateDialog(
+        positions: state.jobs.map((j) => j.title).toSet().toList(),
+      ),
+    );
+    if (result != null) {
+      await state.addCandidate(result);
+      if (context.mounted) showAppToast(context, 'Candidate added successfully');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const PageHeader(title: 'Candidates', subtitle: 'Track and manage candidate applications'),
+        PageHeader(
+          title: 'Candidates',
+          subtitle: 'Track and manage candidate applications',
+          actions: [
+            PrimaryButton(
+              label: 'Add Candidate',
+              icon: Icons.person_add_outlined,
+              onPressed: () => _openAddCandidate(context),
+            ),
+          ],
+        ),
         const SizedBox(height: 18),
         AppCard(
           child: AppTable(
@@ -230,6 +254,117 @@ class CandidatesScreen extends StatelessWidget {
                 ]),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CandidateDialog extends StatefulWidget {
+  final List<String> positions;
+  const _CandidateDialog({required this.positions});
+
+  @override
+  State<_CandidateDialog> createState() => _CandidateDialogState();
+}
+
+class _CandidateDialogState extends State<_CandidateDialog> {
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  final _experience = TextEditingController(text: '3 years');
+  final _skills = TextEditingController(text: 'Communication, Teaching');
+  String? _position;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.positions.isNotEmpty) {
+      _position = widget.positions.first;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Add Candidate'),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Full Name *'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _email,
+                decoration: const InputDecoration(labelText: 'Email Address *'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _phone,
+                decoration: const InputDecoration(labelText: 'Phone Number'),
+              ),
+              const SizedBox(height: 14),
+              if (widget.positions.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  value: _position,
+                  decoration: const InputDecoration(labelText: 'Position Applied *'),
+                  items: widget.positions.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                  onChanged: (v) => setState(() => _position = v),
+                )
+              else
+                TextField(
+                  decoration: const InputDecoration(labelText: 'Position Applied *'),
+                  onChanged: (v) => _position = v,
+                ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _experience,
+                decoration: const InputDecoration(labelText: 'Experience (e.g. 4 years)'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _skills,
+                decoration: const InputDecoration(labelText: 'Skills (comma-separated)'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            if (_name.text.trim().isEmpty || (_position == null || _position!.trim().isEmpty)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please provide candidate name and position')),
+              );
+              return;
+            }
+            final rawSkills = _skills.text
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+            Navigator.pop(
+              context,
+              Candidate(
+                id: _uuid.v4(),
+                name: _name.text.trim(),
+                position: _position!.trim(),
+                experience: _experience.text.trim(),
+                skills: rawSkills.isEmpty ? ['General'] : rawSkills,
+                interviewStatus: 'Scheduled',
+                applicationStatus: 'In Review',
+              ),
+            );
+          },
+          child: const Text('Add'),
         ),
       ],
     );
