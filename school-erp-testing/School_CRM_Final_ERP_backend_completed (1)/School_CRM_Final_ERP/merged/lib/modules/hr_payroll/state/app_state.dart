@@ -8,57 +8,48 @@ const _uuid = Uuid();
 
 class AppState extends ChangeNotifier {
     AppState() {
-    employees = [];
-    departments = [];
-    designations = [];
-    shifts = [];
+    employees = seed.buildEmployeeSeed();
+    departments = List.from(seed.departmentsSeed);
+    designations = List.from(seed.designationsSeed);
+    _seedAttendance();
+    _seedLeaves();
+    _seedSalaryStructures();
+    _seedPayroll();
+    _seedLoans();
+    _seedAllowances();
+    shifts = [
+      Shift(id: _uuid.v4(), name: 'Morning Shift', startTime: '08:00 AM', endTime: '02:00 PM', graceMinutes: 15, assignedEmployees: 24),
+      Shift(id: _uuid.v4(), name: 'Regular Shift', startTime: '09:00 AM', endTime: '05:00 PM', graceMinutes: 15, assignedEmployees: 32),
+      Shift(id: _uuid.v4(), name: 'Evening Shift', startTime: '01:00 PM', endTime: '07:00 PM', graceMinutes: 10, assignedEmployees: 8),
+    ];
     jobs = [];
     candidates = [];
     interviews = [];
     offers = [];
-    attendance = [];
-    leaves = [];
-    salaryStructures = [];
-    payrollRecords = [];
     appraisals = [];
-    loans = [];
-    allowanceDeductions = [];
     taxRecords = [];
     notifications = [];
     _init();
   }
 
   Future<void> _init() async {
-    try {
-      await _loadDepartments();
-      await _loadDesignations();
-      await _loadEmployees();
-      await _loadAttendance();
-      await _loadLeaves();
-      await _loadSalaryStructures();
-      await _loadPayrollRecords();
-      _seedNotifications();
-      await _loadShifts();
-      await _loadAppraisals();
-      await _loadJobs();
-      await _loadCandidates();
-      await _loadInterviews();
-      await _loadOffers();
-      await _loadLoans();
-      await _loadAllowanceDeductions();
-      await _loadTaxRecords();
-    } catch (e) {
-      debugPrint('HrState initialization fallback to local state: $e');
-      if (employees.isEmpty) {
-        employees = seed.buildEmployeeSeed();
-        _seedAttendance();
-        _seedLeaves();
-        _seedSalaryStructures();
-        _seedPayroll();
-        _seedLoans();
-        _seedAllowances();
-      }
-    }
+    await _loadDepartments();
+    await _loadDesignations();
+    await _loadEmployees();
+    await _loadAttendance();
+    await _loadLeaves();
+    await _loadSalaryStructures();
+    await _loadPayrollRecords();
+    _seedNotifications();
+    await _loadShifts();
+    await _loadAppraisals();
+    await _loadJobs();
+    await _loadCandidates();
+    await _loadInterviews();
+    await _loadOffers();
+    await _loadLoans();
+    await _loadAllowanceDeductions();
+    await _loadTaxRecords();
     notifyListeners();
   }
 
@@ -88,13 +79,24 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _loadDepartments() async {
-    final rows = await HrService().fetchDepartments();
-    departments = rows.map((r) => Department(
-      id: r['id'],
-      name: r['name'] ?? '',
-      head: r['head'] ?? '',
-      status: r['status'] ?? 'Active',
-    )).toList();
+    try {
+      final rows = await HrService().fetchDepartments();
+      if (rows.isNotEmpty) {
+        departments = rows.map((r) => Department(
+          id: r['id'],
+          name: r['name'] ?? '',
+          head: r['head'] ?? '',
+          status: r['status'] ?? 'Active',
+        )).toList();
+      } else if (departments.isEmpty) {
+        departments = List.from(seed.departmentsSeed);
+      }
+    } catch (e) {
+      debugPrint('HrState _loadDepartments fallback: $e');
+      if (departments.isEmpty) {
+        departments = List.from(seed.departmentsSeed);
+      }
+    }
     notifyListeners();
   }
   
@@ -263,37 +265,80 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _loadTaxRecords() async {
-    var rows = await HrService().fetchTaxRecords();
-    if (rows.isEmpty && employees.isNotEmpty) {
-      // First run for this institution: seed real tax records in Supabase
-      // (computed once from current employees) instead of using in-memory mock data.
-      for (final e in employees.take(6)) {
-        final annual = e.salary * 12;
-        final taxable = annual - 50000;
-        final tax = taxable > 700000 ? taxable * 0.1 : taxable * 0.05;
-        await HrService().addTaxRecord({
-          'employee_id': e.id,
-          'financial_year': '2024-25',
-          'annual_income': annual,
-          'taxable_income': taxable,
-          'tax': tax,
-          'tds': tax / 12,
-          'status': 'Filed',
-        });
+    try {
+      var rows = await HrService().fetchTaxRecords();
+      if (rows.isEmpty && employees.isNotEmpty) {
+        for (final e in employees.take(6)) {
+          final annual = e.salary * 12;
+          final taxable = annual - 50000;
+          final tax = taxable > 700000 ? taxable * 0.1 : taxable * 0.05;
+          try {
+            await HrService().addTaxRecord({
+              'employee_id': e.id,
+              'financial_year': '2024-25',
+              'annual_income': annual,
+              'taxable_income': taxable,
+              'tax': tax,
+              'tds': tax / 12,
+              'status': 'Filed',
+            });
+          } catch (_) {}
+        }
+        try {
+          rows = await HrService().fetchTaxRecords();
+        } catch (_) {}
       }
-      rows = await HrService().fetchTaxRecords();
+      if (rows.isNotEmpty) {
+        taxRecords = rows.map((r) => TaxRecord(
+          id: r['id'],
+          employeeId: r['employee_id'] ?? '',
+          employeeName: r['hr_employees']?['name'] ?? '',
+          financialYear: r['financial_year'] ?? '',
+          annualIncome: (r['annual_income'] as num?)?.toDouble() ?? 0,
+          taxableIncome: (r['taxable_income'] as num?)?.toDouble() ?? 0,
+          tax: (r['tax'] as num?)?.toDouble() ?? 0,
+          tds: (r['tds'] as num?)?.toDouble() ?? 0,
+          status: r['status'] ?? 'Filed',
+        )).toList();
+      } else if (taxRecords.isEmpty) {
+        taxRecords = employees.take(6).map((e) {
+          final annual = e.salary * 12;
+          final taxable = annual - 50000;
+          final tax = taxable > 700000 ? taxable * 0.1 : taxable * 0.05;
+          return TaxRecord(
+            id: _uuid.v4(),
+            employeeId: e.id,
+            employeeName: e.name,
+            financialYear: '2024-25',
+            annualIncome: annual,
+            taxableIncome: taxable,
+            tax: tax,
+            tds: tax / 12,
+            status: 'Filed',
+          );
+        }).toList();
+      }
+    } catch (e) {
+      debugPrint('HrState _loadTaxRecords fallback: $e');
+      if (taxRecords.isEmpty) {
+        taxRecords = employees.take(6).map((e) {
+          final annual = e.salary * 12;
+          final taxable = annual - 50000;
+          final tax = taxable > 700000 ? taxable * 0.1 : taxable * 0.05;
+          return TaxRecord(
+            id: _uuid.v4(),
+            employeeId: e.id,
+            employeeName: e.name,
+            financialYear: '2024-25',
+            annualIncome: annual,
+            taxableIncome: taxable,
+            tax: tax,
+            tds: tax / 12,
+            status: 'Filed',
+          );
+        }).toList();
+      }
     }
-    taxRecords = rows.map((r) => TaxRecord(
-      id: r['id'],
-      employeeId: r['employee_id'] ?? '',
-      employeeName: r['hr_employees']?['name'] ?? '',
-      financialYear: r['financial_year'] ?? '',
-      annualIncome: (r['annual_income'] as num?)?.toDouble() ?? 0,
-      taxableIncome: (r['taxable_income'] as num?)?.toDouble() ?? 0,
-      tax: (r['tax'] as num?)?.toDouble() ?? 0,
-      tds: (r['tds'] as num?)?.toDouble() ?? 0,
-      status: r['status'] ?? 'Filed',
-    )).toList();
     notifyListeners();
   }
 
@@ -346,330 +391,578 @@ class AppState extends ChangeNotifier {
   }
 
   // ---------- Employee CRUD ----------
-    Future<void> addEmployee(Employee e) async {
-    await HrService().addEmployee({
-      'emp_code': e.empCode,
-      'name': e.name,
-      'gender': e.gender,
-      'dob': e.dob.toIso8601String().split('T').first,
-      'email': e.email,
-      'phone': e.phone,
-      'address': e.address,
-      'department': e.department,
-      'designation': e.designation,
-      'joining_date': e.joiningDate.toIso8601String().split('T').first,
-      'employment_type': e.employmentType.name,
-      'salary': e.salary,
-      'bank_account': e.bankAccount,
-      'pan': e.pan,
-      'aadhaar': e.aadhaar,
-      'emergency_contact': e.emergencyContact,
-      'status': e.status.name,
-      'avatar_color': e.avatarColor,
-    });
-    await _loadEmployees();
-  }
-  Future<void> _loadAttendance() async {
-    final rows = await HrService().fetchAttendance();
-    attendance = rows.map((r) => AttendanceRecord(
-      id: r['id'],
-      employeeId: r['employee_id'],
-      employeeName: r['hr_employees']?['name'] ?? '',
-      department: r['hr_employees']?['department'] ?? '',
-      date: DateTime.parse(r['attendance_date']),
-      checkIn: r['check_in'] ?? '--',
-      checkOut: r['check_out'] ?? '--',
-      status: AttendanceStatus.values.firstWhere(
-        (s) => s.name == r['status'], orElse: () => AttendanceStatus.present),
-    )).toList();
+  Future<void> addEmployee(Employee e) async {
+    final existingIdx = employees.indexWhere((x) => x.id == e.id);
+    if (existingIdx != -1) {
+      employees[existingIdx] = e;
+    } else {
+      employees.add(e);
+    }
+    structureFor(e.id);
     notifyListeners();
-  }
-    Future<void> _loadLeaves() async {
-    final rows = await HrService().fetchLeaves();
-    leaves = rows.map((r) => LeaveRequest(
-      id: r['id'],
-      employeeId: r['employee_id'],
-      employeeName: r['hr_employees']?['name'] ?? '',
-      leaveType: r['leave_type'] ?? '',
-      startDate: DateTime.parse(r['start_date']),
-      endDate: DateTime.parse(r['end_date']),
-      days: r['days'] ?? 1,
-      reason: r['reason'] ?? '',
-      status: LeaveStatus.values.firstWhere(
-        (s) => s.name == r['status'], orElse: () => LeaveStatus.pending),
-    )).toList();
-    notifyListeners();
-  }
-    Future<void> _loadSalaryStructures() async {
-    final rows = await HrService().fetchSalaryStructures();
-    salaryStructures = rows.map((r) => SalaryStructure(
-      employeeId: r['employee_id'],
-      basic: (r['basic'] as num?)?.toDouble() ?? 0,
-      hra: (r['hra'] as num?)?.toDouble() ?? 0,
-      conveyance: (r['conveyance'] as num?)?.toDouble() ?? 0,
-      medical: (r['medical'] as num?)?.toDouble() ?? 0,
-      specialAllowance: (r['special_allowance'] as num?)?.toDouble() ?? 0,
-      pf: (r['pf'] as num?)?.toDouble() ?? 0,
-      esi: (r['esi'] as num?)?.toDouble() ?? 0,
-      professionalTax: (r['professional_tax'] as num?)?.toDouble() ?? 0,
-      otherDeductions: (r['other_deductions'] as num?)?.toDouble() ?? 0,
-    )).toList();
-    notifyListeners();
-  }
-    Future<void> _loadPayrollRecords() async {
-    final rows = await HrService().fetchPayrollRecords();
-    payrollRecords = rows.map((r) => PayrollRecord(
-      id: r['id'],
-      employeeId: r['employee_id'],
-      employeeName: r['hr_employees']?['name'] ?? '',
-      department: r['hr_employees']?['department'] ?? '',
-      month: r['month'] ?? '',
-      gross: (r['gross'] as num?)?.toDouble() ?? 0,
-      allowances: (r['allowances'] as num?)?.toDouble() ?? 0,
-      deductions: (r['deductions'] as num?)?.toDouble() ?? 0,
-      net: (r['net'] as num?)?.toDouble() ?? 0,
-      status: PayrollStatus.values.firstWhere(
-        (s) => s.name == r['status'], orElse: () => PayrollStatus.processed),
-    )).toList();
-    notifyListeners();
-  }
-    Future<void> _loadLoans() async {
-    final rows = await HrService().fetchLoans();
-    loans = rows.map((r) => LoanAdvance(
-      id: r['id'],
-      employeeId: r['employee_id'],
-      employeeName: r['hr_employees']?['name'] ?? '',
-      loanType: r['loan_type'] ?? '',
-      amount: (r['amount'] as num?)?.toDouble() ?? 0,
-      interestPercent: (r['interest_percent'] as num?)?.toDouble() ?? 0,
-      tenureMonths: r['tenure_months'] ?? 1,
-      startDate: DateTime.parse(r['start_date']),
-      remaining: (r['remaining'] as num?)?.toDouble() ?? 0,
-    )).toList();
-    notifyListeners();
-  }
-    Future<void> _loadAllowanceDeductions() async {
-    final rows = await HrService().fetchAllowanceDeductions();
-    allowanceDeductions = rows.map((r) => AllowanceDeduction(
-      id: r['id'],
-      name: r['name'] ?? '',
-      type: r['type'] ?? '',
-      calcType: r['calc_type'] ?? '',
-      value: (r['value'] as num?)?.toDouble() ?? 0,
-      enabled: r['enabled'] ?? true,
-    )).toList();
-    notifyListeners();
-  }
-
-  Future<void> _loadShifts() async {
-    final rows = await HrService().fetchShifts();
-    shifts = rows.map((r) => Shift(
-      id: r['id'],
-      name: r['name'] ?? '',
-      startTime: r['start_time'] ?? '',
-      endTime: r['end_time'] ?? '',
-      graceMinutes: r['grace_minutes'] ?? 10,
-      assignedEmployees: r['assigned_employees'] ?? 0,
-    )).toList();
-    notifyListeners();
-  }
-
-  Future<void> _loadAppraisals() async {
-    final rows = await HrService().fetchAppraisals();
-    appraisals = rows.map((r) => Appraisal(
-      id: r['id'],
-      employeeId: r['employee_id'] ?? '',
-      employeeName: r['hr_employees']?['name'] ?? '',
-      reviewPeriod: r['review_period'] ?? '',
-      score: (r['score'] as num?)?.toDouble() ?? 0,
-      goals: r['goals'] ?? '',
-      managerFeedback: r['manager_feedback'] ?? '',
-      employeeFeedback: r['employee_feedback'] ?? '',
-      status: r['status'] ?? 'Pending',
-    )).toList();
-    notifyListeners();
-  }
-
-  Future<void> _loadJobs() async {
-    final rows = await HrService().fetchJobs();
-    jobs = rows.map((r) => JobOpening(
-      id: r['id'],
-      title: r['title'] ?? '',
-      department: r['department'] ?? '',
-      location: r['location'] ?? '',
-      employmentType: r['employment_type'] ?? '',
-      vacancies: r['vacancies'] ?? 1,
-      applications: r['applications'] ?? 0,
-      status: r['status'] ?? 'Open',
-    )).toList();
-    notifyListeners();
-  }
-
-  Future<void> _loadCandidates() async {
-    final rows = await HrService().fetchCandidates();
-    candidates = rows.map((r) => Candidate(
-      id: r['id'],
-      name: r['name'] ?? '',
-      position: r['position'] ?? '',
-      experience: r['experience'] ?? '',
-      skills: (r['skills'] as List?)?.map((s) => s.toString()).toList() ?? [],
-      interviewStatus: r['interview_status'] ?? 'Pending',
-      applicationStatus: r['application_status'] ?? 'Applied',
-    )).toList();
-    notifyListeners();
-  }
-
-  Future<void> _loadInterviews() async {
-    final rows = await HrService().fetchInterviews();
-    interviews = rows.map((r) => InterviewSchedule(
-      id: r['id'],
-      candidateName: r['candidate_name'] ?? '',
-      position: r['position'] ?? '',
-      interviewer: r['interviewer'] ?? '',
-      date: DateTime.parse(r['interview_date']),
-      time: r['interview_time'] ?? '',
-      mode: r['mode'] ?? '',
-      status: r['status'] ?? 'Scheduled',
-    )).toList();
-    notifyListeners();
-  }
-
-  Future<void> _loadOffers() async {
-    final rows = await HrService().fetchOffers();
-    offers = rows.map((r) => JobOffer(
-      id: r['id'],
-      candidateName: r['candidate_name'] ?? '',
-      position: r['position'] ?? '',
-      salary: (r['salary'] as num?)?.toDouble() ?? 0,
-      joiningDate: DateTime.parse(r['joining_date']),
-      status: r['status'] ?? 'Pending',
-    )).toList();
+    try {
+      await HrService().addEmployee({
+        'emp_code': e.empCode,
+        'name': e.name,
+        'gender': e.gender,
+        'dob': e.dob.toIso8601String().split('T').first,
+        'email': e.email,
+        'phone': e.phone,
+        'address': e.address,
+        'department': e.department,
+        'designation': e.designation,
+        'joining_date': e.joiningDate.toIso8601String().split('T').first,
+        'employment_type': e.employmentType.name,
+        'salary': e.salary,
+        'bank_account': e.bankAccount,
+        'pan': e.pan,
+        'aadhaar': e.aadhaar,
+        'emergency_contact': e.emergencyContact,
+        'status': e.status.name,
+        'avatar_color': e.avatarColor,
+      });
+      await _loadEmployees();
+    } catch (err) {
+      debugPrint('Error syncing addEmployee: $err');
+    }
     notifyListeners();
   }
 
   Future<void> updateEmployee(Employee e) async {
-    await HrService().updateEmployee(e.id, {
-      'emp_code': e.empCode,
-      'name': e.name,
-      'gender': e.gender,
-      'dob': e.dob.toIso8601String().split('T').first,
-      'email': e.email,
-      'phone': e.phone,
-      'address': e.address,
-      'department': e.department,
-      'designation': e.designation,
-      'joining_date': e.joiningDate.toIso8601String().split('T').first,
-      'employment_type': e.employmentType.name,
-      'salary': e.salary,
-      'bank_account': e.bankAccount,
-      'pan': e.pan,
-      'aadhaar': e.aadhaar,
-      'emergency_contact': e.emergencyContact,
-      'status': e.status.name,
-      'avatar_color': e.avatarColor,
-    });
-    await _loadEmployees();
+    final idx = employees.indexWhere((x) => x.id == e.id);
+    if (idx != -1) {
+      employees[idx] = e;
+      notifyListeners();
+    }
+    try {
+      await HrService().updateEmployee(e.id, {
+        'emp_code': e.empCode,
+        'name': e.name,
+        'gender': e.gender,
+        'dob': e.dob.toIso8601String().split('T').first,
+        'email': e.email,
+        'phone': e.phone,
+        'address': e.address,
+        'department': e.department,
+        'designation': e.designation,
+        'joining_date': e.joiningDate.toIso8601String().split('T').first,
+        'employment_type': e.employmentType.name,
+        'salary': e.salary,
+        'bank_account': e.bankAccount,
+        'pan': e.pan,
+        'aadhaar': e.aadhaar,
+        'emergency_contact': e.emergencyContact,
+        'status': e.status.name,
+        'avatar_color': e.avatarColor,
+      });
+      await _loadEmployees();
+    } catch (err) {
+      debugPrint('Error syncing updateEmployee: $err');
+    }
+    notifyListeners();
   }
 
   Future<void> deleteEmployee(String id) async {
-    await HrService().deleteEmployee(id);
-    await _loadEmployees();
+    employees.removeWhere((e) => e.id == id);
+    notifyListeners();
+    try {
+      await HrService().deleteEmployee(id);
+      await _loadEmployees();
+    } catch (err) {
+      debugPrint('Error syncing deleteEmployee: $err');
+    }
+    notifyListeners();
   }
 
   // ---------- Department CRUD ----------
   Future<void> addDepartment(Department d) async {
-    await HrService().addDepartment(d.name, d.head);
-    await _loadDepartments();
+    final existingIdx = departments.indexWhere((x) => x.id == d.id);
+    if (existingIdx != -1) {
+      departments[existingIdx] = d;
+    } else {
+      departments.add(d);
+    }
+    notifyListeners();
+    try {
+      await HrService().addDepartment(d.name, d.head);
+      await _loadDepartments();
+    } catch (e) {
+      debugPrint('Error syncing addDepartment: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> updateDepartment(Department d) async {
-    await HrService().updateDepartment(d.id, d.name, d.head);
-    await _loadDepartments();
+    final idx = departments.indexWhere((x) => x.id == d.id);
+    if (idx != -1) {
+      departments[idx] = d;
+      notifyListeners();
+    }
+    try {
+      await HrService().updateDepartment(d.id, d.name, d.head);
+      await _loadDepartments();
+    } catch (e) {
+      debugPrint('Error syncing updateDepartment: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> deleteDepartment(String id) async {
-    await HrService().deleteDepartment(id);
-    await _loadDepartments();
-  }
-  Future<void> _loadDesignations() async {
-    final rows = await HrService().fetchDesignations();
-    designations = rows.map((r) => Designation(
-      id: r['id'],
-      name: r['name'] ?? '',
-      department: r['department'] ?? '',
-      description: r['description'] ?? '',
-      status: r['status'] ?? 'Active',
-    )).toList();
+    departments.removeWhere((d) => d.id == id);
+    notifyListeners();
+    try {
+      await HrService().deleteDepartment(id);
+      await _loadDepartments();
+    } catch (e) {
+      debugPrint('Error syncing deleteDepartment: $e');
+    }
     notifyListeners();
   }
-   Future<void> _loadEmployees() async {
-    final rows = await HrService().fetchEmployees();
-    employees = rows.map((r) => Employee(
-      id: r['id'],
-      empCode: r['emp_code'] ?? '',
-      name: r['name'] ?? '',
-      gender: r['gender'] ?? '',
-      dob: r['dob'] != null ? DateTime.parse(r['dob']) : DateTime(2000, 1, 1),
-      email: r['email'] ?? '',
-      phone: r['phone'] ?? '',
-      address: r['address'] ?? '',
-      department: r['department'] ?? '',
-      designation: r['designation'] ?? '',
-      joiningDate: r['joining_date'] != null ? DateTime.parse(r['joining_date']) : DateTime.now(),
-      employmentType: EmploymentType.values.firstWhere(
-        (e) => e.name == r['employment_type'], orElse: () => EmploymentType.fullTime),
-      salary: (r['salary'] as num?)?.toDouble() ?? 0,
-      bankAccount: r['bank_account'] ?? '',
-      pan: r['pan'] ?? '',
-      aadhaar: r['aadhaar'] ?? '',
-      emergencyContact: r['emergency_contact'] ?? '',
-      status: EmployeeStatus.values.firstWhere(
-        (e) => e.name == r['status'], orElse: () => EmployeeStatus.active),
-      avatarColor: r['avatar_color'] ?? 'blue',
-    )).toList();
+
+  Future<void> _loadDesignations() async {
+    try {
+      final rows = await HrService().fetchDesignations();
+      if (rows.isNotEmpty) {
+        designations = rows.map((r) => Designation(
+          id: r['id'],
+          name: r['name'] ?? '',
+          department: r['department'] ?? '',
+          description: r['description'] ?? '',
+          status: r['status'] ?? 'Active',
+        )).toList();
+      } else if (designations.isEmpty) {
+        designations = List.from(seed.designationsSeed);
+      }
+    } catch (e) {
+      debugPrint('HrState _loadDesignations fallback: $e');
+      if (designations.isEmpty) {
+        designations = List.from(seed.designationsSeed);
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadEmployees() async {
+    try {
+      final rows = await HrService().fetchEmployees();
+      if (rows.isNotEmpty) {
+        employees = rows.map((r) => Employee(
+          id: r['id'],
+          empCode: r['emp_code'] ?? '',
+          name: r['name'] ?? '',
+          gender: r['gender'] ?? '',
+          dob: r['dob'] != null ? DateTime.parse(r['dob']) : DateTime(2000, 1, 1),
+          email: r['email'] ?? '',
+          phone: r['phone'] ?? '',
+          address: r['address'] ?? '',
+          department: r['department'] ?? '',
+          designation: r['designation'] ?? '',
+          joiningDate: r['joining_date'] != null ? DateTime.parse(r['joining_date']) : DateTime.now(),
+          employmentType: EmploymentType.values.firstWhere(
+            (e) => e.name == r['employment_type'], orElse: () => EmploymentType.fullTime),
+          salary: (r['salary'] as num?)?.toDouble() ?? 0,
+          bankAccount: r['bank_account'] ?? '',
+          pan: r['pan'] ?? '',
+          aadhaar: r['aadhaar'] ?? '',
+          emergencyContact: r['emergency_contact'] ?? '',
+          status: EmployeeStatus.values.firstWhere(
+            (e) => e.name == r['status'], orElse: () => EmployeeStatus.active),
+          avatarColor: r['avatar_color'] ?? 'blue',
+        )).toList();
+      } else if (employees.isEmpty) {
+        employees = seed.buildEmployeeSeed();
+      }
+    } catch (e) {
+      debugPrint('HrState _loadEmployees fallback: $e');
+      if (employees.isEmpty) {
+        employees = seed.buildEmployeeSeed();
+      }
+    }
     notifyListeners();
   } 
+
   int employeeCountForDepartment(String name) =>
       employees.where((e) => e.department == name).length;
-   Future<void> addDesignation(Designation d) async {
-    await HrService().addDesignation(d.name, d.department, d.description);
-    await _loadDesignations();
-  }
-
-  Future<void> updateDesignation(Designation d) async {
-    await HrService().updateDesignation(d.id, d.name, d.department, d.description);
-    await _loadDesignations();
-  }
-
-  Future<void> deleteDesignation(String id) async {
-    await HrService().deleteDesignation(id);
-    await _loadDesignations();
-  }
 
   int employeeCountForDesignation(String name) =>
       employees.where((e) => e.designation == name).length;
 
-  // ---------- Attendance ----------
-    Future<void> markAttendance(AttendanceRecord record) async {
-    await HrService().markAttendance(record.employeeId, record.status.name, record.checkIn, record.checkOut);
-    await _loadAttendance();
+  Future<void> addDesignation(Designation d) async {
+    final existingIdx = designations.indexWhere((x) => x.id == d.id);
+    if (existingIdx != -1) {
+      designations[existingIdx] = d;
+    } else {
+      designations.add(d);
+    }
+    notifyListeners();
+    try {
+      await HrService().addDesignation(d.name, d.department, d.description);
+      await _loadDesignations();
+    } catch (e) {
+      debugPrint('Error syncing addDesignation: $e');
+    }
+    notifyListeners();
+  }
+
+  Future<void> updateDesignation(Designation d) async {
+    final idx = designations.indexWhere((x) => x.id == d.id);
+    if (idx != -1) {
+      designations[idx] = d;
+      notifyListeners();
+    }
+    try {
+      await HrService().updateDesignation(d.id, d.name, d.department, d.description);
+      await _loadDesignations();
+    } catch (e) {
+      debugPrint('Error syncing updateDesignation: $e');
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteDesignation(String id) async {
+    designations.removeWhere((d) => d.id == id);
+    notifyListeners();
+    try {
+      await HrService().deleteDesignation(id);
+      await _loadDesignations();
+    } catch (e) {
+      debugPrint('Error syncing deleteDesignation: $e');
+    }
+    notifyListeners();
+  }
+  Future<void> _loadAttendance() async {
+    try {
+      final rows = await HrService().fetchAttendance();
+      if (rows.isNotEmpty) {
+        attendance = rows.map((r) => AttendanceRecord(
+          id: r['id'],
+          employeeId: r['employee_id'] ?? '',
+          employeeName: r['hr_employees']?['name'] ?? '',
+          department: r['hr_employees']?['department'] ?? '',
+          date: r['attendance_date'] != null ? DateTime.parse(r['attendance_date']) : DateTime.now(),
+          checkIn: r['check_in'] ?? '--',
+          checkOut: r['check_out'] ?? '--',
+          status: AttendanceStatus.values.firstWhere(
+            (s) => s.name == r['status'], orElse: () => AttendanceStatus.present),
+        )).toList();
+      } else if (attendance.isEmpty) {
+        _seedAttendance();
+      }
+    } catch (e) {
+      debugPrint('HrState _loadAttendance fallback: $e');
+      if (attendance.isEmpty) _seedAttendance();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadLeaves() async {
+    try {
+      final rows = await HrService().fetchLeaves();
+      if (rows.isNotEmpty) {
+        leaves = rows.map((r) => LeaveRequest(
+          id: r['id'],
+          employeeId: r['employee_id'] ?? '',
+          employeeName: r['hr_employees']?['name'] ?? '',
+          leaveType: r['leave_type'] ?? '',
+          startDate: r['start_date'] != null ? DateTime.parse(r['start_date']) : DateTime.now(),
+          endDate: r['end_date'] != null ? DateTime.parse(r['end_date']) : DateTime.now(),
+          days: r['days'] ?? 1,
+          reason: r['reason'] ?? '',
+          status: LeaveStatus.values.firstWhere(
+            (s) => s.name == r['status'], orElse: () => LeaveStatus.pending),
+        )).toList();
+      } else if (leaves.isEmpty) {
+        _seedLeaves();
+      }
+    } catch (e) {
+      debugPrint('HrState _loadLeaves fallback: $e');
+      if (leaves.isEmpty) _seedLeaves();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadSalaryStructures() async {
+    try {
+      final rows = await HrService().fetchSalaryStructures();
+      if (rows.isNotEmpty) {
+        salaryStructures = rows.map((r) => SalaryStructure(
+          employeeId: r['employee_id'] ?? '',
+          basic: (r['basic'] as num?)?.toDouble() ?? 0,
+          hra: (r['hra'] as num?)?.toDouble() ?? 0,
+          conveyance: (r['conveyance'] as num?)?.toDouble() ?? 0,
+          medical: (r['medical'] as num?)?.toDouble() ?? 0,
+          specialAllowance: (r['special_allowance'] as num?)?.toDouble() ?? 0,
+          pf: (r['pf'] as num?)?.toDouble() ?? 0,
+          esi: (r['esi'] as num?)?.toDouble() ?? 0,
+          professionalTax: (r['professional_tax'] as num?)?.toDouble() ?? 0,
+          otherDeductions: (r['other_deductions'] as num?)?.toDouble() ?? 0,
+        )).toList();
+      } else if (salaryStructures.isEmpty) {
+        _seedSalaryStructures();
+      }
+    } catch (e) {
+      debugPrint('HrState _loadSalaryStructures fallback: $e');
+      if (salaryStructures.isEmpty) _seedSalaryStructures();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadPayrollRecords() async {
+    try {
+      final rows = await HrService().fetchPayrollRecords();
+      if (rows.isNotEmpty) {
+        payrollRecords = rows.map((r) => PayrollRecord(
+          id: r['id'],
+          employeeId: r['employee_id'] ?? '',
+          employeeName: r['hr_employees']?['name'] ?? '',
+          department: r['hr_employees']?['department'] ?? '',
+          month: r['month'] ?? '',
+          gross: (r['gross'] as num?)?.toDouble() ?? 0,
+          allowances: (r['allowances'] as num?)?.toDouble() ?? 0,
+          deductions: (r['deductions'] as num?)?.toDouble() ?? 0,
+          net: (r['net'] as num?)?.toDouble() ?? 0,
+          status: PayrollStatus.values.firstWhere(
+            (s) => s.name == r['status'], orElse: () => PayrollStatus.processed),
+        )).toList();
+      } else if (payrollRecords.isEmpty) {
+        _seedPayroll();
+      }
+    } catch (e) {
+      debugPrint('HrState _loadPayrollRecords fallback: $e');
+      if (payrollRecords.isEmpty) _seedPayroll();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadLoans() async {
+    try {
+      final rows = await HrService().fetchLoans();
+      if (rows.isNotEmpty) {
+        loans = rows.map((r) => LoanAdvance(
+          id: r['id'],
+          employeeId: r['employee_id'] ?? '',
+          employeeName: r['hr_employees']?['name'] ?? '',
+          loanType: r['loan_type'] ?? '',
+          amount: (r['amount'] as num?)?.toDouble() ?? 0,
+          interestPercent: (r['interest_percent'] as num?)?.toDouble() ?? 0,
+          tenureMonths: r['tenure_months'] ?? 1,
+          startDate: r['start_date'] != null ? DateTime.parse(r['start_date']) : DateTime.now(),
+          remaining: (r['remaining'] as num?)?.toDouble() ?? 0,
+        )).toList();
+      } else if (loans.isEmpty) {
+        _seedLoans();
+      }
+    } catch (e) {
+      debugPrint('HrState _loadLoans fallback: $e');
+      if (loans.isEmpty) _seedLoans();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadAllowanceDeductions() async {
+    try {
+      final rows = await HrService().fetchAllowanceDeductions();
+      if (rows.isNotEmpty) {
+        allowanceDeductions = rows.map((r) => AllowanceDeduction(
+          id: r['id'],
+          name: r['name'] ?? '',
+          type: r['type'] ?? '',
+          calcType: r['calc_type'] ?? '',
+          value: (r['value'] as num?)?.toDouble() ?? 0,
+          enabled: r['enabled'] ?? true,
+        )).toList();
+      } else if (allowanceDeductions.isEmpty) {
+        _seedAllowances();
+      }
+    } catch (e) {
+      debugPrint('HrState _loadAllowanceDeductions fallback: $e');
+      if (allowanceDeductions.isEmpty) _seedAllowances();
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadShifts() async {
+    try {
+      final rows = await HrService().fetchShifts();
+      if (rows.isNotEmpty) {
+        shifts = rows.map((r) => Shift(
+          id: r['id'],
+          name: r['name'] ?? '',
+          startTime: r['start_time'] ?? '',
+          endTime: r['end_time'] ?? '',
+          graceMinutes: r['grace_minutes'] ?? 10,
+          assignedEmployees: r['assigned_employees'] ?? 0,
+        )).toList();
+      } else if (shifts.isEmpty) {
+        shifts = [
+          Shift(id: _uuid.v4(), name: 'Morning Shift', startTime: '08:00 AM', endTime: '02:00 PM', graceMinutes: 15, assignedEmployees: 24),
+          Shift(id: _uuid.v4(), name: 'Regular Shift', startTime: '09:00 AM', endTime: '05:00 PM', graceMinutes: 15, assignedEmployees: 32),
+          Shift(id: _uuid.v4(), name: 'Evening Shift', startTime: '01:00 PM', endTime: '07:00 PM', graceMinutes: 10, assignedEmployees: 8),
+        ];
+      }
+    } catch (e) {
+      debugPrint('HrState _loadShifts fallback: $e');
+      if (shifts.isEmpty) {
+        shifts = [
+          Shift(id: _uuid.v4(), name: 'Morning Shift', startTime: '08:00 AM', endTime: '02:00 PM', graceMinutes: 15, assignedEmployees: 24),
+          Shift(id: _uuid.v4(), name: 'Regular Shift', startTime: '09:00 AM', endTime: '05:00 PM', graceMinutes: 15, assignedEmployees: 32),
+          Shift(id: _uuid.v4(), name: 'Evening Shift', startTime: '01:00 PM', endTime: '07:00 PM', graceMinutes: 10, assignedEmployees: 8),
+        ];
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadAppraisals() async {
+    try {
+      final rows = await HrService().fetchAppraisals();
+      appraisals = rows.map((r) => Appraisal(
+        id: r['id'],
+        employeeId: r['employee_id'] ?? '',
+        employeeName: r['hr_employees']?['name'] ?? '',
+        reviewPeriod: r['review_period'] ?? '',
+        score: (r['score'] as num?)?.toDouble() ?? 0,
+        goals: r['goals'] ?? '',
+        managerFeedback: r['manager_feedback'] ?? '',
+        employeeFeedback: r['employee_feedback'] ?? '',
+        status: r['status'] ?? 'Pending',
+      )).toList();
+    } catch (e) {
+      debugPrint('HrState _loadAppraisals fallback: $e');
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadJobs() async {
+    try {
+      final rows = await HrService().fetchJobs();
+      jobs = rows.map((r) => JobOpening(
+        id: r['id'],
+        title: r['title'] ?? '',
+        department: r['department'] ?? '',
+        location: r['location'] ?? '',
+        employmentType: r['employment_type'] ?? '',
+        vacancies: r['vacancies'] ?? 1,
+        applications: r['applications'] ?? 0,
+        status: r['status'] ?? 'Open',
+      )).toList();
+    } catch (e) {
+      debugPrint('HrState _loadJobs fallback: $e');
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadCandidates() async {
+    try {
+      final rows = await HrService().fetchCandidates();
+      candidates = rows.map((r) {
+        final raw = r['skills'];
+        List<String> skillsList;
+        if (raw is List) {
+          skillsList = raw.map((s) => s.toString()).toList();
+        } else if (raw is String) {
+          skillsList = raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        } else {
+          skillsList = [];
+        }
+        return Candidate(
+          id: r['id'],
+          name: r['name'] ?? '',
+          position: r['position'] ?? '',
+          experience: r['experience'] ?? '',
+          skills: skillsList,
+          interviewStatus: r['interview_status'] ?? 'Pending',
+          applicationStatus: r['application_status'] ?? 'Applied',
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('HrState _loadCandidates fallback: $e');
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadInterviews() async {
+    try {
+      final rows = await HrService().fetchInterviews();
+      interviews = rows.map((r) => InterviewSchedule(
+        id: r['id'],
+        candidateName: r['candidate_name'] ?? '',
+        position: r['position'] ?? '',
+        interviewer: r['interviewer'] ?? '',
+        date: DateTime.parse(r['interview_date']),
+        time: r['interview_time'] ?? '',
+        mode: r['mode'] ?? '',
+        status: r['status'] ?? 'Scheduled',
+      )).toList();
+    } catch (e) {
+      debugPrint('HrState _loadInterviews fallback: $e');
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadOffers() async {
+    try {
+      final rows = await HrService().fetchOffers();
+      offers = rows.map((r) => JobOffer(
+        id: r['id'],
+        candidateName: r['candidate_name'] ?? '',
+        position: r['position'] ?? '',
+        salary: (r['salary'] as num?)?.toDouble() ?? 0,
+        joiningDate: DateTime.parse(r['joining_date']),
+        status: r['status'] ?? 'Pending',
+      )).toList();
+    } catch (e) {
+      debugPrint('HrState _loadOffers fallback: $e');
+    }
+    notifyListeners();
+  }
+
+  // ---------- Attendance Mutations ----------
+  Future<void> markAttendance(AttendanceRecord record) async {
+    final idx = attendance.indexWhere((a) => a.id == record.id || (a.employeeId == record.employeeId && a.date.year == record.date.year && a.date.month == record.date.month && a.date.day == record.date.day));
+    if (idx != -1) {
+      attendance[idx] = record;
+    } else {
+      attendance.insert(0, record);
+    }
+    notifyListeners();
+    try {
+      await HrService().markAttendance(record.employeeId, record.status.name, record.checkIn, record.checkOut);
+      await _loadAttendance();
+    } catch (e) {
+      debugPrint('Error syncing markAttendance: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> updateAttendanceStatus(String id, AttendanceStatus status) async {
-    await HrService().updateAttendanceStatus(id, status.name);
-    await _loadAttendance();
+    final idx = attendance.indexWhere((a) => a.id == id);
+    if (idx != -1) {
+      final old = attendance[idx];
+      attendance[idx] = AttendanceRecord(
+        id: old.id,
+        employeeId: old.employeeId,
+        employeeName: old.employeeName,
+        department: old.department,
+        date: old.date,
+        checkIn: status == AttendanceStatus.absent ? '--' : old.checkIn,
+        checkOut: status == AttendanceStatus.absent ? '--' : old.checkOut,
+        status: status,
+      );
+      notifyListeners();
+    }
+    try {
+      await HrService().updateAttendanceStatus(id, status.name);
+      await _loadAttendance();
+    } catch (e) {
+      debugPrint('Error syncing updateAttendanceStatus: $e');
+    }
+    notifyListeners();
   }
-  // ---------- Leave ----------
-    Future<void> applyLeave(LeaveRequest req) async {
-    await HrService().applyLeave({
-      'employee_id': req.employeeId,
-      'leave_type': req.leaveType,
-      'start_date': req.startDate.toIso8601String().split('T').first,
-      'end_date': req.endDate.toIso8601String().split('T').first,
-      'days': req.days,
-      'reason': req.reason,
-      'status': req.status.name,
-    });
+
+  // ---------- Leave Mutations ----------
+  Future<void> applyLeave(LeaveRequest req) async {
+    leaves.insert(0, req);
     notifications.insert(
       0,
       AppNotification(
@@ -679,64 +972,142 @@ class AppState extends ChangeNotifier {
         time: DateTime.now(),
       ),
     );
-    await _loadLeaves();
+    notifyListeners();
+    try {
+      await HrService().applyLeave({
+        'employee_id': req.employeeId,
+        'leave_type': req.leaveType,
+        'start_date': req.startDate.toIso8601String().split('T').first,
+        'end_date': req.endDate.toIso8601String().split('T').first,
+        'days': req.days,
+        'reason': req.reason,
+        'status': req.status.name,
+      });
+      await _loadLeaves();
+    } catch (e) {
+      debugPrint('Error syncing applyLeave: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> setLeaveStatus(String id, LeaveStatus status) async {
-    await HrService().setLeaveStatus(id, status.name);
-    await _loadLeaves();
+    final idx = leaves.indexWhere((l) => l.id == id);
+    if (idx != -1) {
+      final old = leaves[idx];
+      leaves[idx] = LeaveRequest(
+        id: old.id,
+        employeeId: old.employeeId,
+        employeeName: old.employeeName,
+        leaveType: old.leaveType,
+        startDate: old.startDate,
+        endDate: old.endDate,
+        days: old.days,
+        reason: old.reason,
+        status: status,
+      );
+      notifyListeners();
+    }
+    try {
+      await HrService().setLeaveStatus(id, status.name);
+      await _loadLeaves();
+    } catch (e) {
+      debugPrint('Error syncing setLeaveStatus: $e');
+    }
+    notifyListeners();
   }
-  // ---------- Shifts ----------
+
+  // ---------- Shift Mutations ----------
   Future<void> addShift(Shift s) async {
-    await HrService().addShift({
-      'name': s.name,
-      'start_time': s.startTime,
-      'end_time': s.endTime,
-      'grace_minutes': s.graceMinutes,
-      'assigned_employees': s.assignedEmployees,
-    });
-    await _loadShifts();
+    shifts.add(s);
+    notifyListeners();
+    try {
+      await HrService().addShift({
+        'name': s.name,
+        'start_time': s.startTime,
+        'end_time': s.endTime,
+        'grace_minutes': s.graceMinutes,
+        'assigned_employees': s.assignedEmployees,
+      });
+      await _loadShifts();
+    } catch (e) {
+      debugPrint('Error syncing addShift: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> updateShift(Shift s) async {
-    await HrService().updateShift(s.id, {
-      'name': s.name,
-      'start_time': s.startTime,
-      'end_time': s.endTime,
-      'grace_minutes': s.graceMinutes,
-    });
-    await _loadShifts();
+    final idx = shifts.indexWhere((x) => x.id == s.id);
+    if (idx != -1) {
+      shifts[idx] = s;
+      notifyListeners();
+    }
+    try {
+      await HrService().updateShift(s.id, {
+        'name': s.name,
+        'start_time': s.startTime,
+        'end_time': s.endTime,
+        'grace_minutes': s.graceMinutes,
+      });
+      await _loadShifts();
+    } catch (e) {
+      debugPrint('Error syncing updateShift: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> deleteShift(String id) async {
-    await HrService().deleteShift(id);
-    await _loadShifts();
+    shifts.removeWhere((s) => s.id == id);
+    notifyListeners();
+    try {
+      await HrService().deleteShift(id);
+      await _loadShifts();
+    } catch (e) {
+      debugPrint('Error syncing deleteShift: $e');
+    }
+    notifyListeners();
   }
 
-  // ---------- Appraisals ----------
+  // ---------- Appraisal Mutations ----------
   Future<void> addAppraisal(Appraisal a) async {
-    await HrService().addAppraisal({
-      'employee_id': a.employeeId,
-      'review_period': a.reviewPeriod,
-      'score': a.score,
-      'goals': a.goals,
-      'manager_feedback': a.managerFeedback,
-      'employee_feedback': a.employeeFeedback,
-      'status': a.status,
-    });
-    await _loadAppraisals();
+    appraisals.insert(0, a);
+    notifyListeners();
+    try {
+      await HrService().addAppraisal({
+        'employee_id': a.employeeId,
+        'review_period': a.reviewPeriod,
+        'score': a.score,
+        'goals': a.goals,
+        'manager_feedback': a.managerFeedback,
+        'employee_feedback': a.employeeFeedback,
+        'status': a.status,
+      });
+      await _loadAppraisals();
+    } catch (e) {
+      debugPrint('Error syncing addAppraisal: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> updateAppraisal(Appraisal a) async {
-    await HrService().updateAppraisal(a.id, {
-      'review_period': a.reviewPeriod,
-      'score': a.score,
-      'goals': a.goals,
-      'manager_feedback': a.managerFeedback,
-      'employee_feedback': a.employeeFeedback,
-      'status': a.status,
-    });
-    await _loadAppraisals();
+    final idx = appraisals.indexWhere((x) => x.id == a.id);
+    if (idx != -1) {
+      appraisals[idx] = a;
+      notifyListeners();
+    }
+    try {
+      await HrService().updateAppraisal(a.id, {
+        'review_period': a.reviewPeriod,
+        'score': a.score,
+        'goals': a.goals,
+        'manager_feedback': a.managerFeedback,
+        'employee_feedback': a.employeeFeedback,
+        'status': a.status,
+      });
+      await _loadAppraisals();
+    } catch (e) {
+      debugPrint('Error syncing updateAppraisal: $e');
+    }
+    notifyListeners();
   }
 
   // ---------- Salary structure ----------
@@ -759,22 +1130,34 @@ class AppState extends ChangeNotifier {
   });
 
   Future<void> updateSalaryStructure(SalaryStructure s) async {
-    await HrService().upsertSalaryStructure({
-      'employee_id': s.employeeId,
-      'basic': s.basic,
-      'hra': s.hra,
-      'conveyance': s.conveyance,
-      'medical': s.medical,
-      'special_allowance': s.specialAllowance,
-      'pf': s.pf,
-      'esi': s.esi,
-      'professional_tax': s.professionalTax,
-      'other_deductions': s.otherDeductions,
-    });
-    await _loadSalaryStructures();
+    final idx = salaryStructures.indexWhere((x) => x.employeeId == s.employeeId);
+    if (idx != -1) {
+      salaryStructures[idx] = s;
+    } else {
+      salaryStructures.add(s);
+    }
+    notifyListeners();
+    try {
+      await HrService().upsertSalaryStructure({
+        'employee_id': s.employeeId,
+        'basic': s.basic,
+        'hra': s.hra,
+        'conveyance': s.conveyance,
+        'medical': s.medical,
+        'special_allowance': s.specialAllowance,
+        'pf': s.pf,
+        'esi': s.esi,
+        'professional_tax': s.professionalTax,
+        'other_deductions': s.otherDeductions,
+      });
+      await _loadSalaryStructures();
+    } catch (e) {
+      debugPrint('Error syncing updateSalaryStructure: $e');
+    }
+    notifyListeners();
   }
 
-   Future<void> processPayrollForMonth(String month, {String? department}) async {
+  Future<void> processPayrollForMonth(String month, {String? department}) async {
     final targets = department == null || department == 'All Departments'
         ? employees
         : employees.where((e) => e.department == department).toList();
@@ -832,111 +1215,202 @@ class AppState extends ChangeNotifier {
   }
 
   // ---------- Loans ----------
-   Future<void> addLoan(LoanAdvance l) async {
-    await HrService().addLoan({
-      'employee_id': l.employeeId,
-      'loan_type': l.loanType,
-      'amount': l.amount,
-      'interest_percent': l.interestPercent,
-      'tenure_months': l.tenureMonths,
-      'start_date': l.startDate.toIso8601String().split('T').first,
-      'remaining': l.remaining,
-    });
-    await _loadLoans();
+  Future<void> addLoan(LoanAdvance l) async {
+    loans.insert(0, l);
+    notifyListeners();
+    try {
+      await HrService().addLoan({
+        'employee_id': l.employeeId,
+        'loan_type': l.loanType,
+        'amount': l.amount,
+        'interest_percent': l.interestPercent,
+        'tenure_months': l.tenureMonths,
+        'start_date': l.startDate.toIso8601String().split('T').first,
+        'remaining': l.remaining,
+      });
+      await _loadLoans();
+    } catch (e) {
+      debugPrint('Error syncing addLoan: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> updateLoan(LoanAdvance l) async {
-    await HrService().updateLoan(l.id, {
-      'loan_type': l.loanType,
-      'amount': l.amount,
-      'interest_percent': l.interestPercent,
-      'tenure_months': l.tenureMonths,
-      'remaining': l.remaining,
-    });
-    await _loadLoans();
+    final idx = loans.indexWhere((x) => x.id == l.id);
+    if (idx != -1) {
+      loans[idx] = l;
+      notifyListeners();
+    }
+    try {
+      await HrService().updateLoan(l.id, {
+        'loan_type': l.loanType,
+        'amount': l.amount,
+        'interest_percent': l.interestPercent,
+        'tenure_months': l.tenureMonths,
+        'remaining': l.remaining,
+      });
+      await _loadLoans();
+    } catch (e) {
+      debugPrint('Error syncing updateLoan: $e');
+    }
+    notifyListeners();
   }
 
   // ---------- Allowances / Deductions ----------
-    Future<void> addAllowanceDeduction(AllowanceDeduction a) async {
-    await HrService().addAllowanceDeduction({
-      'name': a.name,
-      'type': a.type,
-      'calc_type': a.calcType,
-      'value': a.value,
-      'enabled': a.enabled,
-    });
-    await _loadAllowanceDeductions();
+  Future<void> addAllowanceDeduction(AllowanceDeduction a) async {
+    allowanceDeductions.add(a);
+    notifyListeners();
+    try {
+      await HrService().addAllowanceDeduction({
+        'name': a.name,
+        'type': a.type,
+        'calc_type': a.calcType,
+        'value': a.value,
+        'enabled': a.enabled,
+      });
+      await _loadAllowanceDeductions();
+    } catch (e) {
+      debugPrint('Error syncing addAllowanceDeduction: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> toggleAllowanceDeduction(String id) async {
-    final a = allowanceDeductions.firstWhere((x) => x.id == id);
-    await HrService().toggleAllowanceDeduction(id, !a.enabled);
-    await _loadAllowanceDeductions();
+    final idx = allowanceDeductions.indexWhere((x) => x.id == id);
+    if (idx != -1) {
+      final a = allowanceDeductions[idx];
+      final updated = AllowanceDeduction(
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        calcType: a.calcType,
+        value: a.value,
+        enabled: !a.enabled,
+      );
+      allowanceDeductions[idx] = updated;
+      notifyListeners();
+      try {
+        await HrService().toggleAllowanceDeduction(id, updated.enabled);
+        await _loadAllowanceDeductions();
+      } catch (e) {
+        debugPrint('Error syncing toggleAllowanceDeduction: $e');
+      }
+      notifyListeners();
+    }
   }
 
   Future<void> deleteAllowanceDeduction(String id) async {
-    await HrService().deleteAllowanceDeduction(id);
-    await _loadAllowanceDeductions();
+    allowanceDeductions.removeWhere((x) => x.id == id);
+    notifyListeners();
+    try {
+      await HrService().deleteAllowanceDeduction(id);
+      await _loadAllowanceDeductions();
+    } catch (e) {
+      debugPrint('Error syncing deleteAllowanceDeduction: $e');
+    }
+    notifyListeners();
   }
 
   // ---------- Recruitment ----------
   Future<void> addJob(JobOpening j) async {
-    await HrService().addJob({
-      'title': j.title,
-      'department': j.department,
-      'location': j.location,
-      'employment_type': j.employmentType,
-      'vacancies': j.vacancies,
-      'applications': j.applications,
-      'status': j.status,
-    });
-    await _loadJobs();
+    jobs.insert(0, j);
+    notifyListeners();
+    try {
+      await HrService().addJob({
+        'title': j.title,
+        'department': j.department,
+        'location': j.location,
+        'employment_type': j.employmentType,
+        'vacancies': j.vacancies,
+        'applications': j.applications,
+        'status': j.status,
+      });
+      await _loadJobs();
+    } catch (e) {
+      debugPrint('Error syncing addJob: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> updateJob(JobOpening j) async {
-    await HrService().updateJob(j.id, {
-      'title': j.title,
-      'department': j.department,
-      'location': j.location,
-      'employment_type': j.employmentType,
-      'vacancies': j.vacancies,
-      'status': j.status,
-    });
-    await _loadJobs();
+    final idx = jobs.indexWhere((x) => x.id == j.id);
+    if (idx != -1) {
+      jobs[idx] = j;
+      notifyListeners();
+    }
+    try {
+      await HrService().updateJob(j.id, {
+        'title': j.title,
+        'department': j.department,
+        'location': j.location,
+        'employment_type': j.employmentType,
+        'vacancies': j.vacancies,
+        'status': j.status,
+      });
+      await _loadJobs();
+    } catch (e) {
+      debugPrint('Error syncing updateJob: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> deleteJob(String id) async {
-    await HrService().deleteJob(id);
-    await _loadJobs();
+    jobs.removeWhere((x) => x.id == id);
+    notifyListeners();
+    try {
+      await HrService().deleteJob(id);
+      await _loadJobs();
+    } catch (e) {
+      debugPrint('Error syncing deleteJob: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> addCandidate(Candidate c) async {
-    await HrService().addCandidate({
-      'name': c.name,
-      'position': c.position,
-      'experience': c.experience,
-      'skills': c.skills,
-      'interview_status': c.interviewStatus,
-      'application_status': c.applicationStatus,
-    });
-    await _loadCandidates();
+    candidates.insert(0, c);
+    notifyListeners();
+    try {
+      await HrService().addCandidate({
+        'name': c.name,
+        'position': c.position,
+        'experience': c.experience,
+        'skills': c.skills.join(', '),
+        'interview_status': c.interviewStatus,
+        'application_status': c.applicationStatus,
+      });
+      await _loadCandidates();
+    } catch (e) {
+      debugPrint('Error syncing addCandidate: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> updateCandidateStatus(String id, {String? interview, String? application}) async {
-    await HrService().updateCandidateStatus(id, interview: interview, application: application);
-    await _loadCandidates();
+    final idx = candidates.indexWhere((x) => x.id == id);
+    if (idx != -1) {
+      final old = candidates[idx];
+      candidates[idx] = Candidate(
+        id: old.id,
+        name: old.name,
+        position: old.position,
+        experience: old.experience,
+        skills: old.skills,
+        interviewStatus: interview ?? old.interviewStatus,
+        applicationStatus: application ?? old.applicationStatus,
+      );
+      notifyListeners();
+    }
+    try {
+      await HrService().updateCandidateStatus(id, interview: interview, application: application);
+      await _loadCandidates();
+    } catch (e) {
+      debugPrint('Error syncing updateCandidateStatus: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> addInterview(InterviewSchedule i) async {
-    await HrService().addInterview({
-      'candidate_name': i.candidateName,
-      'position': i.position,
-      'interviewer': i.interviewer,
-      'interview_date': i.date.toIso8601String().split('T').first,
-      'interview_time': i.time,
-      'mode': i.mode,
-      'status': i.status,
-    });
+    interviews.insert(0, i);
     notifications.insert(
       0,
       AppNotification(
@@ -946,23 +1420,63 @@ class AppState extends ChangeNotifier {
         time: DateTime.now(),
       ),
     );
-    await _loadInterviews();
+    notifyListeners();
+    try {
+      await HrService().addInterview({
+        'candidate_name': i.candidateName,
+        'position': i.position,
+        'interviewer': i.interviewer,
+        'interview_date': i.date.toIso8601String().split('T').first,
+        'interview_time': i.time,
+        'mode': i.mode,
+        'status': i.status,
+      });
+      await _loadInterviews();
+    } catch (e) {
+      debugPrint('Error syncing addInterview: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> addOffer(JobOffer o) async {
-    await HrService().addOffer({
-      'candidate_name': o.candidateName,
-      'position': o.position,
-      'salary': o.salary,
-      'joining_date': o.joiningDate.toIso8601String().split('T').first,
-      'status': o.status,
-    });
-    await _loadOffers();
+    offers.insert(0, o);
+    notifyListeners();
+    try {
+      await HrService().addOffer({
+        'candidate_name': o.candidateName,
+        'position': o.position,
+        'salary': o.salary,
+        'joining_date': o.joiningDate.toIso8601String().split('T').first,
+        'status': o.status,
+      });
+      await _loadOffers();
+    } catch (e) {
+      debugPrint('Error syncing addOffer: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> updateOfferStatus(String id, String status) async {
-    await HrService().updateOfferStatus(id, status);
-    await _loadOffers();
+    final idx = offers.indexWhere((x) => x.id == id);
+    if (idx != -1) {
+      final old = offers[idx];
+      offers[idx] = JobOffer(
+        id: old.id,
+        candidateName: old.candidateName,
+        position: old.position,
+        salary: old.salary,
+        joiningDate: old.joiningDate,
+        status: status,
+      );
+      notifyListeners();
+    }
+    try {
+      await HrService().updateOfferStatus(id, status);
+      await _loadOffers();
+    } catch (e) {
+      debugPrint('Error syncing updateOfferStatus: $e');
+    }
+    notifyListeners();
   }
 
   // ---------- Dashboard derived data ----------

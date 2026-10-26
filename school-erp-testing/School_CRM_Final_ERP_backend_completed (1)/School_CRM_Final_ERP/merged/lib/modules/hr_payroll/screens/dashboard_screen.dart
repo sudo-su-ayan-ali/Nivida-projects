@@ -461,10 +461,7 @@ class _ChartsRow extends StatelessWidget {
       ),
     );
 
-    final s = state.salaryStructures.isEmpty
-        ? null
-        : state.structureFor(state.employees.first.id);
-  final payrollSummary = ChartCard(
+    final payrollSummary = ChartCard(
   title: 'Payroll Summary',
   subtitle: '(This Month)',
   child: Column(

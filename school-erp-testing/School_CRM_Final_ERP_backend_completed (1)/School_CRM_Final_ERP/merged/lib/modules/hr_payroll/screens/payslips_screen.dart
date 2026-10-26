@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../data/hr_export_service.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
@@ -57,15 +58,30 @@ class _PayslipsScreenState extends State<PayslipsScreen> {
                   label: 'Generate Payslip',
                   icon: Icons.receipt_long_outlined,
                   onPressed: () => setState(() => _generated = true)),
-              if (_generated) ...[
+              if (_generated && _employee != null && structure != null) ...[
                 SecondaryButton(
                     label: 'Print',
                     icon: Icons.print_outlined,
-                    onPressed: () => showAppToast(context, 'Sending to printer (demo)')),
+                    onPressed: () async {
+                      await HrExportService.printPayslip(
+                        employee: _employee!,
+                        month: _month,
+                        structure: structure,
+                      );
+                    }),
                 SecondaryButton(
                     label: 'Download',
                     icon: Icons.download_outlined,
-                    onPressed: () => showAppToast(context, 'Payslip downloaded (demo)')),
+                    onPressed: () async {
+                      await HrExportService.downloadPayslipPdf(
+                        employee: _employee!,
+                        month: _month,
+                        structure: structure,
+                      );
+                      if (context.mounted) {
+                        showAppToast(context, 'Payslip PDF downloaded');
+                      }
+                    }),
               ],
             ],
           ),

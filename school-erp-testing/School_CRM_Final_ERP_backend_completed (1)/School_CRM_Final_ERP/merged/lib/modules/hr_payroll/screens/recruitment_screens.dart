@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
-import '../theme.dart';
 import '../widgets/app_table.dart';
 import '../widgets/common.dart';
 

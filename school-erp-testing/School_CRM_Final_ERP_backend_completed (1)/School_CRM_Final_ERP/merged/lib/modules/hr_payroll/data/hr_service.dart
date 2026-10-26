@@ -5,7 +5,7 @@ class HrService {
   HrService({SupabaseClient? client}) : _clientInstance = client;
 
   SupabaseClient get _client {
-    if (_clientInstance != null) return _clientInstance!;
+    if (_clientInstance != null) return _clientInstance;
     try {
       return Supabase.instance.client;
     } catch (_) {
@@ -16,16 +16,16 @@ class HrService {
   Future<String> _resolveInstitutionId() async {
     try {
       final userId = _client.auth.currentUser?.id;
-      if (userId == null) return '00000000-0000-0000-0000-000000000001';
+      if (userId == null) return 'd0000000-0000-0000-0000-000000000001';
       final profile = await _client
           .from('profiles')
           .select('institution_id')
           .eq('id', userId)
           .maybeSingle();
       return (profile?['institution_id'] as String?) ??
-          '00000000-0000-0000-0000-000000000001';
+          'd0000000-0000-0000-0000-000000000001';
     } catch (_) {
-      return '00000000-0000-0000-0000-000000000001';
+      return 'd0000000-0000-0000-0000-000000000001';
     }
   }
 

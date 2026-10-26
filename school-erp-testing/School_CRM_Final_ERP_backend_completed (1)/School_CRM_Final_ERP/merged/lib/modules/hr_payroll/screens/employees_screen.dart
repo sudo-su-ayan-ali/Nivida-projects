@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+import '../data/hr_export_service.dart';
 import '../models/models.dart';
 import '../routes.dart';
 import '../state/app_state.dart';
@@ -64,6 +66,97 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  Future<void> _openImport() async {
+    final state = context.read<AppState>();
+    final controller = TextEditingController(
+      text: 'Name,Department,Designation,Email,Phone,Salary\n'
+          'Sunil Sharma,Teaching,Physics Teacher,sunil.sharma@brightfuture.edu.in,9876543210,48000\n'
+          'Rekha Joshi,Accounts,Accountant,rekha.joshi@brightfuture.edu.in,9876543211,38000',
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Import Employees from CSV'),
+        content: SizedBox(
+          width: 550,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Paste CSV data or edit below. Headers must be:\nName, Department, Designation, Email, Phone, Salary',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 6,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Name,Department,Designation,Email,Phone,Salary',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Import Records'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && controller.text.trim().isNotEmpty) {
+      final lines = controller.text.trim().split('\n');
+      int imported = 0;
+      for (var i = 1; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.isEmpty) continue;
+        final parts = line.split(',').map((p) => p.trim()).toList();
+        if (parts.length >= 3) {
+          final name = parts[0];
+          final dept = parts.length > 1 ? parts[1] : 'Teaching';
+          final desig = parts.length > 2 ? parts[2] : 'Teacher';
+          final email = parts.length > 3 ? parts[3] : '${name.toLowerCase().replaceAll(' ', '.')}@brightfuture.edu.in';
+          final phone = parts.length > 4 ? parts[4] : '9800000000';
+          final sal = parts.length > 5 ? (double.tryParse(parts[5]) ?? 40000.0) : 40000.0;
+          await state.addEmployee(Employee(
+            id: const Uuid().v4(),
+            empCode: 'EMP${(1100 + state.employees.length + imported)}',
+            name: name,
+            gender: 'Male',
+            dob: DateTime(1990, 1, 1),
+            email: email,
+            phone: phone,
+            address: 'Jodhpur, Rajasthan',
+            department: dept,
+            designation: desig,
+            joiningDate: DateTime.now(),
+            employmentType: EmploymentType.fullTime,
+            salary: sal,
+            bankAccount: 'SBIN0001234',
+            pan: 'ABCDE1234F',
+            aadhaar: '123456789012',
+            emergencyContact: '9800000001',
+            status: EmployeeStatus.active,
+            avatarColor: 'blue',
+          ));
+          imported++;
+        }
+      }
+      if (mounted) {
+        showAppToast(context, 'Successfully imported $imported employee(s)');
+      }
+    }
+  }
+
   Future<void> _delete(Employee e) async {
     final confirmed = await showConfirmDialog(
       context,
@@ -107,13 +200,20 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           subtitle: '${state.employees.length} total employees',
           actions: [
             SecondaryButton(
-                label: 'Import', icon: Icons.upload_file_outlined, onPressed: () {
-              showAppToast(context, 'Import started (demo) — CSV parsing simulated');
-            }),
+              label: 'Import',
+              icon: Icons.upload_file_outlined,
+              onPressed: _openImport,
+            ),
             SecondaryButton(
-                label: 'Export', icon: Icons.download_outlined, onPressed: () {
-              showAppToast(context, 'Exported ${list.length} employees (demo)');
-            }),
+              label: 'Export',
+              icon: Icons.download_outlined,
+              onPressed: () async {
+                await HrExportService.exportEmployeesCsv(list);
+                if (context.mounted) {
+                  showAppToast(context, 'Exported ${list.length} employees to CSV');
+                }
+              },
+            ),
             PrimaryButton(label: 'Add Employee', onPressed: _openAdd),
           ],
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
+import '../data/hr_export_service.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -37,9 +38,20 @@ class _HrReportsScreenState extends State<HrReportsScreen> {
           title: 'HR Reports',
           subtitle: 'Employee, attendance, leave and department reports',
           actions: [
-            SecondaryButton(label: 'Export', icon: Icons.download_outlined, onPressed: () {
-              showAppToast(context, 'Report exported (demo)');
-            }),
+            SecondaryButton(
+              label: 'Export',
+              icon: Icons.download_outlined,
+              onPressed: () async {
+                await HrExportService.exportHrReportCsv(
+                  reportType: _reportType,
+                  department: _department,
+                  state: state,
+                );
+                if (context.mounted) {
+                  showAppToast(context, '$_reportType exported to CSV');
+                }
+              },
+            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -151,9 +163,19 @@ class _PayrollReportsScreenState extends State<PayrollReportsScreen> {
           title: 'Payroll Reports',
           subtitle: 'Salary, deduction and tax reports',
           actions: [
-            SecondaryButton(label: 'Export', icon: Icons.download_outlined, onPressed: () {
-              showAppToast(context, 'Report exported (demo)');
-            }),
+            SecondaryButton(
+              label: 'Export',
+              icon: Icons.download_outlined,
+              onPressed: () async {
+                await HrExportService.exportPayrollReportCsv(
+                  reportType: _reportType,
+                  state: state,
+                );
+                if (context.mounted) {
+                  showAppToast(context, '$_reportType exported to CSV');
+                }
+              },
+            ),
           ],
         ),
         const SizedBox(height: 18),
