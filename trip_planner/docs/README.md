@@ -24,11 +24,11 @@ Welcome to the central documentation architecture. Every major product decision,
 | [`09-integrations/`](09-integrations/) | Maps, routing, geocoding, push notifications, payment gateways | Planned (Phase 8) |
 | [`10-quality-and-testing/`](10-quality-and-testing/) | Quality strategy, test plans (widget/integration/RLS), defect register | Planned (Phase 9) |
 | [`11-devops-and-operations/`](11-devops-and-operations/) | CI/CD, environments (Dev/Staging/Prod), monitoring, runbooks | Planned (Phase 10) |
-| [`12-api-and-data-contracts/`](12-api-and-data-contracts/) | API conventions, error formats, pagination/sorting standards | Planned (Phase 5) |
-| [`13-business-workflows/`](13-business-workflows/) | Booking lifecycle, enquiries, business verification, moderation | Planned (Phase 7) |
-| [`14-project-management/`](14-project-management/) | Backlog, sprint milestones, open questions, decision records | Active |
-| [`15-release-and-maintenance/`](15-release-and-maintenance/) | Release checklists, release notes, rollback procedures, deprecation | Planned (Phase 10) |
-| [`16-compliance-and-governance/`](16-compliance-and-governance/) | DPDP compliance, intermediary obligations, third-party licenses | Planned (Phase 1/5) |
+| [`12-api-and-data-contracts/`](12-api-and-data-contracts/) | API conventions, error formats, pagination/sorting standards | **Completed (Phase 5)** |
+| [`13-business-workflows/`](13-business-workflows/) | Booking lifecycle, enquiries, business verification, moderation | **Completed (Phase 7)** |
+| [`14-project-management/`](14-project-management/) | Backlog, sprint milestones, open questions, decision records | **Completed** |
+| [`15-release-and-maintenance/`](15-release-and-maintenance/) | Release checklists, release notes, rollback procedures, deprecation | **Completed (Phase 10)** |
+| [`16-compliance-and-governance/`](16-compliance-and-governance/) | DPDP compliance, intermediary obligations, third-party licenses | **Completed (Phase 1/5)** |
 
 ---
 
